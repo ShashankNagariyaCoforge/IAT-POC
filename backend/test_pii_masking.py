@@ -165,7 +165,7 @@ def save_html_report(results: list):
     output_dir = Path(__file__).parent.parent / "output"
     output_dir.mkdir(exist_ok=True)
     report_path = str(output_dir / "pii_masking_report.html")
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
     print(f"\n✅ HTML report saved to: {report_path}")
     return report_path
