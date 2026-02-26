@@ -29,32 +29,48 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle."""
     logger.info("Starting IAT Insurance Email Automation Platform...")
 
-    # Initialize services on startup
+    # Initialize services on startup — failures are logged as warnings so
+    # the app is still reachable even when Azure credentials are missing.
+    renewal_task = None
+
     try:
-        # Ensure Cosmos DB containers exist
-        cosmos = CosmosDBService()
-        await cosmos.initialize_containers()
-        logger.info("Cosmos DB containers verified.")
-
-        # Register or renew Microsoft Graph webhook subscription
-        graph = GraphClient()
-        await graph.ensure_webhook_subscription()
-        logger.info("Graph API webhook subscription active.")
-
-        # Schedule background subscription renewal
-        renewal_task = asyncio.create_task(_renew_subscription_loop(graph))
-        app.state.renewal_task = renewal_task
-
+        if not settings.azure_cosmos_endpoint:
+            logger.warning(
+                "AZURE_COSMOS_ENDPOINT is not configured — Cosmos DB will be unavailable. "
+                "Set this in your .env file."
+            )
+        else:
+            cosmos = CosmosDBService()
+            await cosmos.initialize_containers()
+            logger.info("Cosmos DB containers verified.")
     except Exception as e:
-        logger.error(f"Startup error: {e}", exc_info=True)
-        raise
+        logger.warning(f"Cosmos DB initialization skipped: {e}")
 
+    try:
+        if not settings.graph_client_id or not settings.graph_tenant_id:
+            logger.warning(
+                "GRAPH_CLIENT_ID / GRAPH_TENANT_ID not configured — "
+                "Microsoft Graph webhook subscription will be unavailable. "
+                "Set these in your .env file."
+            )
+        else:
+            graph = GraphClient()
+            await graph.ensure_webhook_subscription()
+            logger.info("Graph API webhook subscription active.")
+
+            # Schedule background subscription renewal
+            renewal_task = asyncio.create_task(_renew_subscription_loop(graph))
+            app.state.renewal_task = renewal_task
+    except Exception as e:
+        logger.warning(f"Graph webhook setup skipped: {e}")
+
+    logger.info("Application startup complete.")
     yield
 
     # Shutdown
     logger.info("Shutting down...")
-    if hasattr(app.state, "renewal_task"):
-        app.state.renewal_task.cancel()
+    if renewal_task is not None:
+        renewal_task.cancel()
 
 
 async def _renew_subscription_loop(graph: GraphClient):
@@ -66,7 +82,7 @@ async def _renew_subscription_loop(graph: GraphClient):
             await graph.renew_webhook_subscription()
             logger.info("Graph webhook subscription renewed successfully.")
         except Exception as e:
-            logger.error(f"Failed to renew Graph subscription: {e}", exc_info=True)
+            logger.error(f"Failed to renew Graph subscription: {e}")
 
 
 # Build FastAPI app

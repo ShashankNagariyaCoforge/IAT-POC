@@ -2,9 +2,13 @@
 JWT authentication middleware.
 Validates Azure AD bearer tokens on all /api/* routes.
 Public routes: /health, /webhook/* (validated by Graph client state instead).
+
+Set DEV_BYPASS_AUTH=true in the environment to skip token validation entirely
+during local development/testing.  Never enable in production.
 """
 
 import logging
+import os
 from typing import List
 
 import httpx
@@ -25,8 +29,14 @@ PUBLIC_ROUTES: List[str] = [
     "/api/openapi.json",
 ]
 
-# Azure AD OpenID Connect config URL
-OIDC_CONFIG_URL = f"https://login.microsoftonline.com/{settings.graph_tenant_id}/v2.0/.well-known/openid-configuration"
+# ── Dev bypass ────────────────────────────────────────────────────────────────
+# Set DEV_BYPASS_AUTH=true to skip JWT validation for local testing.
+DEV_BYPASS_AUTH: bool = os.getenv("DEV_BYPASS_AUTH", "false").lower() == "true"
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Azure AD OpenID Connect config URL (only used when auth is enabled)
+_tenant = settings.graph_tenant_id or "common"
+OIDC_CONFIG_URL = f"https://login.microsoftonline.com/{_tenant}/v2.0/.well-known/openid-configuration"
 
 _jwks_uri: str = ""
 _jwks: dict = {}
@@ -53,8 +63,13 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         """
         For public routes, pass through. For all others, validate Bearer token.
+        When DEV_BYPASS_AUTH=true, all routes are passed through without validation.
         """
         path = request.url.path
+
+        # Dev mode: skip all JWT validation
+        if DEV_BYPASS_AUTH:
+            return await call_next(request)
 
         # Skip auth for public routes
         if any(path.startswith(pub) for pub in PUBLIC_ROUTES):
