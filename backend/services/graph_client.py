@@ -27,8 +27,10 @@ class GraphClient:
     """Async Microsoft Graph API client with certificate-based authentication."""
 
     def __init__(self):
+        self._auth_mode = settings.graph_auth_mode
         self._tenant_id = settings.graph_tenant_id
         self._client_id = settings.graph_client_id
+        self._client_secret = settings.graph_client_secret
         self._cert_name = settings.graph_cert_name
         self._target_mailbox = settings.target_mailbox
         self._webhook_url = settings.webhook_url
@@ -43,7 +45,7 @@ class GraphClient:
 
     async def _get_access_token(self) -> str:
         """
-        Obtain an access token using certificate-based authentication.
+        Obtain an access token using certificate-based or secret-based authentication.
         Caches the token until 5 minutes before expiry.
 
         Returns:
@@ -53,22 +55,31 @@ class GraphClient:
         if self._token and self._token_expiry and now < self._token_expiry - timedelta(minutes=5):
             return self._token
 
-        cert_bytes = await self._load_certificate()
-
-        # MSAL certificate auth (synchronous; run in thread for async compat)
         import asyncio
-        token_result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            self._acquire_token_with_cert,
-            cert_bytes,
-        )
+
+        if self._auth_mode == "secret":
+            if not self._client_secret:
+                raise RuntimeError("graph_client_secret is required when graph_auth_mode is 'secret'")
+            
+            token_result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                self._acquire_token_with_secret,
+            )
+        else:
+            cert_bytes = await self._load_certificate()
+            token_result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                self._acquire_token_with_cert,
+                cert_bytes,
+            )
+
         if "access_token" not in token_result:
-            raise RuntimeError(f"Graph token acquisition failed: {token_result.get('error_description')}")
+            raise RuntimeError(f"Graph token acquisition failed: {token_result.get('error_description', token_result.get('error'))}")
 
         self._token = token_result["access_token"]
         expires_in = token_result.get("expires_in", 3600)
         self._token_expiry = now + timedelta(seconds=expires_in)
-        logger.info("Graph API access token acquired/refreshed.")
+        logger.info(f"Graph API access token acquired/refreshed using '{self._auth_mode}' mode.")
         return self._token
 
     def _acquire_token_with_cert(self, cert_bytes: bytes) -> Dict:
@@ -77,6 +88,15 @@ class GraphClient:
             client_id=self._client_id,
             authority=f"https://login.microsoftonline.com/{self._tenant_id}",
             client_credential={"private_key": cert_bytes, "thumbprint": ""},
+        )
+        return app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+
+    def _acquire_token_with_secret(self) -> Dict:
+        """Synchronous MSAL client secret token acquisition."""
+        app = msal.ConfidentialClientApplication(
+            client_id=self._client_id,
+            authority=f"https://login.microsoftonline.com/{self._tenant_id}",
+            client_credential=self._client_secret,
         )
         return app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
 

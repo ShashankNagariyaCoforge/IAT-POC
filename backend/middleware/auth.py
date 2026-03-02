@@ -8,7 +8,6 @@ during local development/testing.  Never enable in production.
 """
 
 import logging
-import os
 from typing import List
 
 import httpx
@@ -30,8 +29,8 @@ PUBLIC_ROUTES: List[str] = [
 ]
 
 # ── Dev bypass ────────────────────────────────────────────────────────────────
-# Set DEV_BYPASS_AUTH=true to skip JWT validation for local testing.
-DEV_BYPASS_AUTH: bool = os.getenv("DEV_BYPASS_AUTH", "false").lower() == "true"
+# Loaded from .env file via pydantic-settings (DEV_BYPASS_AUTH=true)
+DEV_BYPASS_AUTH: bool = settings.dev_bypass_auth
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Azure AD OpenID Connect config URL (only used when auth is enabled)

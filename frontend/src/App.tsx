@@ -7,6 +7,12 @@ import CaseListPage from './pages/CaseListPage';
 import CaseDetailPage from './pages/CaseDetailPage';
 import './index.css';
 
+// ─── Dev bypass ────────────────────────────────────────────────────────────────
+// Set VITE_DEV_BYPASS_AUTH=true in your .env.local to skip Azure AD login.
+// Remove / set to false before deploying to production.
+const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+// ───────────────────────────────────────────────────────────────────────────────
+
 const msalInstance = new PublicClientApplication(msalConfig);
 
 function LoginPage() {
@@ -47,6 +53,17 @@ function LoginPage() {
 function AppRoutes() {
   return (
     <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<CaseListPage />} />
+        <Route path="/cases/:caseId" element={<CaseDetailPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function AppRoutesWithAuth() {
+  return (
+    <BrowserRouter>
       <AuthenticatedTemplate>
         <Routes>
           <Route path="/" element={<CaseListPage />} />
@@ -61,9 +78,14 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Dev mode: skip MSAL entirely and render routes directly
+  if (DEV_BYPASS_AUTH) {
+    return <AppRoutes />;
+  }
+
   return (
     <MsalProvider instance={msalInstance}>
-      <AppRoutes />
+      <AppRoutesWithAuth />
     </MsalProvider>
   );
 }
