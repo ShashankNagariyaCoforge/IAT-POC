@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FileText, Link, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Link, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
 import type { Document } from '../types';
 
 interface DocumentsPanelProps {
@@ -16,44 +16,44 @@ export function DocumentsPanel({ documents }: DocumentsPanelProps) {
 
     if (documents.length === 0) {
         return (
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-500">
+            <div style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '48px', textAlign: 'center', color: '#8fa1b0' }}>
                 No documents found for this case.
             </div>
         );
     }
 
     return (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {documents.map(doc => {
                 const isOpen = previewId === doc.document_id;
                 const icon = FILE_TYPE_ICONS[doc.file_type.toLowerCase()] || '📎';
                 return (
-                    <div key={doc.document_id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                        <div className="flex items-start gap-3">
-                            <span className="text-2xl flex-shrink-0">{icon}</span>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                    <span className="text-slate-200 text-sm font-medium truncate">{doc.file_name}</span>
-                                    <span className="text-xs text-slate-500 uppercase bg-slate-800 px-1.5 py-0.5 rounded">
+                    <div key={doc.document_id} style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                            <span style={{ fontSize: '24px', flexShrink: 0 }}>{icon}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ color: '#00263E', fontSize: '13px', fontWeight: 500 }}>{doc.file_name}</span>
+                                    <span style={{ fontSize: '11px', color: '#8fa1b0', background: '#F4F6F8', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                                         {doc.file_type}
                                     </span>
-                                    {/* OCR indicator */}
                                     {doc.ocr_applied && (
-                                        <span className="text-xs text-purple-300 bg-purple-900/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <span style={{ fontSize: '11px', color: '#7c3aed', background: '#f5f3ff', padding: '2px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                             <Eye className="w-3 h-3" /> OCR
                                         </span>
                                     )}
-                                    {/* URL crawl indicator */}
                                     {doc.has_urls && (
-                                        <span className="text-xs text-blue-300 bg-blue-900/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <span style={{ fontSize: '11px', color: '#00467F', background: '#e8f0fa', padding: '2px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                             <Link className="w-3 h-3" /> {doc.crawled_urls.length} URL{doc.crawled_urls.length !== 1 ? 's' : ''}
                                         </span>
                                     )}
-                                    {/* Processing status */}
-                                    <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-1
-                    ${doc.processing_status === 'DONE'
-                                            ? 'text-green-300 bg-green-900/40'
-                                            : 'text-red-300 bg-red-900/40'}`}>
+                                    <span style={{
+                                        fontSize: '11px', padding: '2px 6px', borderRadius: '4px',
+                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        ...(doc.processing_status === 'DONE'
+                                            ? { color: '#15803d', background: '#f0fdf4' }
+                                            : { color: '#b91c1c', background: '#fff5f5' })
+                                    }}>
                                         {doc.processing_status === 'DONE'
                                             ? <><CheckCircle2 className="w-3 h-3" /> Processed</>
                                             : <><XCircle className="w-3 h-3" /> {doc.processing_status}</>}
@@ -63,7 +63,7 @@ export function DocumentsPanel({ documents }: DocumentsPanelProps) {
                                 {doc.extracted_text_preview && (
                                     <button
                                         onClick={() => setPreviewId(isOpen ? null : doc.document_id)}
-                                        className="flex items-center gap-1.5 text-slate-400 hover:text-white text-xs transition-colors"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00467F', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 500, padding: 0 }}
                                     >
                                         {isOpen ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                                         {isOpen ? 'Hide' : 'Preview extracted text'}
@@ -73,16 +73,14 @@ export function DocumentsPanel({ documents }: DocumentsPanelProps) {
                         </div>
 
                         {isOpen && doc.extracted_text_preview && (
-                            <div className="mt-3 bg-slate-800 border border-slate-700 rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-slate-400 text-xs uppercase tracking-wider font-medium">
-                                        Extracted Text Preview (PII masked)
-                                    </span>
-                                </div>
-                                <pre className="text-slate-300 text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                            <div style={{ marginTop: '12px', background: '#F4F6F8', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '16px' }}>
+                                <p style={{ color: '#8fa1b0', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '8px' }}>
+                                    Extracted Text Preview (PII masked)
+                                </p>
+                                <pre style={{ color: '#00263E', fontSize: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0 }}>
                                     {doc.extracted_text_preview}
                                     {doc.extracted_text_preview.length >= 500 && (
-                                        <span className="text-slate-600"> …[truncated]</span>
+                                        <span style={{ color: '#8fa1b0' }}> …[truncated]</span>
                                     )}
                                 </pre>
                             </div>

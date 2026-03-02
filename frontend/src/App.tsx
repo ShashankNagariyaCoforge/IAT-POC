@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { PublicClientApplication } from '@azure/msal-browser';
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -7,44 +7,78 @@ import CaseListPage from './pages/CaseListPage';
 import CaseDetailPage from './pages/CaseDetailPage';
 import './index.css';
 
-// ─── Dev bypass ────────────────────────────────────────────────────────────────
-// Set VITE_DEV_BYPASS_AUTH=true in your .env.local to skip Azure AD login.
-// Remove / set to false before deploying to production.
+// ─── Dev bypass ─────────────────────────────────────────────────────────────
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
 function LoginPage() {
   const { instance } = useMsal();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-10 w-full max-w-md text-center shadow-2xl">
-        <div className="mb-6">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#F4F6F8' }}>
+      {/* Top utility bar matching IAT website */}
+      <div style={{ background: '#1E3E5C', padding: '8px 32px', display: 'flex', justifyContent: 'flex-end', gap: '24px' }}>
+        <span style={{ color: '#cdd8e2', fontSize: '12px' }}>Agent &amp; Brokers</span>
+        <span style={{ color: '#cdd8e2', fontSize: '12px' }}>Contact Us</span>
+      </div>
+
+      {/* Main navbar */}
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #D1D9E0', padding: '12px 32px' }}>
+        <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
+      </div>
+
+      {/* Login card */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 16px' }}>
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #D1D9E0',
+          borderRadius: '8px',
+          padding: '48px 40px',
+          width: '100%',
+          maxWidth: '420px',
+          textAlign: 'center',
+          boxShadow: '0 4px 24px rgba(0,38,62,0.08)',
+        }}>
+          <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '52px', width: 'auto', objectFit: 'contain', marginBottom: '24px' }} />
+          <h1 style={{ color: '#00263E', fontSize: '22px', fontWeight: 700, margin: '0 0 6px 0' }}>AI Email Automation</h1>
+          <p style={{ color: '#5a7184', fontSize: '14px', margin: '0 0 28px 0' }}>Sign in with your organisation account to access the case management portal.</p>
+          <button
+            onClick={() => instance.loginRedirect(loginRequest)}
+            style={{
+              width: '100%',
+              background: '#00467F',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '13px 24px',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#005099')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#00467F')}
+          >
+            <svg style={{ width: '18px', height: '18px' }} viewBox="0 0 21 21" fill="none">
+              <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+              <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+              <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
             </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-white">IAT Insurance</h1>
-          <p className="text-slate-400 mt-1 text-sm">AI Email Automation Platform</p>
+            Sign in with Microsoft
+          </button>
+          <p style={{ color: '#8fa1b0', fontSize: '11px', marginTop: '20px' }}>Secured by Azure Active Directory</p>
         </div>
-        <p className="text-slate-300 mb-8 text-sm">Sign in with your organisation account to access the case management portal.</p>
-        <button
-          onClick={() => instance.loginRedirect(loginRequest)}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl
-                     transition-all duration-200 flex items-center justify-center gap-3"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none">
-            <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-            <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-            <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-            <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-          </svg>
-          Sign in with Microsoft
-        </button>
-        <p className="text-slate-600 text-xs mt-6">Secured by Azure Active Directory</p>
+      </div>
+
+      {/* Footer bar */}
+      <div style={{ background: '#00263E', padding: '12px 32px', textAlign: 'center' }}>
+        <span style={{ color: '#7a9bb0', fontSize: '12px' }}>© IAT Insurance Group. All rights reserved.</span>
       </div>
     </div>
   );
@@ -78,11 +112,9 @@ function AppRoutesWithAuth() {
 }
 
 export default function App() {
-  // Dev mode: skip MSAL entirely and render routes directly
   if (DEV_BYPASS_AUTH) {
     return <AppRoutes />;
   }
-
   return (
     <MsalProvider instance={msalInstance}>
       <AppRoutesWithAuth />

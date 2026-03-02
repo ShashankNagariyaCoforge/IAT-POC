@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronDown, ChevronRight, Paperclip, Mail } from 'lucide-react';
+import { ChevronDown, ChevronRight, Paperclip } from 'lucide-react';
 import type { Email } from '../types';
 
 interface EmailChainPanelProps {
@@ -19,50 +19,64 @@ export function EmailChainPanel({ emails }: EmailChainPanelProps) {
 
     if (emails.length === 0) {
         return (
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-500">
+            <div style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '48px', textAlign: 'center', color: '#8fa1b0' }}>
                 No emails found for this case.
             </div>
         );
     }
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl divide-y divide-slate-800 overflow-hidden">
+        <div style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', overflow: 'hidden' }}>
             {emails.map((email, idx) => {
                 const isOpen = expanded.has(email.email_id);
                 return (
-                    <div key={email.email_id}>
+                    <div key={email.email_id} style={{ borderBottom: idx < emails.length - 1 ? '1px solid #eef1f4' : 'none' }}>
                         <button
                             onClick={() => toggle(email.email_id)}
-                            className="w-full flex items-start gap-3 px-5 py-4 hover:bg-slate-800/50 transition-colors text-left"
+                            style={{
+                                width: '100%', display: 'flex', alignItems: 'flex-start', gap: '12px',
+                                padding: '16px 20px', background: 'none', border: 'none', cursor: 'pointer',
+                                textAlign: 'left', transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f0f5fb')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                         >
-                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-900/50 flex items-center justify-center text-blue-400 text-xs font-semibold mt-0.5">
+                            <div style={{
+                                flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%',
+                                background: '#e8f0fa', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#00467F', fontSize: '12px', fontWeight: 600, marginTop: '2px',
+                            }}>
                                 {idx + 1}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-slate-200 text-sm font-medium truncate">{email.sender}</span>
-                                    <span className="text-slate-600 text-xs">→</span>
-                                    <span className="text-slate-400 text-xs truncate">{email.recipients.join(', ')}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                    <span style={{ color: '#00263E', fontSize: '13px', fontWeight: 500 }}>{email.sender}</span>
+                                    <span style={{ color: '#D1D9E0' }}>→</span>
+                                    <span style={{ color: '#8fa1b0', fontSize: '12px' }}>{email.recipients.join(', ')}</span>
                                 </div>
-                                <p className="text-slate-300 text-sm truncate">{email.subject || '(No subject)'}</p>
-                                <p className="text-slate-500 text-xs mt-0.5">
+                                <p style={{ color: '#00263E', fontSize: '13px', margin: '0 0 4px 0' }}>{email.subject || '(No subject)'}</p>
+                                <p style={{ color: '#8fa1b0', fontSize: '11px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {format(new Date(email.received_at), 'dd MMM yyyy HH:mm')}
                                     {email.has_attachments && (
-                                        <span className="ml-2 inline-flex items-center gap-1">
-                                            <Paperclip className="w-3 h-3" />{email.attachment_count}
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                            <Paperclip className="w-3 h-3" /> {email.attachment_count}
                                         </span>
                                     )}
                                 </p>
                             </div>
                             {isOpen
-                                ? <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0 mt-1" />
-                                : <ChevronRight className="w-4 h-4 text-slate-500 flex-shrink-0 mt-1" />}
+                                ? <ChevronDown className="w-4 h-4" style={{ color: '#8fa1b0', flexShrink: 0, marginTop: '4px' }} />
+                                : <ChevronRight className="w-4 h-4" style={{ color: '#8fa1b0', flexShrink: 0, marginTop: '4px' }} />}
                         </button>
                         {isOpen && email.body_preview && (
-                            <div className="px-5 pb-5 pl-15">
-                                <div className="bg-slate-800 rounded-lg p-4 text-slate-300 text-sm leading-relaxed font-mono whitespace-pre-wrap border border-slate-700 ml-10">
+                            <div style={{ padding: '0 20px 16px 60px' }}>
+                                <div style={{
+                                    background: '#F4F6F8', border: '1px solid #D1D9E0', borderRadius: '6px',
+                                    padding: '16px', fontSize: '12px', fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#00263E',
+                                }}>
                                     {email.body_preview}
-                                    <span className="text-slate-600"> [PII masked]</span>
+                                    <span style={{ color: '#8fa1b0' }}> [PII masked]</span>
                                 </div>
                             </div>
                         )}
