@@ -1,0 +1,398 @@
+<!DOCTYPE html><html><head>
+<meta charset='utf-8'>
+<title>PII Masking Report</title>
+<style>
+body{font-family:monospace;background:#1a1a1a;color:#e0e0e0;padding:20px;}
+h1{color:#60a5fa;} h2{color:#34d399;border-bottom:1px solid #444;padding-bottom:6px;}
+.stat{color:#fbbf24;} .original{background:#2d1515;padding:12px;border-radius:6px;white-space:pre-wrap;margin:8px 0;}
+.masked{background:#152d15;padding:12px;border-radius:6px;white-space:pre-wrap;margin:8px 0;}
+table{border-collapse:collapse;width:100%;margin:10px 0;}
+th{background:#333;padding:6px 12px;text-align:left;}
+td{padding:6px 12px;border-bottom:1px solid #333;}
+.label{color:#a78bfa;font-weight:bold;}
+</style></head><body>
+<h1>🔒 PII Masking Test Report</h1>
+<h2>📄 synthetic_1.pdf</h2>
+<p>Characters extracted: <span class='stat'>4,983</span> &nbsp;|&nbsp; PII entities found: <span class='stat'>71</span></p>
+<table><tr><th>PII Type</th><th>Count</th></tr>
+<tr><td class='label'>[ADDRESS]</td><td>8</td></tr>
+<tr><td class='label'>[DOB]</td><td>19</td></tr>
+<tr><td class='label'>[EMAIL]</td><td>6</td></tr>
+<tr><td class='label'>[NAME]</td><td>9</td></tr>
+<tr><td class='label'>[PHONE]</td><td>5</td></tr>
+<tr><td class='label'>[SSN]</td><td>4</td></tr>
+</table>
+<b>Original snippet:</b>
+<div class='original'>1️⃣ Case Overview 
+Claim Number: ML-2026-000784 
+ Policy Number: DNO-PL-78451293 
+ Insured Entity: NorthBridge Capital Holdings, Inc. 
+ Coverage Lines: 
+• Directors & Officers (D&O) 
+• Employment Practices Liability (EPLI) 
+Reported Date: January 12, 2026 
+ Incident Date: October 18, 2025 
+ Jurisdiction: Delaware, USA 
+ 
+2️⃣ Executive Summary of Allegation 
+The claimant, a former Senior Financial Analyst, alleges: 
+• Wrongful termination 
+• Retaliation after reporting accounting irregularities 
+</div>
+<b>Masked snippet:</b>
+<div class='masked'>1️⃣ Case Overview 
+Claim Number: [INTERNAL_ID] 
+ Policy Number: DNO-PL-78451293 
+ Insured Entity: NorthBridge Capital Holdings, Inc. 
+ Coverage Lines: 
+• Directors & Officers (D&O) 
+• Employment Practices Liability (EPLI) 
+Reported Date: [DOB]: [DOB]: [ADDRESS], [ADDRESS] 
+ 
+2️⃣ Executive Summary of Allegation 
+The claimant, a former Senior Financial [JOB_TITLE], alleges: 
+• Wrongful termination 
+• Retaliation after reporting accounting irregularities 
+• Emotional distress and medical complicati</div>
+<b>All detected PII (first 20):</b>
+<table><tr><th>Type</th><th>Original Value</th><th>Replaced With</th></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>jonathan.reeves@northbridge-cap.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>alicia.chen@northbridge-cap.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>dan.whitmore89@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>dan.whitmore89@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>HR@northbridge-cap.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>legal@northbridge-cap.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>BoardOfDirectors@northbridge-cap.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-000784</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>TCR-2025-998172</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>January 12, 2026 
+ Incident Date</td><td>[DOB]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>October 18, 2025 
+ Jurisdiction</td><td>[DOB]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Delaware</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>USA</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>47-8932451 
+ Headquarters Address</td><td>[DOB]</td></tr>
+<tr><td class='label'>PERSON</td><td>Jonathan Michael Reeves 
+ DOB</td><td>[NAME]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>03/14/1974 
+ SSN</td><td>[DOB]</td></tr>
+<tr><td class='label'>US_SSN</td><td>421-77-9834</td><td>[SSN]</td></tr>
+<tr><td class='label'>PERSON</td><td>Fox Hollow Drive</td><td>[NAME]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Villanova</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>PERSON</td><td>Alicia Marie Chen 
+ DOB</td><td>[NAME]</td></tr>
+</table>
+<h2>📄 synthetic_2.pdf</h2>
+<p>Characters extracted: <span class='stat'>5,350</span> &nbsp;|&nbsp; PII entities found: <span class='stat'>67</span></p>
+<table><tr><th>PII Type</th><th>Count</th></tr>
+<tr><td class='label'>[ADDRESS]</td><td>10</td></tr>
+<tr><td class='label'>[DOB]</td><td>23</td></tr>
+<tr><td class='label'>[EMAIL]</td><td>7</td></tr>
+<tr><td class='label'>[NAME]</td><td>6</td></tr>
+<tr><td class='label'>[PHONE]</td><td>3</td></tr>
+<tr><td class='label'>[SSN]</td><td>4</td></tr>
+</table>
+<b>Original snippet:</b>
+<div class='original'>1️⃣ Case Overview 
+Claim Number: ML-2026-001126 
+ Policy Number: MGL-FID-DNO-99278144 
+ Insured Entity: SilverOak Health Systems, Inc. 
+ Coverage Lines: 
+• Directors & Officers (D&O) 
+• Employment Practices Liability (EPLI) 
+• Fiduciary Liability 
+Reported Date: February 3, 2026 
+ Incident Period: July 2025 – December 2025 
+ Jurisdiction: Illinois, USA 
+ 
+2️⃣ Executive Summary of Allegation 
+Claimant alleges: 
+• Gender discrimination 
+• Retaliation after reporting ERISA fiduciary breach 
+• Impro</div>
+<b>Masked snippet:</b>
+<div class='masked'>1️⃣ Case Overview 
+Claim Number: [INTERNAL_ID] 
+ Policy Number: MGL-FID-DNO-99278144 
+ Insured Entity: SilverOak Health Systems, Inc. 
+ Coverage Lines: 
+• Directors & Officers (D&O) 
+• Employment Practices Liability (EPLI) 
+• Fiduciary Liability 
+Reported Date: [DOB] – [DOB] 
+ Jurisdiction: [ADDRESS], [ADDRESS] 
+ 
+2️⃣ Executive Summary of Allegation 
+Claimant alleges: 
+• Gender discrimination 
+• Retaliation after reporting ERISA fiduciary breach 
+• Improper denial of disability benefits 
+• Emoti</div>
+<b>All detected PII (first 20):</b>
+<table><tr><th>Type</th><th>Original Value</th><th>Replaced With</th></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>r.caldwell@silveroakhealth.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>m.romero@silveroakhealth.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>olivia.bennett91@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>olivia.bennett91@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>boardaudit@silveroakhealth.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>legal@silveroakhealth.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>BoardAuditCommittee@silveroakhealth.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001126</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>February 3, 2026 
+ Incident Period:</td><td>[DOB]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>July 2025</td><td>[DOB]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>December 2025</td><td>[DOB]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Illinois</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>USA</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>West Monroe Street</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>PERSON</td><td>Rebecca Lynn Caldwell 
+ DOB</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>478-66-2093</td><td>[SSN]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Lake Shore Drive</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Chicago</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>PERSON</td><td>Martin Elias Romero 
+ DOB</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>533-12-8891</td><td>[SSN]</td></tr>
+</table>
+<h2>📄 synthetic_3.pdf</h2>
+<p>Characters extracted: <span class='stat'>5,217</span> &nbsp;|&nbsp; PII entities found: <span class='stat'>83</span></p>
+<table><tr><th>PII Type</th><th>Count</th></tr>
+<tr><td class='label'>[ADDRESS]</td><td>11</td></tr>
+<tr><td class='label'>[DOB]</td><td>26</td></tr>
+<tr><td class='label'>[EMAIL]</td><td>5</td></tr>
+<tr><td class='label'>[NAME]</td><td>11</td></tr>
+<tr><td class='label'>[PHONE]</td><td>4</td></tr>
+<tr><td class='label'>[SSN]</td><td>4</td></tr>
+</table>
+<b>Original snippet:</b>
+<div class='original'>🗂 MANAGEMENT LIABILITY CLAIM 
+DOSSIER 
+Internal Reference: ML-2026-001349 
+ 
+A. CLAIM SNAPSHOT (Structured Intake Form) 
+Field 
+Value 
+Claim Number 
+ML-2026-001349 
+Policy Number 
+DNO-EPLI-FID-77441029 
+Insured 
+Organization 
+Horizon Ridge Financial Services Group, 
+Inc. 
+Industry 
+Asset Management 
+Reporting Date 
+March 6, 2026 
+Incident Period 
+May 2025 – January 2026 
+Jurisdiction 
+New York, USA 
+Coverage Triggered 
+D&O / EPLI / Fiduciary 
+Estimated Exposure 
+$4.8M – $6.2M 
+ 
+B. INSURED ENTIT</div>
+<b>Masked snippet:</b>
+<div class='masked'>🗂 MANAGEMENT LIABILITY CLAIM 
+DOSSIER 
+Internal Reference: [INTERNAL_ID] 
+ 
+A. CLAIM SNAPSHOT (Structured Intake Form) 
+Field 
+Value 
+Claim Number 
+[INTERNAL_ID] 
+Policy Number 
+DNO-EPLI-FID-77441029 
+Insured 
+Organization 
+Horizon Ridge Financial Services Group, 
+Inc. 
+Industry 
+Asset Management 
+Reporting Date 
+[DOB] 
+Incident Period 
+[DOB] – [DOB] 
+Jurisdiction 
+[ADDRESS], [ADDRESS] 
+Coverage Triggered 
+D&O / EPLI / Fiduciary 
+Estimated Exposure 
+$4.8M – $6.2M 
+ 
+B. INSURED ENTITY PROFILE (Co</div>
+<b>All detected PII (first 20):</b>
+<table><tr><th>Type</th><th>Original Value</th><th>Replaced With</th></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>mkincaid@horizonridgefs.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>emarkovic@horizonridgefs.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>t.halpern85@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>legal@horizonridgefs.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>BoardOfDirectors@horizonridgefs.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001349</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001349</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>SALARY</td><td>$186,000 
+ Bonus</td><td>[SALARY]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>EX-2025-7744</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>SALARY</td><td>$92,000 
+Deferred</td><td>[SALARY]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>March 6, 2026</td><td>[DOB]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>May 2025</td><td>[DOB]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>January 2026</td><td>[DOB]</td></tr>
+<tr><td class='label'>LOCATION</td><td>New York</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>USA</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Americas</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>New York</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>NY</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>PERSON</td><td>Matthew Alan Kincaid</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>214-88-9034</td><td>[SSN]</td></tr>
+</table>
+<h2>📄 synthetic_4.pdf</h2>
+<p>Characters extracted: <span class='stat'>5,069</span> &nbsp;|&nbsp; PII entities found: <span class='stat'>76</span></p>
+<table><tr><th>PII Type</th><th>Count</th></tr>
+<tr><td class='label'>[ADDRESS]</td><td>9</td></tr>
+<tr><td class='label'>[DOB]</td><td>29</td></tr>
+<tr><td class='label'>[EMAIL]</td><td>5</td></tr>
+<tr><td class='label'>[NAME]</td><td>6</td></tr>
+<tr><td class='label'>[PHONE]</td><td>3</td></tr>
+<tr><td class='label'>[SSN]</td><td>4</td></tr>
+</table>
+<b>Original snippet:</b>
+<div class='original'>🔎 FORENSIC CLAIM REPORT 
+Management Liability – Confidential 
+Internal Case ID: ML-2026-001582 
+ 
+1️⃣ INCIDENT HEADER 
+Insured Entity: Crestline Biotech Corporation 
+ Policy Number: MLD-FID-DNO-66239017 
+ Claim Number: ML-2026-001582 
+ Coverage Sections Invoked: 
+• Directors & Officers Liability 
+• Fiduciary Liability 
+• Employment Practices Liability 
+Incident Type: 
+ Alleged insider trading + retaliation + denial of medical leave accommodation 
+Jurisdiction: California, USA 
+ Date Reported: Ap</div>
+<b>Masked snippet:</b>
+<div class='masked'>🔎 FORENSIC CLAIM REPORT 
+Management Liability – Confidential 
+Internal Case ID: [INTERNAL_ID] 
+ 
+1️⃣ INCIDENT HEADER 
+Insured Entity: Crestline Biotech Corporation 
+ Policy Number: MLD-FID-DNO-66239017 
+ Claim Number: [INTERNAL_ID] 
+ Coverage Sections Invoked: 
+• Directors & Officers Liability 
+• Fiduciary Liability 
+• Employment Practices Liability 
+Incident Type: 
+ Alleged insider trading + retaliation + denial of medical leave accommodation 
+Jurisdiction: [ADDRESS], USA 
+ Date Reported: [DOB]</div>
+<b>All detected PII (first 20):</b>
+<table><tr><th>Type</th><th>Original Value</th><th>Replaced With</th></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>vstrauss@crestlinebio.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>amorris@crestlinebio.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>sam.feldman84@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>sam.feldman84@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>legal@crestlinebio.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001582</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001582</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>SALARY</td><td>$240,000 base</td><td>[SALARY]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>SF-2026-22114</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>CT-2025-9987</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>LOCATION</td><td>California</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>April 2, 2026</td><td>[DOB]</td></tr>
+<tr><td class='label'>PERSON</td><td>Victor Emmanuel Strauss</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>449-72-9011</td><td>[SSN]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>555-1923</td><td>[DOB]</td></tr>
+<tr><td class='label'>LOCATION</td><td>Pacific Heights Blvd</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>LOCATION</td><td>San Francisco</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>CA 94115</td><td>[DOB]</td></tr>
+<tr><td class='label'>PERSON</td><td>Angela Renee Morris</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>512-44-7881</td><td>[SSN]</td></tr>
+</table>
+<h2>📄 synthetic_5.pdf</h2>
+<p>Characters extracted: <span class='stat'>4,955</span> &nbsp;|&nbsp; PII entities found: <span class='stat'>57</span></p>
+<table><tr><th>PII Type</th><th>Count</th></tr>
+<tr><td class='label'>[ADDRESS]</td><td>4</td></tr>
+<tr><td class='label'>[DOB]</td><td>18</td></tr>
+<tr><td class='label'>[EMAIL]</td><td>5</td></tr>
+<tr><td class='label'>[NAME]</td><td>6</td></tr>
+<tr><td class='label'>[PHONE]</td><td>3</td></tr>
+<tr><td class='label'>[SSN]</td><td>3</td></tr>
+</table>
+<b>Original snippet:</b>
+<div class='original'>📦 MANAGEMENT LIABILITY CASE BUNDLE 
+Internal Reference: ML-2026-001773 
+ 
+DOCUMENT 1: CLAIM INTAKE 
+MEMORANDUM 
+Insured Organization: Redwood Meridian Banking Corporation 
+ Policy Number: DNO-FID-EPLI-55190233 
+ Claim Number: ML-2026-001773 
+ Industry: Regional Banking 
+ Headquarters: 
+ 900 Montgomery Street 
+ San Francisco, CA 94133 
+Coverage Triggered: 
+• Directors & Officers Liability 
+• Fiduciary Liability 
+• Employment Practices Liability 
+Date Reported: May 18, 2026 
+ Primary Allegation: 
+</div>
+<b>Masked snippet:</b>
+<div class='masked'>📦 MANAGEMENT LIABILITY CASE BUNDLE 
+Internal Reference: [INTERNAL_ID] 
+ 
+DOCUMENT 1: CLAIM INTAKE 
+MEMORANDUM 
+Insured Organization: Redwood Meridian Banking Corporation 
+ Policy Number: DNO-FID-EPLI-55190233 
+ Claim Number: [INTERNAL_ID] 
+ Industry: Regional Banking 
+ Headquarters: 
+ 900 Montgomery Street 
+ San Francisco, [DOB] 
+Coverage Triggered: 
+• Directors & Officers Liability 
+• Fiduciary Liability 
+• Employment Practices Liability 
+Date Reported: [DOB] 
+ Whistleblower retaliation related</div>
+<b>All detected PII (first 20):</b>
+<table><tr><th>Type</th><th>Original Value</th><th>Replaced With</th></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>hwhitaker@redwoodmeridianbank.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>frahman@redwoodmeridianbank.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>ethan.porter87@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>ethan.porter87@gmail.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>EMAIL_ADDRESS</td><td>compliance@redwoodmeridianbank.com</td><td>[EMAIL]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001773</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>ML-2026-001773</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>SALARY</td><td>$172,000 
+ Deferred</td><td>[SALARY]</td></tr>
+<tr><td class='label'>INTERNAL_ID</td><td>AML-2026-88214</td><td>[INTERNAL_ID]</td></tr>
+<tr><td class='label'>SALARY</td><td>$98,000 
+Deferred</td><td>[SALARY]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>CA 94133</td><td>[DOB]</td></tr>
+<tr><td class='label'>DATE_TIME</td><td>May 18, 2026 
+ Primary Allegation:</td><td>[DOB]</td></tr>
+<tr><td class='label'>PERSON</td><td>Harold James Whitaker 
+ DOB</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>477-21-8843</td><td>[SSN]</td></tr>
+<tr><td class='label'>LOCATION</td><td>San Francisco</td><td>[ADDRESS]</td></tr>
+<tr><td class='label'>PERSON</td><td>Farah Nadine Rahman 
+ DOB</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>521-66-9072</td><td>[SSN]</td></tr>
+<tr><td class='label'>PERSON</td><td>Ethan Michael Porter 
+ DOB</td><td>[NAME]</td></tr>
+<tr><td class='label'>US_SSN</td><td>392-55-4419</td><td>[SSN]</td></tr>
+<tr><td class='label'>EMPLOYEE_ID</td><td>EMP-44291</td><td>[EMPLOYEE_ID]</td></tr>
+</table>
+</body></html>

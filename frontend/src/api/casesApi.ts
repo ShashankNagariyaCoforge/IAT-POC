@@ -18,6 +18,8 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
+const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+
 /** Build an Axios instance that auto-attaches the Bearer token. */
 export function createApiClient(msalInstance: IPublicClientApplication): AxiosInstance {
     const client = axios.create({
@@ -26,6 +28,9 @@ export function createApiClient(msalInstance: IPublicClientApplication): AxiosIn
     });
 
     client.interceptors.request.use(async (config) => {
+        // Skip token attachment entirely in dev bypass mode
+        if (DEV_BYPASS_AUTH) return config;
+
         try {
             const accounts = msalInstance.getAllAccounts();
             if (accounts.length > 0) {

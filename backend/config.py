@@ -42,9 +42,11 @@ class Settings(BaseSettings):
     doc_intelligence_endpoint: Optional[str] = None
 
     # Microsoft Graph API
+    graph_auth_mode: str = "certificate"  # "certificate" or "secret"
     graph_client_id: Optional[str] = None
     graph_tenant_id: Optional[str] = None
-    graph_cert_name: str = "graph-api-certificate"
+    graph_client_secret: Optional[str] = None  # Used when graph_auth_mode = "secret"
+    graph_cert_name: str = "graph-api-certificate"  # Used when graph_auth_mode = "certificate"
 
     # Mailbox routing
     target_mailbox: Optional[str] = None
@@ -58,6 +60,7 @@ class Settings(BaseSettings):
     # App settings
     environment: str = "development"
     log_level: str = "INFO"
+    dev_bypass_auth: bool = False  # Set DEV_BYPASS_AUTH=true in .env to skip JWT validation
     webhook_subscription_renewal_hours: int = 48
     classification_confidence_threshold: float = 0.75
     cases_per_page: int = 50

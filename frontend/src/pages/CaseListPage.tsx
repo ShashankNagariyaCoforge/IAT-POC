@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { Search, AlertTriangle, ChevronUp, ChevronDown, LogOut, RefreshCw } from 'lucide-react';
+import { Search, AlertTriangle, ChevronUp, ChevronDown, LogOut, RefreshCw, X } from 'lucide-react';
 import { createApiClient, casesApi, ListCasesParams } from '../api/casesApi';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
@@ -14,6 +14,8 @@ const CATEGORIES: ClassificationCategory[] = [
     'Complaint/Escalation', 'Regulatory/Legal', 'Documentation/Evidence', 'Spam/Irrelevant',
 ];
 const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'NOTIFIED', 'FAILED'];
+
+const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
 export default function CaseListPage() {
     const { instance, accounts } = useMsal();
@@ -67,7 +69,7 @@ export default function CaseListPage() {
             : null
     );
 
-    const userName = accounts[0]?.name || accounts[0]?.username || '';
+    const userName = DEV_BYPASS_AUTH ? 'Dev Mode' : (accounts[0]?.name || accounts[0]?.username || '');
 
     return (
         <div className="min-h-screen bg-slate-950">
@@ -87,12 +89,14 @@ export default function CaseListPage() {
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="text-slate-400 text-sm">{userName}</span>
-                    <button
-                        onClick={() => instance.logoutRedirect()}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors"
-                    >
-                        <LogOut className="w-4 h-4" /> Sign out
-                    </button>
+                    {!DEV_BYPASS_AUTH && (
+                        <button
+                            onClick={() => instance.logoutRedirect()}
+                            className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors"
+                        >
+                            <LogOut className="w-4 h-4" /> Sign out
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -143,8 +147,11 @@ export default function CaseListPage() {
 
                 {/* Error */}
                 {error && (
-                    <div className="mb-4 bg-red-900/30 border border-red-700 rounded-lg px-4 py-3 text-red-300 text-sm">
-                        {error}
+                    <div className="mb-4 bg-red-900/30 border border-red-700 rounded-lg px-4 py-3 flex items-center justify-between text-red-300 text-sm">
+                        <span>{error}</span>
+                        <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-200 flex-shrink-0">
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
                 )}
 
