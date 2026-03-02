@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { Search, AlertTriangle, ChevronUp, ChevronDown, LogOut, RefreshCw, X } from 'lucide-react';
@@ -49,8 +49,8 @@ export default function CaseListPage() {
             setCases(data.cases);
             setTotal(data.total);
             setTotalPages(data.total_pages);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load cases.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to load cases.');
         } finally {
             setLoading(false);
         }
@@ -72,64 +72,63 @@ export default function CaseListPage() {
     const userName = DEV_BYPASS_AUTH ? 'Dev Mode' : (accounts[0]?.name || accounts[0]?.username || '');
 
     return (
-        <div className="min-h-screen bg-slate-950">
-            {/* Header */}
-            <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
+        <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
+
+            {/* ── Single Header (IAT style: white bg, navy text) ── */}
+            <header style={{ background: '#ffffff', borderBottom: '1px solid #D1D9E0', padding: '0 32px' }}>
+                <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+                    <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <span style={{ color: '#5a7184', fontSize: '14px' }}>{userName}</span>
+                        {!DEV_BYPASS_AUTH && (
+                            <button
+                                onClick={() => instance.logoutRedirect()}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00467F', background: 'none', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '6px 12px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+                            >
+                                <LogOut className="w-4 h-4" /> Sign out
+                            </button>
+                        )}
                     </div>
-                    <div>
-                        <h1 className="text-white font-semibold text-sm">IAT Insurance</h1>
-                        <p className="text-slate-400 text-xs">Email Automation Platform</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className="text-slate-400 text-sm">{userName}</span>
-                    {!DEV_BYPASS_AUTH && (
-                        <button
-                            onClick={() => instance.logoutRedirect()}
-                            className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors"
-                        >
-                            <LogOut className="w-4 h-4" /> Sign out
-                        </button>
-                    )}
                 </div>
             </header>
 
-            <main className="max-w-screen-2xl mx-auto px-6 py-6">
-                {/* Stats bar */}
-                <div className="mb-6 flex items-center justify-between">
+            {/* ── Page content ── */}
+            <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '32px', }}>
+
+                {/* Title bar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                     <div>
-                        <h2 className="text-xl font-bold text-white">Cases</h2>
-                        <p className="text-slate-400 text-sm mt-0.5">{total.toLocaleString()} total</p>
+                        <h1 style={{ color: '#00263E', fontSize: '22px', fontWeight: 700, margin: 0 }}>Case Management</h1>
+                        <p style={{ color: '#8fa1b0', fontSize: '13px', margin: '4px 0 0 0' }}>{total.toLocaleString()} total cases</p>
                     </div>
-                    <button onClick={fetchCases} className="text-slate-400 hover:text-white transition-colors" title="Refresh">
-                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                    <button
+                        onClick={fetchCases}
+                        title="Refresh"
+                        style={{ background: 'none', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#00467F', display: 'flex' }}
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap gap-3 mb-5">
-                    <div className="relative flex-1 min-w-[200px] max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: '200px', maxWidth: '360px' }}>
+                        <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#8fa1b0' }} />
                         <input
                             type="text"
                             placeholder="Search Case ID, sender, subject…"
                             value={search}
                             onChange={e => { setSearch(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white
-                         placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                            style={{
+                                width: '100%', background: '#fff', border: '1px solid #D1D9E0', borderRadius: '6px',
+                                padding: '8px 12px 8px 34px', fontSize: '13px', color: '#00263E', outline: 'none',
+                            }}
                         />
                     </div>
                     <select
                         value={category}
                         onChange={e => { setCategory(e.target.value); setPage(1); }}
-                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white
-                       focus:outline-none focus:border-blue-500 transition-colors"
+                        style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', color: '#00263E', cursor: 'pointer' }}
                     >
                         <option value="">All Categories</option>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -137,8 +136,7 @@ export default function CaseListPage() {
                     <select
                         value={status}
                         onChange={e => { setStatus(e.target.value); setPage(1); }}
-                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white
-                       focus:outline-none focus:border-blue-500 transition-colors"
+                        style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', color: '#00263E', cursor: 'pointer' }}
                     >
                         <option value="">All Statuses</option>
                         {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -147,20 +145,20 @@ export default function CaseListPage() {
 
                 {/* Error */}
                 {error && (
-                    <div className="mb-4 bg-red-900/30 border border-red-700 rounded-lg px-4 py-3 flex items-center justify-between text-red-300 text-sm">
+                    <div style={{ marginBottom: '16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#b91c1c', fontSize: '13px' }}>
                         <span>{error}</span>
-                        <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-200 flex-shrink-0">
+                        <button onClick={() => setError(null)} style={{ marginLeft: '16px', background: 'none', border: 'none', cursor: 'pointer', color: '#b91c1c' }}>
                             <X className="w-4 h-4" />
                         </button>
                     </div>
                 )}
 
                 {/* Table */}
-                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
+                <div style={{ background: '#ffffff', border: '1px solid #D1D9E0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,38,62,0.06)' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr className="border-b border-slate-800">
+                                <tr style={{ borderBottom: '2px solid #D1D9E0', background: '#F4F6F8' }}>
                                     {[
                                         { key: 'case_id', label: 'Case ID' },
                                         { key: 'subject', label: 'Subject' },
@@ -175,8 +173,7 @@ export default function CaseListPage() {
                                         <th
                                             key={col.key}
                                             onClick={() => handleSort(col.key)}
-                                            className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider
-                                 cursor-pointer hover:text-white transition-colors select-none whitespace-nowrap"
+                                            style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#00263E', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none' }}
                                         >
                                             {col.label}<SortIcon col={col.key} />
                                         </th>
@@ -186,17 +183,17 @@ export default function CaseListPage() {
                             <tbody>
                                 {loading && !cases.length ? (
                                     Array.from({ length: 8 }).map((_, i) => (
-                                        <tr key={i} className="border-b border-slate-800/50 animate-pulse">
+                                        <tr key={i} style={{ borderBottom: '1px solid #eef1f4' }}>
                                             {Array.from({ length: 9 }).map((_, j) => (
-                                                <td key={j} className="px-4 py-3.5">
-                                                    <div className="h-4 bg-slate-800 rounded w-24" />
+                                                <td key={j} style={{ padding: '14px 16px' }}>
+                                                    <div style={{ height: '14px', background: '#eef1f4', borderRadius: '4px', width: '80px', animation: 'pulse 1.5s infinite' }} />
                                                 </td>
                                             ))}
                                         </tr>
                                     ))
                                 ) : cases.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
+                                        <td colSpan={9} style={{ padding: '48px 16px', textAlign: 'center', color: '#8fa1b0', fontSize: '14px' }}>
                                             No cases found matching your criteria.
                                         </td>
                                     </tr>
@@ -205,30 +202,32 @@ export default function CaseListPage() {
                                         <tr
                                             key={c.case_id}
                                             onClick={() => navigate(`/cases/${c.case_id}`)}
-                                            className="border-b border-slate-800/50 hover:bg-slate-800/40 cursor-pointer transition-colors"
+                                            style={{ borderBottom: '1px solid #eef1f4', cursor: 'pointer', transition: 'background 0.15s' }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = '#f0f5fb')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                         >
-                                            <td className="px-4 py-3.5">
-                                                <div className="flex items-center gap-1.5">
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title={c.requires_human_review ? 'Human review required' : ''}>
                                                     {c.requires_human_review && (
-                                                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" title="Human review required" />
+                                                        <AlertTriangle className="w-3.5 h-3.5" style={{ color: '#f59e0b', flexShrink: 0 }} />
                                                     )}
-                                                    <span className="text-blue-400 font-mono text-sm hover:underline">{c.case_id}</span>
+                                                    <span style={{ color: '#00467F', fontFamily: 'monospace', fontSize: '13px', textDecoration: 'underline' }}>{c.case_id}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3.5">
-                                                <span className="text-slate-200 text-sm truncate max-w-[200px] block" title={c.subject}>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{ color: '#00263E', fontSize: '13px', display: 'block', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.subject}>
                                                     {c.subject || '(No subject)'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3.5 text-slate-300 text-sm truncate max-w-[150px]">{c.sender}</td>
-                                            <td className="px-4 py-3.5"><CategoryBadge category={c.classification_category} /></td>
-                                            <td className="px-4 py-3.5 min-w-[100px]"><ConfidenceMeter score={c.confidence_score} /></td>
-                                            <td className="px-4 py-3.5"><StatusBadge status={c.status} /></td>
-                                            <td className="px-4 py-3.5 text-slate-300 text-sm text-center">{c.email_count}</td>
-                                            <td className="px-4 py-3.5 text-slate-400 text-xs whitespace-nowrap">
+                                            <td style={{ padding: '12px 16px', color: '#5a7184', fontSize: '13px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sender}</td>
+                                            <td style={{ padding: '12px 16px' }}><CategoryBadge category={c.classification_category} /></td>
+                                            <td style={{ padding: '12px 16px', minWidth: '100px' }}><ConfidenceMeter score={c.confidence_score} /></td>
+                                            <td style={{ padding: '12px 16px' }}><StatusBadge status={c.status} /></td>
+                                            <td style={{ padding: '12px 16px', color: '#5a7184', fontSize: '13px', textAlign: 'center' }}>{c.email_count}</td>
+                                            <td style={{ padding: '12px 16px', color: '#8fa1b0', fontSize: '12px', whiteSpace: 'nowrap' }}>
                                                 {format(new Date(c.created_at), 'dd MMM yyyy HH:mm')}
                                             </td>
-                                            <td className="px-4 py-3.5 text-slate-400 text-xs whitespace-nowrap">
+                                            <td style={{ padding: '12px 16px', color: '#8fa1b0', fontSize: '12px', whiteSpace: 'nowrap' }}>
                                                 {format(new Date(c.updated_at), 'dd MMM yyyy HH:mm')}
                                             </td>
                                         </tr>
@@ -240,24 +239,20 @@ export default function CaseListPage() {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="px-4 py-3 border-t border-slate-800 flex items-center justify-between">
-                            <span className="text-slate-400 text-sm">
-                                Page {page} of {totalPages}
-                            </span>
-                            <div className="flex gap-2">
+                        <div style={{ padding: '12px 16px', borderTop: '1px solid #D1D9E0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#8fa1b0', fontSize: '13px' }}>Page {page} of {totalPages}</span>
+                            <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
                                     disabled={page === 1}
                                     onClick={() => setPage(p => p - 1)}
-                                    className="px-3 py-1.5 bg-slate-800 text-slate-300 text-sm rounded-lg
-                             disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                                    style={{ padding: '6px 14px', background: '#fff', border: '1px solid #D1D9E0', color: '#00263E', fontSize: '13px', borderRadius: '6px', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.5 : 1 }}
                                 >
                                     Previous
                                 </button>
                                 <button
                                     disabled={page === totalPages}
                                     onClick={() => setPage(p => p + 1)}
-                                    className="px-3 py-1.5 bg-slate-800 text-slate-300 text-sm rounded-lg
-                             disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                                    style={{ padding: '6px 14px', background: '#00467F', border: '1px solid #00467F', color: '#fff', fontSize: '13px', borderRadius: '6px', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.5 : 1 }}
                                 >
                                     Next
                                 </button>

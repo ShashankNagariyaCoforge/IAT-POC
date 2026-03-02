@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
-import { ConfidenceMeter } from '../components/ConfidenceMeter';
 import { CaseSummaryPanel } from '../components/CaseSummaryPanel';
 import { EmailChainPanel } from '../components/EmailChainPanel';
 import { DocumentsPanel } from '../components/DocumentsPanel';
@@ -45,8 +44,8 @@ export default function CaseDetailPage() {
             setDocuments(docsRes.documents);
             setClassification(classRes.classification);
             setTimeline(timelineRes.timeline);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load case.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to load case.');
         } finally {
             setLoading(false);
         }
@@ -62,17 +61,17 @@ export default function CaseDetailPage() {
     ];
 
     if (loading) return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-            <RefreshCw className="w-8 h-8 text-blue-400 animate-spin" />
+        <div style={{ minHeight: '100vh', background: '#F4F6F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <RefreshCw className="w-8 h-8 animate-spin" style={{ color: '#00467F' }} />
         </div>
     );
 
     if (error) return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-            <div className="text-red-400 text-center">
-                <p className="text-lg font-medium mb-2">Error loading case</p>
-                <p className="text-sm text-slate-400">{error}</p>
-                <button onClick={() => navigate('/')} className="mt-4 text-blue-400 hover:underline text-sm">
+        <div style={{ minHeight: '100vh', background: '#F4F6F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+                <p style={{ color: '#b91c1c', fontSize: '16px', fontWeight: 500, marginBottom: '8px' }}>Error loading case</p>
+                <p style={{ color: '#8fa1b0', fontSize: '13px', marginBottom: '16px' }}>{error}</p>
+                <button onClick={() => navigate('/')} style={{ color: '#00467F', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}>
                     ← Back to cases
                 </button>
             </div>
@@ -80,66 +79,78 @@ export default function CaseDetailPage() {
     );
 
     return (
-        <div className="min-h-screen bg-slate-950">
-            {/* Header */}
-            <header className="bg-slate-900 border-b border-slate-800 px-6 py-4">
-                <div className="max-w-screen-xl mx-auto flex items-center gap-4">
+        <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
+            {/* ── Header ── */}
+            <header style={{ background: '#ffffff', borderBottom: '1px solid #D1D9E0', padding: '0 32px' }}>
+                <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '16px' }}>
+                    <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
+                    <div style={{ width: '1px', height: '24px', background: '#D1D9E0' }} />
                     <button
                         onClick={() => navigate('/')}
-                        className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00467F', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
                     >
                         <ArrowLeft className="w-4 h-4" /> Cases
                     </button>
-                    <div className="h-4 w-px bg-slate-700" />
-                    <div className="flex items-center gap-3 flex-1">
-                        <span className="font-mono text-blue-400 font-semibold">{caseId}</span>
+                    <div style={{ width: '1px', height: '24px', background: '#D1D9E0' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                        <span style={{ fontFamily: 'monospace', color: '#00467F', fontWeight: 600, fontSize: '14px' }}>{caseId}</span>
                         {caseData && <StatusBadge status={caseData.status} />}
                         {caseData && <CategoryBadge category={caseData.classification_category} />}
                         {caseData?.requires_human_review && (
-                            <span className="flex items-center gap-1 text-amber-400 text-xs font-medium">
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontSize: '12px', fontWeight: 500 }}>
                                 <AlertTriangle className="w-3.5 h-3.5" /> Human Review Required
                             </span>
                         )}
                     </div>
-                    <button onClick={fetchAll} title="Refresh" className="text-slate-400 hover:text-white">
+                    <button
+                        onClick={fetchAll}
+                        title="Refresh"
+                        style={{ background: 'none', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '7px', cursor: 'pointer', color: '#00467F', display: 'flex' }}
+                    >
                         <RefreshCw className="w-4 h-4" />
                     </button>
                 </div>
             </header>
 
-            <div className="max-w-screen-xl mx-auto px-6 py-6">
+            <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 32px' }}>
                 {/* Quick stats */}
                 {caseData && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
                         {[
                             { label: 'Sender', value: caseData.sender },
                             { label: 'Emails', value: caseData.email_count.toString() },
                             { label: 'Confidence', value: caseData.confidence_score !== null ? `${Math.round((caseData.confidence_score || 0) * 100)}%` : '—' },
                             { label: 'Routing', value: caseData.routing_recommendation || '—' },
                         ].map(stat => (
-                            <div key={stat.label} className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
-                                <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-                                <p className="text-white text-sm font-medium truncate" title={stat.value}>{stat.value}</p>
+                            <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '14px 16px' }}>
+                                <p style={{ color: '#8fa1b0', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px 0' }}>{stat.label}</p>
+                                <p style={{ color: '#00263E', fontSize: '14px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={stat.value}>{stat.value}</p>
                             </div>
                         ))}
                     </div>
                 )}
 
                 {/* Tab navigation */}
-                <div className="flex gap-1 mb-5 bg-slate-900 border border-slate-800 rounded-xl p-1 w-fit">
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
                     {tabs.map(tab => (
                         <button
                             key={tab.key}
                             onClick={() => setActivePanel(tab.key)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5
-                ${activePanel === tab.key
-                                    ? 'bg-blue-600 text-white'
-                                    : 'text-slate-400 hover:text-white'}`}
+                            style={{
+                                padding: '7px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+                                cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '6px',
+                                transition: 'all 0.15s',
+                                background: activePanel === tab.key ? '#00467F' : 'transparent',
+                                color: activePanel === tab.key ? '#ffffff' : '#5a7184',
+                            }}
                         >
                             {tab.label}
                             {tab.count !== undefined && (
-                                <span className={`text-xs rounded-full px-1.5 py-0.5
-                  ${activePanel === tab.key ? 'bg-blue-500' : 'bg-slate-700 text-slate-400'}`}>
+                                <span style={{
+                                    fontSize: '11px', borderRadius: '10px', padding: '1px 6px',
+                                    background: activePanel === tab.key ? 'rgba(255,255,255,0.2)' : '#F4F6F8',
+                                    color: activePanel === tab.key ? '#fff' : '#8fa1b0',
+                                }}>
                                     {tab.count}
                                 </span>
                             )}
