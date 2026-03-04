@@ -54,8 +54,9 @@ class Classifier:
     def __init__(self):
         self._client = AsyncAzureOpenAI(
             azure_endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
             api_version=settings.azure_openai_api_version,
-            # Uses DefaultAzureCredential for token-based auth (no API key needed)
+            # Uses DefaultAzureCredential for token-based auth if api_key is None
         )
         self._deployment = settings.azure_openai_deployment
         self._confidence_threshold = settings.classification_confidence_threshold
