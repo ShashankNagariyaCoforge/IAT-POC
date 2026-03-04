@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { PublicClientApplication } from '@azure/msal-browser';
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -13,7 +14,7 @@ const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
-function LoginPage() {
+function LoginPage({ onDevMode }: { onDevMode: () => void }) {
   const { instance } = useMsal();
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#F4F6F8' }}>
@@ -72,6 +73,28 @@ function LoginPage() {
             </svg>
             Sign in with Microsoft
           </button>
+
+          <button
+            onClick={onDevMode}
+            style={{
+              width: '100%',
+              background: 'transparent',
+              color: '#5a7184',
+              border: '1px solid #D1D9E0',
+              borderRadius: '6px',
+              padding: '13px 24px',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginTop: '12px',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F4F6F8'; e.currentTarget.style.color = '#00263E'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#5a7184'; }}
+          >
+            Developer Mode Bypass
+          </button>
+
           <p style={{ color: '#8fa1b0', fontSize: '11px', marginTop: '20px' }}>Secured by Azure Active Directory</p>
         </div>
       </div>
@@ -95,7 +118,7 @@ function AppRoutes() {
   );
 }
 
-function AppRoutesWithAuth() {
+function AppRoutesWithAuth({ onDevMode }: { onDevMode: () => void }) {
   return (
     <BrowserRouter>
       <AuthenticatedTemplate>
@@ -105,19 +128,28 @@ function AppRoutesWithAuth() {
         </Routes>
       </AuthenticatedTemplate>
       <UnauthenticatedTemplate>
-        <LoginPage />
+        <LoginPage onDevMode={onDevMode} />
       </UnauthenticatedTemplate>
     </BrowserRouter>
   );
 }
 
 export default function App() {
-  if (DEV_BYPASS_AUTH) {
+  const [useDevBypass, setUseDevBypass] = useState(
+    DEV_BYPASS_AUTH || localStorage.getItem('dev_bypass') === 'true'
+  );
+
+  const handleDevMode = () => {
+    localStorage.setItem('dev_bypass', 'true');
+    setUseDevBypass(true);
+  };
+
+  if (useDevBypass) {
     return <AppRoutes />;
   }
   return (
     <MsalProvider instance={msalInstance}>
-      <AppRoutesWithAuth />
+      <AppRoutesWithAuth onDevMode={handleDevMode} />
     </MsalProvider>
   );
 }
