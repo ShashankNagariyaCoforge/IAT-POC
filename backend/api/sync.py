@@ -116,7 +116,8 @@ async def sync_emails_from_blob():
                     att_filename = att_path.split("/")[-1]
                     
                     # Parse document
-                    text_content = await parser.parse_bytes(att_bytes, att_filename)
+                    parse_result = await parser.parse(att_filename, att_bytes)
+                    text_content = parse_result.raw_text
                     combined_text += f"\n\n--- Attachment: {att_filename} ---\n{text_content}"
                     
                     # Save document record
