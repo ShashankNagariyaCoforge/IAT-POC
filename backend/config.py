@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     # Azure OpenAI
     azure_openai_endpoint: Optional[str] = None
+    azure_openai_api_key: Optional[str] = None
     azure_openai_deployment: str = "gpt-4o-mini"
     azure_openai_api_version: str = "2024-08-01-preview"
 
