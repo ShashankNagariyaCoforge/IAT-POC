@@ -24,7 +24,7 @@ const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 export function createApiClient(msalInstance: IPublicClientApplication): AxiosInstance {
     const client = axios.create({
         baseURL: `${BASE_URL}/api`,
-        timeout: 30000,
+        timeout: 300000, // 5 minutes for bulk AI processing
     });
 
     client.interceptors.request.use(async (config) => {
