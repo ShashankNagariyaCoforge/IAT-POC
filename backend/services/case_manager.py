@@ -60,7 +60,13 @@ class CaseManager:
         references_raw = internet_headers.get("references", "")
         message_id = internet_headers.get("message-id", "").strip("<>")
         subject = email_data.get("subject", "")
-        sender = email_data.get("from", {}).get("emailAddress", {}).get("address", "")
+        
+        # Handle sender extracting for both raw Graph API dict and simplified Blob string
+        raw_sender = email_data.get("from", "")
+        if isinstance(raw_sender, dict):
+            sender = raw_sender.get("emailAddress", {}).get("address", "")
+        else:
+            sender = str(raw_sender)
 
         # ── 1. In-Reply-To match ──────────────────────────────────────────────
         if in_reply_to:
@@ -127,9 +133,10 @@ class CaseManager:
         """Increment the email_count on an existing case."""
         case = await self._cosmos.get_case(case_id)
         if case:
-            case["email_count"] = case.get("email_count", 1) + 1
-            case["updated_at"] = datetime.now(timezone.utc).isoformat()
-            from azure.cosmos.aio import CosmosClient
-            # Direct upsert via cosmos service
-            container = await self._cosmos._get_container("cases")
-            await container.upsert_item(case)
+            new_count = case.get("email_count", 1) + 1
+            status = CaseStatus(case.get("status", CaseStatus.RECEIVED.value))
+            await self._cosmos.update_case_status(
+                case_id, 
+                status, 
+                email_count=new_count
+            )
