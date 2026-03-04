@@ -120,11 +120,9 @@ class BlobStorageService:
 
     async def list_unprocessed_email_folders(self, container_name: str) -> list[str]:
         """
-        List all folder prefixes containing an 'email.json' that do NOT have the 'is_processed' tag.
+        List all folder prefixes containing an 'email.json' that do NOT have the 'is_processed' metadata.
         
-        Note: The standard `find_blobs_by_tags` API requires a specific Azure indexing setup.
-        For maximum compatibility during this demo, we list blobs ending in 'email.json' and 
-        check their tags manually.
+        Using metadata instead of blob tags due to Hierarchical Namespace (ADLS Gen2) restrictions.
         """
         container = self._client.get_container_client(container_name)
         unprocessed_prefixes = []
@@ -132,8 +130,10 @@ class BlobStorageService:
         async for blob in container.list_blobs(name_starts_with=""):
             if blob.name.endswith("email.json"):
                 blob_client = container.get_blob_client(blob.name)
-                tags = await blob_client.get_blob_tags()
-                if tags.get("is_processed") != "true":
+                properties = await blob_client.get_blob_properties()
+                metadata = properties.metadata or {}
+                
+                if metadata.get("is_processed") != "true":
                     # Deduce the folder prefix: e.g. "2026/02/19/timestamp_id"
                     prefix = blob.name.rsplit("/", 1)[0]
                     unprocessed_prefixes.append(prefix)
@@ -151,15 +151,16 @@ class BlobStorageService:
         return blobs
 
     async def mark_as_processed(self, container_name: str, blob_name: str):
-        """Add the `is_processed=true` tag to a specific blob."""
+        """Add the `is_processed=true` metadata to a specific blob."""
         container = self._client.get_container_client(container_name)
         blob_client = container.get_blob_client(blob_name)
         
-        # Merge existing tags so we don't wipe them
-        existing_tags = await blob_client.get_blob_tags()
-        existing_tags["is_processed"] = "true"
+        # Merge existing metadata so we don't wipe them
+        properties = await blob_client.get_blob_properties()
+        existing_metadata = properties.metadata or {}
+        existing_metadata["is_processed"] = "true"
         
-        await blob_client.set_blob_tags(existing_tags)
+        await blob_client.set_blob_metadata(metadata=existing_metadata)
         logger.info(f"Marked blob as processed: {container_name}/{blob_name}")
 
     def build_blob_name(self, case_id: str, filename: str, prefix: str = "") -> str:
