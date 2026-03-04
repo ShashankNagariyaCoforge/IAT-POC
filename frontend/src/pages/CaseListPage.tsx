@@ -64,16 +64,8 @@ export default function CaseListPage() {
         setError(null);
         setSyncMessage(null);
         try {
-            const token = await apiClient.getToken();
-            const response = await fetch(`${apiClient.baseUrl}/api/cases/sync`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.detail || 'Sync failed.');
-            }
-            const data = await response.json();
+            const response = await apiClient.post('/cases/sync');
+            const data = response.data;
             setSyncMessage(data.message);
             // Reload cases
             await fetchCases();
