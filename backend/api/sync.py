@@ -77,7 +77,7 @@ async def sync_emails_from_blob():
                 logger.info(f"Assigned Case ID: {case_id}")
                 
                 # 3. Create Case & Email Record
-                from models.case import CaseDocument, CaseStatus, EmailRecord
+                from models.case import CaseDocument, CaseStatus
                 
                 # The ingested json structure:
                 # {"subject": "...", "from": "...", "to": [...], "body": "...", "messageId": "..."}
@@ -92,18 +92,18 @@ async def sync_emails_from_blob():
                 )
                 await db_service.create_case(case_doc)
                 
-                email_record = EmailRecord(
-                    email_id=str(uuid.uuid4()),
-                    case_id=case_id,
-                    message_id=email_data.get("messageId") or email_data.get("internetMessageId") or "unknown",
-                    sender=email_data.get("from", "unknown"),
-                    recipient=", ".join(email_data.get("to", [])),
-                    subject=email_data.get("subject", "No Subject"),
-                    body_masked="", # Set later
-                    received_at=email_data.get("receivedDateTime", datetime.utcnow().isoformat()),
-                    has_attachments=email_data.get("hasAttachments", False)
-                )
-                await db_service.create_email(email_record.model_dump(mode="json"))
+                email_record = {
+                    "email_id": str(uuid.uuid4()),
+                    "case_id": case_id,
+                    "message_id": email_data.get("messageId") or email_data.get("internetMessageId") or "unknown",
+                    "sender": email_data.get("from", "unknown"),
+                    "recipient": ", ".join(email_data.get("to", [])),
+                    "subject": email_data.get("subject", "No Subject"),
+                    "body_masked": "", # Set later
+                    "received_at": email_data.get("receivedDateTime", datetime.utcnow().isoformat()),
+                    "has_attachments": email_data.get("hasAttachments", False)
+                }
+                await db_service.create_email(email_record)
 
                 # 4. Find Attachments inside the same folder
                 blobs_in_folder = await blob_service.list_blobs_in_folder(container, folder)
@@ -120,15 +120,15 @@ async def sync_emails_from_blob():
                     combined_text += f"\n\n--- Attachment: {att_filename} ---\n{text_content}"
                     
                     # Save document record
-                    from models.case import DocumentRecord
-                    doc_record = DocumentRecord(
-                        document_id=str(uuid.uuid4()),
-                        case_id=case_id,
-                        filename=att_filename,
-                        blob_path=att_path,
-                        extracted_text=text_content
-                    )
-                    await db_service.create_document(doc_record.model_dump(mode="json"))
+                    doc_record = {
+                        "document_id": str(uuid.uuid4()),
+                        "case_id": case_id,
+                        "filename": att_filename,
+                        "blob_path": att_path,
+                        "extracted_text": text_content,
+                        "processing_status": "DONE"
+                    }
+                    await db_service.create_document(doc_record)
 
                 # 5. PII Masking
                 masked_text, pii_mappings = await masker.mask_text(
@@ -149,7 +149,7 @@ async def sync_emails_from_blob():
                 logger.info(f"Generated Case PII Report at {report_url}")
                 
                 # Update email with masked body
-                email_dump = email_record.model_dump(mode="json")
+                email_dump = email_record.copy()
                 email_dump["body_masked"] = masked_text[:2000] # store preview
                 
                 if settings.demo_mode:
