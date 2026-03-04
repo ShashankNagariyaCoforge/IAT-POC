@@ -45,7 +45,6 @@ export function CaseSummaryPanel({ caseData, timeline }: CaseSummaryPanelProps) 
                         { label: 'Subject', value: caseData.subject || '—' },
                         { label: 'Sender', value: caseData.sender },
                         { label: 'Email Count', value: caseData.email_count.toString() },
-                        { label: 'Routing', value: caseData.routing_recommendation || '—' },
                         { label: 'Created', value: format(new Date(caseData.created_at), 'dd MMM yyyy HH:mm') },
                     ].map(field => (
                         <div key={field.label}>

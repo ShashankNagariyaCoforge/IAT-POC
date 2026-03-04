@@ -17,8 +17,8 @@ from models.case import ClassificationCategory
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an insurance document classifier. Analyze the following email content
-and classify it into exactly one category.
+SYSTEM_PROMPT = """You are an expert insurance document classification AI. Analyze the following email content
+and classify it into exactly one category. 
 
 Categories:
 1. New - New policy applications or first-time insurance requests
@@ -30,10 +30,16 @@ Categories:
 7. Documentation/Evidence - Supporting documents for existing cases
 8. Spam/Irrelevant - Unsolicited or non-insurance emails
 
+Classification Rules:
+- If an email contains both a Complaint and a General Query, ALWAYS classify it as Complaint/Escalation.
+- If an email is following up on a New application, use Follow-up, NOT New.
+- If an email just says "Thank you" or "Received", classify it as Spam/Irrelevant.
+
 NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders.
 
-Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON in this exact format. You MUST provide your step-by-step reasoning FIRST before outputting the final category.
 {
+  "reasoning": "<Explain step-by-step why you chose this category and team over the alternatives before generating the final score>",
   "classification_category": "<category name>",
   "confidence_score": <0.0 to 1.0>,
   "summary": "<2-3 sentence plain English summary>",
@@ -43,7 +49,6 @@ Respond ONLY with valid JSON in this exact format:
     "policy_reference": "<masked value or null>",
     "claim_type": "<type or null>"
   },
-  "routing_recommendation": "<team or action>",
   "requires_human_review": <true if confidence < 0.75, else false>
 }"""
 
@@ -113,7 +118,7 @@ class Classifier:
         Raises:
             ValueError: If required fields are missing or invalid.
         """
-        required = ["classification_category", "confidence_score", "summary", "routing_recommendation"]
+        required = ["reasoning", "classification_category", "confidence_score", "summary"]
         for field in required:
             if field not in result:
                 raise ValueError(f"Classification result missing required field: {field}")

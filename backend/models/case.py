@@ -41,7 +41,6 @@ class CaseDocument(BaseModel):
     sender: str
     email_count: int = 1
     requires_human_review: bool = False
-    routing_recommendation: Optional[str] = None
     summary: Optional[str] = None
 
 
@@ -57,7 +56,6 @@ class CaseResponse(BaseModel):
     sender: str
     email_count: int
     requires_human_review: bool
-    routing_recommendation: Optional[str] = None
     summary: Optional[str] = None
 
 

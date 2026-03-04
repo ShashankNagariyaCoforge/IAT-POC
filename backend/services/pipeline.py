@@ -199,7 +199,6 @@ async def run_pipeline(message_id: str) -> None:
             "confidence_score": classification["confidence_score"],
             "summary": classification["summary"],
             "key_fields": classification.get("key_fields", {}),
-            "routing_recommendation": classification["routing_recommendation"],
             "requires_human_review": classification["requires_human_review"],
             "classified_at": datetime.utcnow().isoformat(),
             "masked_text_blob_path": masked_blob_name,
@@ -219,7 +218,6 @@ async def run_pipeline(message_id: str) -> None:
             classification_category=classification["classification_category"],
             confidence_score=classification["confidence_score"],
             requires_human_review=classification["requires_human_review"],
-            routing_recommendation=classification["routing_recommendation"],
             summary=classification["summary"],
         )
 

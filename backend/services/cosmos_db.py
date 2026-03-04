@@ -398,7 +398,7 @@ class CosmosDBService:
                 events.append({
                     "timestamp": classification.get("downstream_notification_at"),
                     "event": "Downstream notification sent",
-                    "details": f"Routing: {classification.get('routing_recommendation')}",
+                    "details": "Notification delivered.",
                 })
 
         events.sort(key=lambda e: e["timestamp"] or "")
