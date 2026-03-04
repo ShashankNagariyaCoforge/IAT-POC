@@ -62,7 +62,7 @@ async def sync_emails_from_blob():
         
         for folder in unprocessed_folders:
             logger.info(f"Processing folder: {folder}")
-            # The case_id will be generated inside, but we need it for rollback
+            # The case_id will be matched or generated inside CaseManager
             case_id = None 
             try:
                 # 1. Download email.json
@@ -70,27 +70,14 @@ async def sync_emails_from_blob():
                 email_text = await blob_service.download_text(container, email_json_path)
                 email_data = json.loads(email_text)
                 
-                # 2. Get next sequence
-                seq = await db_service.get_next_case_sequence()
-                case_id = f"IAT-{datetime.utcnow().year}-{seq:06d}"
+                # 2. Resolve Case via Thread Detection
+                from services.case_manager import CaseManager
+                case_mgr = CaseManager(db_service)
+                case_id = await case_mgr.resolve_case(email_data)
+                logger.info(f"Assigned/Resolved Case ID: {case_id}")
                 
-                logger.info(f"Assigned Case ID: {case_id}")
-                
-                # 3. Create Case & Email Record
-                from models.case import CaseDocument, CaseStatus
-                
-                # The ingested json structure:
-                # {"subject": "...", "from": "...", "to": [...], "body": "...", "messageId": "..."}
-                
-                case_doc = CaseDocument(
-                    case_id=case_id,
-                    status=CaseStatus.PROCESSING,
-                    sender=email_data.get("from", "unknown"),
-                    subject=email_data.get("subject", "No Subject"),
-                    received_at=email_data.get("receivedDateTime", datetime.utcnow().isoformat()),
-                    email_count=1
-                )
-                await db_service.create_case(case_doc)
+                # 3. Create Email Record (Case is already created/updated by resolve_case)
+                from models.case import CaseStatus
                 
                 email_record = {
                     "email_id": str(uuid.uuid4()),

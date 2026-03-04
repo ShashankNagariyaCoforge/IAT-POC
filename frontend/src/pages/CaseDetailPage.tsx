@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw, Download } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
@@ -113,6 +113,27 @@ export default function CaseDetailPage() {
             </header>
 
             <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 32px' }}>
+
+                {/* ── AI Summary and Action Bar ── */}
+                <div style={{ marginBottom: '20px', display: 'flex', gap: '24px', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,38,62,0.04)' }}>
+                        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#00263E', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Classification Summary</h2>
+                        <p style={{ fontSize: '14px', color: '#5a7184', margin: 0, lineHeight: '1.5' }}>
+                            {caseData?.summary || classification?.summary || 'No summary available.'}
+                        </p>
+                    </div>
+
+                    <a
+                        href={`/reports/${caseId}.html`}
+                        download={`${caseId}_report.html`}
+                        style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '8px', background: '#00467F', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0, 70, 127, 0.15)', transition: 'transform 0.1s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                        <Download className="w-4 h-4" /> Download HTML Report
+                    </a>
+                </div>
+
                 {/* PII Masking Report */}
                 <div style={{
                     height: 'calc(100vh - 120px)',
