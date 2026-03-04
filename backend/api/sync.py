@@ -167,7 +167,6 @@ async def sync_emails_from_blob():
                     CaseStatus.NOTIFIED,
                     classification_category=classification["classification_category"],
                     confidence_score=classification["confidence_score"],
-                    routing_recommendation=classification["routing_recommendation"],
                     requires_human_review=classification["requires_human_review"]
                 )
                 

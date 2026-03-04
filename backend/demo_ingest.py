@@ -194,7 +194,6 @@ async def ingest_email(
         "confidence_score": 0.95,
         "summary": "This is a mock classification summary since OpenAI credentials were skipped.",
         "key_fields": {"mock_key": "mock_value"},
-        "routing_recommendation": "Processing Team",
         "requires_human_review": False
     }
     logger.info(
@@ -213,7 +212,6 @@ async def ingest_email(
         "confidence_score": classification["confidence_score"],
         "summary": classification["summary"],
         "key_fields": classification.get("key_fields", {}),
-        "routing_recommendation": classification["routing_recommendation"],
         "requires_human_review": classification["requires_human_review"],
         "classified_at": classified_at,
         "downstream_notification_sent": False,
@@ -232,7 +230,6 @@ async def ingest_email(
         classification_category=classification["classification_category"],
         confidence_score=classification["confidence_score"],
         requires_human_review=classification["requires_human_review"],
-        routing_recommendation=classification["routing_recommendation"],
         summary=classification["summary"],
     )
 

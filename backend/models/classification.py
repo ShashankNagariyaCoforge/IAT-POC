@@ -25,7 +25,6 @@ class ClassificationResult(BaseModel):
     confidence_score: float = Field(..., ge=0.0, le=1.0)
     summary: str
     key_fields: KeyFields
-    routing_recommendation: str
     requires_human_review: bool
     classified_at: datetime = Field(default_factory=datetime.utcnow)
     masked_text_blob_path: Optional[str] = None  # blob path of masked text used for classification

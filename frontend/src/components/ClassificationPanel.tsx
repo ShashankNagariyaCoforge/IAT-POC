@@ -58,10 +58,6 @@ export function ClassificationPanel({ classification }: ClassificationPanelProps
                     </div>
                 )}
                 <div>
-                    <p style={label}>Routing Recommendation</p>
-                    <p style={value}>{classification.routing_recommendation || '—'}</p>
-                </div>
-                <div>
                     <p style={label}>Summary</p>
                     <p style={{ ...value, lineHeight: 1.6 }}>{classification.summary}</p>
                 </div>

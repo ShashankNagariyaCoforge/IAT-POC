@@ -34,7 +34,6 @@ async def test_classify_returns_structured_result(classifier):
             "policy_reference": "[POLICY_NUMBER]",
             "claim_type": None,
         },
-        "routing_recommendation": "New Business Team",
         "requires_human_review": False,
     }
     mock_choice = MagicMock()
@@ -57,7 +56,6 @@ async def test_classify_low_confidence_flags_review(classifier):
         "confidence_score": 0.65,
         "summary": "Uncertain classification.",
         "key_fields": {"document_type": "unknown", "urgency": "low", "policy_reference": None, "claim_type": None},
-        "routing_recommendation": "General Enquiries",
         "requires_human_review": False,  # GPT says false, but we override based on threshold
     }
     mock_choice = MagicMock()

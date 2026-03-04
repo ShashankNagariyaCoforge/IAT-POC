@@ -32,7 +32,6 @@ export interface Case {
     sender: string;
     email_count: number;
     requires_human_review: boolean;
-    routing_recommendation: string | null;
     summary: string | null;
 }
 
@@ -81,7 +80,6 @@ export interface ClassificationResult {
     confidence_score: number;
     summary: string;
     key_fields: KeyFields;
-    routing_recommendation: string;
     requires_human_review: boolean;
     classified_at: string;
     downstream_notification_sent: boolean;
