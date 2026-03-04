@@ -81,7 +81,9 @@ class Settings(BaseSettings):
     @field_validator("azure_key_vault_url", "azure_cosmos_endpoint", "azure_storage_account_url", mode="before")
     @classmethod
     def must_be_url(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and not v.startswith("https://"):
+        if not v:
+            return None
+        if not v.startswith("https://"):
             raise ValueError(f"Must be an HTTPS URL, got: {v}")
         return v
 
