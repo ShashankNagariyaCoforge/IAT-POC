@@ -2,21 +2,29 @@
 Cases API endpoints (Step 15).
 Provides all read-only endpoints for the React UI.
 All routes require JWT authentication (enforced by middleware).
+
+DEMO MODE: When DEMO_MODE=true in .env, uses LocalDBService (TinyDB) instead
+           of CosmosDBService, and reads extracted text from local files.
 """
 
 import logging
-from typing import Optional
+import os
+from typing import Optional, Union
 
 from fastapi import APIRouter, HTTPException, Query
 
-from services.cosmos_db import CosmosDBService
+from config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _get_cosmos() -> CosmosDBService:
-    """Dependency: returns a Cosmos DB service instance."""
+def _get_cosmos() -> Union["CosmosDBService", "LocalDBService"]:  # type: ignore[name-defined]
+    """Dependency: returns DB service — LocalDB in demo mode, Cosmos otherwise."""
+    if settings.demo_mode:
+        from services.local_db import LocalDBService
+        return LocalDBService()
+    from services.cosmos_db import CosmosDBService
     return CosmosDBService()
 
 
@@ -94,22 +102,31 @@ async def get_case_documents(case_id: str):
 
     docs = await cosmos.get_documents_for_case(case_id)
 
-    # Fetch text previews from blob (first 500 chars)
-    from services.blob_storage import BlobStorageService
-    from config import settings
-    blob = BlobStorageService()
-
+    # Fetch text previews
     enriched = []
     for doc in docs:
-        text_path = doc.get("extracted_text_blob_path")
         preview = None
-        if text_path:
-            try:
-                container, blob_name = text_path.split("/", 1)
-                text = await blob.download_text(container, blob_name)
-                preview = text[:500]
-            except Exception:
-                pass
+        if settings.demo_mode:
+            # Read from local extracted_text folder
+            local_path = doc.get("extracted_text_local_path")
+            if local_path and os.path.exists(local_path):
+                try:
+                    with open(local_path, "r", encoding="utf-8") as fp:
+                        preview = fp.read(500)
+                except Exception:
+                    pass
+        else:
+            # Read from Azure Blob
+            from services.blob_storage import BlobStorageService
+            blob = BlobStorageService()
+            text_path = doc.get("extracted_text_blob_path")
+            if text_path:
+                try:
+                    container, blob_name = text_path.split("/", 1)
+                    text = await blob.download_text(container, blob_name)
+                    preview = text[:500]
+                except Exception:
+                    pass
         enriched.append({**doc, "extracted_text_preview": preview})
 
     return {"documents": enriched, "total": len(enriched)}

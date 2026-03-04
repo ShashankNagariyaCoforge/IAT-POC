@@ -61,17 +61,17 @@ ALL_ENTITIES = BUILTIN_ENTITIES + CUSTOM_ENTITIES
 
 # ── Placeholder labels ─────────────────────────────────────────────────────────
 PLACEHOLDER_MAP = {
-    "PERSON":           "[NAME]",
-    "EMAIL_ADDRESS":    "[EMAIL]",
-    "PHONE_NUMBER":     "[PHONE]",
-    "US_SSN":           "[SSN]",
-    "DATE_TIME":        "[DOB]",
-    "LOCATION":         "[ADDRESS]",
-    "EMPLOYEE_ID":      "[EMPLOYEE_ID]",
-    "JOB_TITLE":        "[JOB_TITLE]",
-    "SALARY":           "[SALARY]",
-    "INTERNAL_ID":      "[INTERNAL_ID]",
-    "HEALTH_PLAN_ID":   "[HEALTH_PLAN_ID]",
+    "PERSON":           "****",
+    "EMAIL_ADDRESS":    "****",
+    "PHONE_NUMBER":     "****",
+    "US_SSN":           "****",
+    "DATE_TIME":        "****",
+    "LOCATION":         "****",
+    "EMPLOYEE_ID":      "****",
+    "JOB_TITLE":        "****",
+    "SALARY":           "****",
+    "INTERNAL_ID":      "****",
+    "HEALTH_PLAN_ID":   "****",
 }
 
 
@@ -291,7 +291,7 @@ class PIIMasker:
         # Build operator config to replace each entity with typed placeholder
         operators = {}
         for result in results:
-            placeholder = PLACEHOLDER_MAP.get(result.entity_type, "[REDACTED]")
+            placeholder = PLACEHOLDER_MAP.get(result.entity_type, "****")
             operators[result.entity_type] = OperatorConfig("replace", {"new_value": placeholder})
 
         # Anonymize
@@ -311,7 +311,7 @@ class PIIMasker:
                 "case_id": case_id,
                 "document_id": document_id,
                 "pii_type": result.entity_type,
-                "masked_value": PLACEHOLDER_MAP.get(result.entity_type, "[REDACTED]"),
+                "masked_value": PLACEHOLDER_MAP.get(result.entity_type, "****"),
                 "original_value_encrypted": encrypted_value,
                 "created_at": datetime.utcnow().isoformat(),
             }

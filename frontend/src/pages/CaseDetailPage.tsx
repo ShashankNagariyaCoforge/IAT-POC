@@ -113,60 +113,21 @@ export default function CaseDetailPage() {
             </header>
 
             <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 32px' }}>
-                {/* Quick stats */}
-                {caseData && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
-                        {[
-                            { label: 'Sender', value: caseData.sender },
-                            { label: 'Emails', value: caseData.email_count.toString() },
-                            { label: 'Confidence', value: caseData.confidence_score !== null ? `${Math.round((caseData.confidence_score || 0) * 100)}%` : '—' },
-                            { label: 'Routing', value: caseData.routing_recommendation || '—' },
-                        ].map(stat => (
-                            <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '14px 16px' }}>
-                                <p style={{ color: '#8fa1b0', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px 0' }}>{stat.label}</p>
-                                <p style={{ color: '#00263E', fontSize: '14px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={stat.value}>{stat.value}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Tab navigation */}
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActivePanel(tab.key)}
-                            style={{
-                                padding: '7px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
-                                cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '6px',
-                                transition: 'all 0.15s',
-                                background: activePanel === tab.key ? '#00467F' : 'transparent',
-                                color: activePanel === tab.key ? '#ffffff' : '#5a7184',
-                            }}
-                        >
-                            {tab.label}
-                            {tab.count !== undefined && (
-                                <span style={{
-                                    fontSize: '11px', borderRadius: '10px', padding: '1px 6px',
-                                    background: activePanel === tab.key ? 'rgba(255,255,255,0.2)' : '#F4F6F8',
-                                    color: activePanel === tab.key ? '#fff' : '#8fa1b0',
-                                }}>
-                                    {tab.count}
-                                </span>
-                            )}
-                        </button>
-                    ))}
+                {/* PII Masking Report */}
+                <div style={{
+                    height: 'calc(100vh - 120px)',
+                    width: '100%',
+                    background: '#fff',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '1px solid #D1D9E0'
+                }}>
+                    <iframe
+                        title="PII Masking Report"
+                        src={`/reports/${caseId}.html`}
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                    />
                 </div>
-
-                {/* Panel content */}
-                {caseData && activePanel === 'summary' && (
-                    <CaseSummaryPanel caseData={caseData} timeline={timeline} />
-                )}
-                {activePanel === 'emails' && <EmailChainPanel emails={emails} />}
-                {activePanel === 'documents' && <DocumentsPanel documents={documents} />}
-                {activePanel === 'classification' && (
-                    <ClassificationPanel classification={classification} />
-                )}
             </div>
         </div>
     );

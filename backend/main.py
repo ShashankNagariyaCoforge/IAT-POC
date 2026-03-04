@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from api.webhook import router as webhook_router
 from api.cases import router as cases_router
+from api.sync import router as sync_router
 from api.health import router as health_router
 from middleware.auth import JWTAuthMiddleware
 from services.cosmos_db import CosmosDBService
@@ -29,40 +30,44 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle."""
     logger.info("Starting IAT Insurance Email Automation Platform...")
 
-    # Initialize services on startup — failures are logged as warnings so
-    # the app is still reachable even when Azure credentials are missing.
     renewal_task = None
 
-    try:
-        if not settings.azure_cosmos_endpoint:
-            logger.warning(
-                "AZURE_COSMOS_ENDPOINT is not configured — Cosmos DB will be unavailable. "
-                "Set this in your .env file."
-            )
-        else:
-            cosmos = CosmosDBService()
-            await cosmos.initialize_containers()
-            logger.info("Cosmos DB containers verified.")
-    except Exception as e:
-        logger.warning(f"Cosmos DB initialization skipped: {e}")
+    if settings.demo_mode:
+        # ── Demo Mode: skip all cloud service initialization ──────────────
+        logger.info("🎯 DEMO MODE active — using local TinyDB, skipping Cosmos/Graph init.")
+        logger.info("   Run `python demo_ingest.py` first to populate the local DB.")
+    else:
+        # ── Production: initialize Azure services ─────────────────────────
+        try:
+            if not settings.azure_cosmos_endpoint:
+                logger.warning(
+                    "AZURE_COSMOS_ENDPOINT is not configured — Cosmos DB will be unavailable. "
+                    "Set this in your .env file."
+                )
+            else:
+                cosmos = CosmosDBService()
+                await cosmos.initialize_containers()
+                logger.info("Cosmos DB containers verified.")
+        except Exception as e:
+            logger.warning(f"Cosmos DB initialization skipped: {e}")
 
-    try:
-        if not settings.graph_client_id or not settings.graph_tenant_id:
-            logger.warning(
-                "GRAPH_CLIENT_ID / GRAPH_TENANT_ID not configured — "
-                "Microsoft Graph webhook subscription will be unavailable. "
-                "Set these in your .env file."
-            )
-        else:
-            graph = GraphClient()
-            await graph.ensure_webhook_subscription()
-            logger.info("Graph API webhook subscription active.")
+        try:
+            if not settings.graph_client_id or not settings.graph_tenant_id:
+                logger.warning(
+                    "GRAPH_CLIENT_ID / GRAPH_TENANT_ID not configured — "
+                    "Microsoft Graph webhook subscription will be unavailable. "
+                    "Set these in your .env file."
+                )
+            else:
+                graph = GraphClient()
+                await graph.ensure_webhook_subscription()
+                logger.info("Graph API webhook subscription active.")
 
-            # Schedule background subscription renewal
-            renewal_task = asyncio.create_task(_renew_subscription_loop(graph))
-            app.state.renewal_task = renewal_task
-    except Exception as e:
-        logger.warning(f"Graph webhook setup skipped: {e}")
+                # Schedule background subscription renewal
+                renewal_task = asyncio.create_task(_renew_subscription_loop(graph))
+                app.state.renewal_task = renewal_task
+        except Exception as e:
+            logger.warning(f"Graph webhook setup skipped: {e}")
 
     logger.info("Application startup complete.")
     yield
@@ -111,4 +116,5 @@ app.add_middleware(JWTAuthMiddleware)
 # Routers
 app.include_router(webhook_router, prefix="/webhook", tags=["Webhook"])
 app.include_router(cases_router, prefix="/api", tags=["Cases"])
+app.include_router(sync_router, prefix="/api", tags=["Sync"])
 app.include_router(health_router, tags=["Health"])
