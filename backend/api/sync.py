@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from config import settings
 from services.blob_storage import BlobStorageService
-from services.pipeline import Pipeline
 from services.classifier import Classifier
 from utils.pii_report import generate_case_pii_report
 
