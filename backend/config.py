@@ -29,7 +29,8 @@ class Settings(BaseSettings):
 
     # Azure Blob Storage
     azure_storage_account_url: Optional[str] = None
-    blob_container_raw_emails: str = "raw-emails"
+    azure_storage_connection_string: Optional[str] = None  # Added for ingest sync
+    blob_container_raw_emails: str = "iat_documents"  # default matching the ingest script
     blob_container_attachments: str = "raw-attachments"
     blob_container_extracted_text: str = "extracted-text"
 
@@ -61,6 +62,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     dev_bypass_auth: bool = False  # Set DEV_BYPASS_AUTH=true in .env to skip JWT validation
+    demo_mode: bool = False  # Set DEMO_MODE=true to use local TinyDB instead of Cosmos DB
     webhook_subscription_renewal_hours: int = 48
     classification_confidence_threshold: float = 0.75
     cases_per_page: int = 50

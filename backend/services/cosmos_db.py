@@ -124,6 +124,47 @@ class CosmosDBService:
         await container.upsert_item(case)
         logger.info(f"Updated case {case_id} status to {status.value}")
 
+    async def delete_case_data(self, case_id: str) -> None:
+        """
+        Rollback helper: Delete the case and ALL associated records across all containers.
+        Used if ingestion fails midway through an email to prevent orphaned records.
+        """
+        logger.warning(f"Rolling back Cosmos DB records for failed case: {case_id}")
+        
+        # 1. Delete emails
+        emails = await self.get_emails_for_case(case_id)
+        email_container = await self._get_container(CONTAINER_EMAILS)
+        for email in emails:
+            await email_container.delete_item(item=email["email_id"], partition_key=email["email_id"])
+            
+        # 2. Delete documents
+        docs = await self.get_documents_for_case(case_id)
+        doc_container = await self._get_container(CONTAINER_DOCUMENTS)
+        for doc in docs:
+            await doc_container.delete_item(item=doc["document_id"], partition_key=doc["document_id"])
+            
+            # 3. Delete PII mappings (partition key is mapping_id, which happens to match document_id in pipeline)
+            try:
+                pii_container = await self._get_container(CONTAINER_PII_MAPPING)
+                await pii_container.delete_item(item=doc["document_id"], partition_key=doc["document_id"])
+            except cosmos_exc.CosmosResourceNotFoundError:
+                pass
+                
+        # 4. Delete classification
+        cls = await self.get_classification_for_case(case_id)
+        if cls:
+            cls_container = await self._get_container(CONTAINER_CLASSIFICATION)
+            await cls_container.delete_item(item=cls["result_id"], partition_key=cls["result_id"])
+            
+        # 5. Delete the case itself
+        case_container = await self._get_container(CONTAINER_CASES)
+        try:
+            await case_container.delete_item(item=case_id, partition_key=case_id)
+        except cosmos_exc.CosmosResourceNotFoundError:
+            pass
+            
+        logger.info(f"Successfully rolled back data for {case_id}")
+
     async def list_cases(
         self,
         page: int = 1,

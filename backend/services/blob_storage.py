@@ -23,11 +23,17 @@ class BlobStorageService:
     """Async Azure Blob Storage client."""
 
     def __init__(self):
-        self._credential = DefaultAzureCredential()
-        self._client = BlobServiceClient(
-            account_url=settings.azure_storage_account_url,
-            credential=self._credential,
-        )
+        if settings.azure_storage_connection_string:
+            self._client = BlobServiceClient.from_connection_string(settings.azure_storage_connection_string)
+        elif settings.azure_storage_account_url:
+            self._credential = DefaultAzureCredential()
+            self._client = BlobServiceClient(
+                account_url=settings.azure_storage_account_url,
+                credential=self._credential,
+            )
+        else:
+            self._client = None
+            logger.warning("No Blob Storage credentials configured. Start will fail if dependent.")
 
     async def upload_bytes(
         self,
@@ -112,6 +118,50 @@ class BlobStorageService:
         blob_client = container.get_blob_client(blob_name)
         return await blob_client.exists()
 
+    async def list_unprocessed_email_folders(self, container_name: str) -> list[str]:
+        """
+        List all folder prefixes containing an 'email.json' that do NOT have the 'is_processed' tag.
+        
+        Note: The standard `find_blobs_by_tags` API requires a specific Azure indexing setup.
+        For maximum compatibility during this demo, we list blobs ending in 'email.json' and 
+        check their tags manually.
+        """
+        container = self._client.get_container_client(container_name)
+        unprocessed_prefixes = []
+        
+        async for blob in container.list_blobs(name_starts_with=""):
+            if blob.name.endswith("email.json"):
+                blob_client = container.get_blob_client(blob.name)
+                tags = await blob_client.get_blob_tags()
+                if tags.get("is_processed") != "true":
+                    # Deduce the folder prefix: e.g. "2026/02/19/timestamp_id"
+                    prefix = blob.name.rsplit("/", 1)[0]
+                    unprocessed_prefixes.append(prefix)
+                    
+        return unprocessed_prefixes
+        
+    async def list_blobs_in_folder(self, container_name: str, folder_prefix: str) -> list[str]:
+        """List all blobs immediately within a given folder prefix."""
+        container = self._client.get_container_client(container_name)
+        blobs = []
+        async for blob in container.list_blobs(name_starts_with=folder_prefix + "/"):
+            # Exclude subfolders like 'unzipped/' from the main list if needed, 
+            # but for this we'll just return all nested paths
+            blobs.append(blob.name)
+        return blobs
+
+    async def mark_as_processed(self, container_name: str, blob_name: str):
+        """Add the `is_processed=true` tag to a specific blob."""
+        container = self._client.get_container_client(container_name)
+        blob_client = container.get_blob_client(blob_name)
+        
+        # Merge existing tags so we don't wipe them
+        existing_tags = await blob_client.get_blob_tags()
+        existing_tags["is_processed"] = "true"
+        
+        await blob_client.set_blob_tags(existing_tags)
+        logger.info(f"Marked blob as processed: {container_name}/{blob_name}")
+
     def build_blob_name(self, case_id: str, filename: str, prefix: str = "") -> str:
         """
         Build a consistent blob name with case_id and timestamp.
@@ -133,5 +183,7 @@ class BlobStorageService:
 
     async def close(self):
         """Close the blob service client."""
-        await self._client.close()
-        await self._credential.close()
+        if self._client:
+            await self._client.close()
+        if hasattr(self, '_credential'):
+            await self._credential.close()

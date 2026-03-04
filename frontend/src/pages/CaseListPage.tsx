@@ -56,6 +56,36 @@ export default function CaseListPage() {
         }
     }, [page, search, category, status, sortBy, sortOrder]);
 
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        setError(null);
+        setSyncMessage(null);
+        try {
+            const token = await apiClient.getToken();
+            const response = await fetch(`${apiClient.baseUrl}/api/cases/sync`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Sync failed.');
+            }
+            const data = await response.json();
+            setSyncMessage(data.message);
+            // Reload cases
+            await fetchCases();
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to sync emails.');
+        } finally {
+            setIsSyncing(false);
+            // Hide success message after 5 seconds
+            setTimeout(() => setSyncMessage(null), 5000);
+        }
+    };
+
     useEffect(() => { fetchCases(); }, [fetchCases]);
 
     const handleSort = (col: string) => {
@@ -101,14 +131,32 @@ export default function CaseListPage() {
                         <h1 style={{ color: '#00263E', fontSize: '22px', fontWeight: 700, margin: 0 }}>Case Management</h1>
                         <p style={{ color: '#8fa1b0', fontSize: '13px', margin: '4px 0 0 0' }}>{total.toLocaleString()} total cases</p>
                     </div>
-                    <button
-                        onClick={fetchCases}
-                        title="Refresh"
-                        style={{ background: 'none', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#00467F', display: 'flex' }}
-                    >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            onClick={handleSync}
+                            disabled={isSyncing}
+                            style={{ background: '#00467F', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: isSyncing ? 'not-allowed' : 'pointer', color: '#fff', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', opacity: isSyncing ? 0.7 : 1 }}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                            {isSyncing ? 'Syncing...' : 'Sync New Emails'}
+                        </button>
+                        <button
+                            onClick={fetchCases}
+                            disabled={loading || isSyncing}
+                            title="Refresh"
+                            style={{ background: '#fff', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '8px', cursor: (loading || isSyncing) ? 'not-allowed' : 'pointer', color: '#00467F', display: 'flex' }}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${loading && !isSyncing ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
                 </div>
+
+                {/* Success Message */}
+                {syncMessage && (
+                    <div style={{ marginBottom: '16px', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: '8px', padding: '12px 16px', color: '#065f46', fontSize: '13px', fontWeight: 500 }}>
+                        {syncMessage}
+                    </div>
+                )}
 
                 {/* Filters */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
