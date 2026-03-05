@@ -16,6 +16,7 @@ azure-cosmos==4.9.0
 azure-storage-blob==12.24.1
 openai==1.63.2
 azure-ai-formrecognizer==3.3.3
+azure-ai-contentsafety==1.0.0
 
 # Microsoft Graph API
 msal==1.32.0
