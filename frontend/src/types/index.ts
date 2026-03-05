@@ -8,7 +8,7 @@ export type CaseStatus =
     | 'PROCESSING'
     | 'CLASSIFIED'
     | 'PENDING_REVIEW'
-    | 'NOTIFIED'
+    | 'PROCESSED'
     | 'FAILED'
     | 'BLOCKED_SAFETY'
     | 'NEEDS_REVIEW_SAFETY';

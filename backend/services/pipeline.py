@@ -263,7 +263,7 @@ async def run_pipeline(message_id: str) -> None:
 
         # Send downstream notification
         await notifier.send_notification(case_id, result_doc)
-        await cosmos.update_case_status(case_id, CaseStatus.NOTIFIED)
+        await cosmos.update_case_status(case_id, CaseStatus.PROCESSED)
         await cosmos.update_classification_notification(result_id, datetime.utcnow())
 
         logger.info(f"[Pipeline] Case {case_id} completed successfully. Category: {classification['classification_category']}")

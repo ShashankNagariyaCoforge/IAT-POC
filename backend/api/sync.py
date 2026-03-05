@@ -164,7 +164,7 @@ async def sync_emails_from_blob():
                 
                 await db_service.update_case_status(
                     case_id,
-                    CaseStatus.NOTIFIED,
+                    CaseStatus.PROCESSED,
                     classification_category=classification["classification_category"],
                     confidence_score=classification["confidence_score"],
                     requires_human_review=classification["requires_human_review"]

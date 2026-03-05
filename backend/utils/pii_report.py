@@ -71,19 +71,7 @@ def generate_case_pii_report(case_id: str, original_text: str, masked_text: str,
         lines.append("</table>")
         lines.append("</div>")
 
-    # Mappings table Card
-    if pii_mappings:
-        lines.append("<div class='card'>")
-        lines.append("<h2>Replacement Map</h2>")
-        lines.append("<table><tr><th>Replaced Value</th><th>Original Value</th></tr>")
-        for m in pii_mappings:
-            original = m.get("original_value", m.get("original_value_encrypted", ""))
-            # Truncate if too long (optional)
-            if len(original) > 40:
-                original = original[:40] + "..."
-            lines.append(f"<tr><td><span class='highlight'>{m.get('masked_value')}</span></td><td>{original}</td></tr>")
-        lines.append("</table>")
-        lines.append("</div>")
+    # Replacement Map removed per user request
 
     lines.append("</div>") # Close sidebar
     lines.append("</div>") # Close content-wrapper

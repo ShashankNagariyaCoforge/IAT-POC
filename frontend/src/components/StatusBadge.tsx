@@ -6,7 +6,7 @@ const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = 
     PROCESSING: { label: 'Processing', className: 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse' },
     CLASSIFIED: { label: 'Classified', className: 'bg-green-50 text-green-700 border border-green-200' },
     PENDING_REVIEW: { label: 'Pending Review', className: 'bg-orange-50 text-orange-700 border border-orange-200' },
-    NOTIFIED: { label: 'Notified', className: 'bg-teal-50 text-teal-700 border border-teal-200' },
+    PROCESSED: { label: 'Processed', className: 'bg-teal-50 text-teal-700 border border-teal-200' },
     FAILED: { label: 'Failed', className: 'bg-red-50 text-red-700 border border-red-200' },
     BLOCKED_SAFETY: { label: 'Blocked', className: 'bg-red-100 text-red-800 border border-red-300 font-bold' },
     NEEDS_REVIEW_SAFETY: { label: 'Needs Review', className: 'bg-yellow-50 text-yellow-700 border border-yellow-300' },
