@@ -13,7 +13,7 @@ const CATEGORIES: ClassificationCategory[] = [
     'New', 'Renewal', 'Query/General', 'Follow-up',
     'Complaint/Escalation', 'Regulatory/Legal', 'Documentation/Evidence', 'Spam/Irrelevant',
 ];
-const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'NOTIFIED', 'FAILED'];
+const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'NOTIFIED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 

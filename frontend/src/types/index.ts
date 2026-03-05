@@ -9,7 +9,16 @@ export type CaseStatus =
     | 'CLASSIFIED'
     | 'PENDING_REVIEW'
     | 'NOTIFIED'
-    | 'FAILED';
+    | 'FAILED'
+    | 'BLOCKED_SAFETY'
+    | 'NEEDS_REVIEW_SAFETY';
+
+export interface ContentSafetyResult {
+    hate_severity: number;
+    self_harm_severity: number;
+    sexual_severity: number;
+    violence_severity: number;
+}
 
 export type ClassificationCategory =
     | 'New'
@@ -33,6 +42,7 @@ export interface Case {
     email_count: number;
     requires_human_review: boolean;
     summary: string | null;
+    content_safety_result?: ContentSafetyResult;
 }
 
 export interface CaseListResponse {

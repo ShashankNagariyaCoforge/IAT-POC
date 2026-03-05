@@ -23,6 +23,7 @@ from models.case import CaseStatus
 from services.blob_storage import BlobStorageService
 from services.case_manager import CaseManager
 from services.classifier import Classifier
+from services.content_safety import ContentSafetyService
 from services.cosmos_db import CosmosDBService
 from services.document_parser import DocumentParser
 from services.graph_client import GraphClient
@@ -50,6 +51,7 @@ async def run_pipeline(message_id: str) -> None:
     ocr = OCRService()
     crawler = WebCrawler()
     masker = PIIMasker()
+    safety = ContentSafetyService()
     classifier = Classifier()
     case_mgr = CaseManager(cosmos)
     notifier = Notifier(graph)
@@ -185,6 +187,40 @@ async def run_pipeline(message_id: str) -> None:
         for mapping in pii_mappings:
             await cosmos.save_pii_mapping(mapping)
 
+        # ── Step 7b: Content Safety check ─────────────────────────────────────
+        logger.info(f"[Pipeline] Running Content Safety check for case {case_id}")
+        safety_result = None
+        safety_status = None
+        
+        # We check the raw (non-masked) text or the masked text. 
+        # Using masked text is safer for data privacy if Azure Content Safety logs data.
+        if safety.configured:
+            # Note: Analyze_text is currently a synchronous Azure SDK call. 
+            # In a real async environment, we would use azure.ai.contentsafety.aio 
+            # or run it in a thread executor, but since we defined `async def analyze_text`, 
+            # we await it here.
+            safety_result = await safety.analyze_text(masked_text)
+            if safety_result:
+                # Update case document with these safety scores immediately
+                await cosmos.update_case_safety(case_id, safety_result.model_dump())
+                
+                # Check thresholds
+                max_severity = max(
+                    safety_result.hate_severity,
+                    safety_result.self_harm_severity,
+                    safety_result.sexual_severity,
+                    safety_result.violence_severity
+                )
+                
+                if max_severity >= 4: # High/Critical
+                    logger.warning(f"[Pipeline] Case {case_id} BLOCKED due to Content Safety severity {max_severity}")
+                    await cosmos.update_case_status(case_id, CaseStatus.BLOCKED_SAFETY)
+                    return # ABORT PIPELINE
+                elif max_severity >= 2: # Medium
+                    logger.warning(f"[Pipeline] Case {case_id} FLAGGED due to Content Safety severity {max_severity}")
+                    safety_status = CaseStatus.NEEDS_REVIEW_SAFETY
+
+
         # ── Step 8: GPT-4o-mini classification ───────────────────────────────
         logger.info(f"[Pipeline] Classifying case {case_id}")
         classification = await classifier.classify(masked_text)
@@ -207,11 +243,15 @@ async def run_pipeline(message_id: str) -> None:
         await cosmos.save_classification_result(result_doc)
 
         # Determine final case status
-        final_status = (
-            CaseStatus.PENDING_REVIEW
-            if classification["requires_human_review"]
-            else CaseStatus.CLASSIFIED
-        )
+        if safety_status == CaseStatus.NEEDS_REVIEW_SAFETY:
+            final_status = safety_status
+        else:
+            final_status = (
+                CaseStatus.PENDING_REVIEW
+                if classification["requires_human_review"]
+                else CaseStatus.CLASSIFIED
+            )
+
         await cosmos.update_case_status(
             case_id,
             final_status,
