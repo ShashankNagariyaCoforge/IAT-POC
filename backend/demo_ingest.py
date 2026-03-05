@@ -234,11 +234,11 @@ async def ingest_email(
     )
 
     # Mark notified
-    await db.update_case_status(case_id, CaseStatus.NOTIFIED)
+    await db.update_case_status(case_id, CaseStatus.PROCESSED)
     await db.update_classification_notification(result_id, datetime.utcnow())
 
     logger.info(
-        f"  ✅ Case {case_id} done → status=NOTIFIED  "
+        f"  ✅ Case {case_id} done → status=PROCESSED  "
         f"category='{classification['classification_category']}'"
     )
 

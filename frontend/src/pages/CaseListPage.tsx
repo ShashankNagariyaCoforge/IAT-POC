@@ -13,7 +13,7 @@ const CATEGORIES: ClassificationCategory[] = [
     'New', 'Renewal', 'Query/General', 'Follow-up',
     'Complaint/Escalation', 'Regulatory/Legal', 'Documentation/Evidence', 'Spam/Irrelevant',
 ];
-const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'NOTIFIED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
+const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'PROCESSED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
@@ -206,7 +206,6 @@ export default function CaseListPage() {
                                         { key: 'classification_category', label: 'Category' },
                                         { key: 'confidence_score', label: 'Confidence' },
                                         { key: 'status', label: 'Status' },
-                                        { key: 'email_count', label: 'Emails' },
                                         { key: 'created_at', label: 'Received' },
                                         { key: 'updated_at', label: 'Updated' },
                                     ].map(col => (
@@ -233,7 +232,7 @@ export default function CaseListPage() {
                                     ))
                                 ) : cases.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} style={{ padding: '48px 16px', textAlign: 'center', color: '#8fa1b0', fontSize: '14px' }}>
+                                        <td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: '#8fa1b0', fontSize: '14px' }}>
                                             No cases found matching your criteria.
                                         </td>
                                     </tr>
@@ -263,7 +262,6 @@ export default function CaseListPage() {
                                             <td style={{ padding: '12px 16px' }}><CategoryBadge category={c.classification_category} /></td>
                                             <td style={{ padding: '12px 16px', minWidth: '100px' }}><ConfidenceMeter score={c.confidence_score} /></td>
                                             <td style={{ padding: '12px 16px' }}><StatusBadge status={c.status} /></td>
-                                            <td style={{ padding: '12px 16px', color: '#5a7184', fontSize: '13px', textAlign: 'center' }}>{c.email_count}</td>
                                             <td style={{ padding: '12px 16px', color: '#8fa1b0', fontSize: '12px', whiteSpace: 'nowrap' }}>
                                                 {format(new Date(c.created_at), 'dd MMM yyyy HH:mm')}
                                             </td>
