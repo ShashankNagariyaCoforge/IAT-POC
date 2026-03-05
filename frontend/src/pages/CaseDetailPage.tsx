@@ -13,6 +13,17 @@ import type { Case, Email, Document, ClassificationResult, TimelineEvent } from 
 
 type Panel = 'summary' | 'emails' | 'documents' | 'classification';
 
+const getSeverityColor = (score: number) => {
+    if (score >= 4) return 'bg-red-100 text-red-800 border-red-200';
+    if (score >= 2) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-green-100 text-green-800 border-green-200';
+};
+const getSeverityLabel = (score: number) => {
+    if (score >= 4) return 'High';
+    if (score >= 2) return 'Medium';
+    return 'Safe';
+};
+
 export default function CaseDetailPage() {
     const { caseId = '' } = useParams();
     const navigate = useNavigate();
@@ -115,40 +126,150 @@ export default function CaseDetailPage() {
             <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 32px' }}>
 
                 {/* ── AI Summary and Action Bar ── */}
-                <div style={{ marginBottom: '20px', display: 'flex', gap: '24px', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1, background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,38,62,0.04)' }}>
-                        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#00263E', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Classification Summary</h2>
-                        <p style={{ fontSize: '14px', color: '#5a7184', margin: 0, lineHeight: '1.5' }}>
-                            {caseData?.summary || classification?.summary || 'No summary available.'}
+                {caseData?.status === 'BLOCKED_SAFETY' ? (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '32px 24px', textAlign: 'center', margin: '40px auto', maxWidth: '600px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                            <div style={{ background: '#fee2e2', borderRadius: '50%', padding: '16px' }}>
+                                <AlertTriangle className="w-8 h-8 text-red-600" style={{ color: '#dc2626' }} />
+                            </div>
+                        </div>
+                        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#991b1b', margin: '0 0 12px 0' }}>Content Blocked by Safety Policy</h2>
+                        <p style={{ fontSize: '15px', color: '#7f1d1d', margin: '0 0 24px 0', lineHeight: '1.6' }}>
+                            This document triggered a strict safety violation and was blocked from further AI classification or processing to protect downstream systems.
                         </p>
+
+                        {caseData.content_safety_result && (
+                            <div style={{ background: '#ffffff', borderRadius: '6px', padding: '16px', border: '1px solid #fecaca', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                                <div>
+                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Hate</p>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.hate_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.hate_severity}/7</span>
+                                </div>
+                                <div style={{ width: '1px', height: '30px', background: '#fecaca' }} />
+                                <div>
+                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Self-Harm</p>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.self_harm_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.self_harm_severity}/7</span>
+                                </div>
+                                <div style={{ width: '1px', height: '30px', background: '#fecaca' }} />
+                                <div>
+                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Violence</p>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.violence_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.violence_severity}/7</span>
+                                </div>
+                                <div style={{ width: '1px', height: '30px', background: '#fecaca' }} />
+                                <div>
+                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Sexual</p>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.sexual_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.sexual_severity}/7</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
+                ) : (
+                    <>
+                        {caseData?.status === 'NEEDS_REVIEW_SAFETY' && caseData?.content_safety_result && (
+                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '16px 20px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <AlertTriangle className="w-5 h-5" style={{ color: '#d97706' }} />
+                                    <strong style={{ color: '#92400e', fontSize: '15px' }}>Content Safety Warning:</strong>
+                                    <span style={{ color: '#b45309', fontSize: '14px' }}>This document was flagged for moderate harmful content. Please review carefully.</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', paddingLeft: '32px' }}>
+                                    {[
+                                        { label: 'Hate', score: caseData.content_safety_result.hate_severity },
+                                        { label: 'Self-Harm', score: caseData.content_safety_result.self_harm_severity },
+                                        { label: 'Violence', score: caseData.content_safety_result.violence_severity },
+                                        { label: 'Sexual', score: caseData.content_safety_result.sexual_severity }
+                                    ].map(cat => (
+                                        <span key={cat.label} className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getSeverityColor(cat.score)}`}>
+                                            {cat.label}: {getSeverityLabel(cat.score)}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                    <a
-                        href={`/reports/${caseId}.html`}
-                        download={`${caseId}_report.html`}
-                        style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '8px', background: '#00467F', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0, 70, 127, 0.15)', transition: 'transform 0.1s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                    >
-                        <Download className="w-4 h-4" /> Download HTML Report
-                    </a>
-                </div>
+                        <div style={{ marginBottom: '20px', display: 'flex', gap: '24px', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                            <div style={{ flex: 1, background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,38,62,0.04)' }}>
+                                <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#00263E', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Classification Summary</h2>
+                                <p style={{ fontSize: '14px', color: '#5a7184', margin: 0, lineHeight: '1.5' }}>
+                                    {caseData?.summary || classification?.summary || 'No summary available.'}
+                                </p>
+                            </div>
 
-                {/* PII Masking Report */}
-                <div style={{
-                    height: 'calc(100vh - 120px)',
-                    width: '100%',
-                    background: '#fff',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    border: '1px solid #D1D9E0'
-                }}>
-                    <iframe
-                        title="PII Masking Report"
-                        src={`/reports/${caseId}.html`}
-                        style={{ width: '100%', height: '100%', border: 'none' }}
-                    />
-                </div>
+                            <a
+                                href={`/reports/${caseId}.html`}
+                                download={`${caseId}_report.html`}
+                                style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '8px', background: '#00467F', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0, 70, 127, 0.15)', transition: 'transform 0.1s' }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                            >
+                                <Download className="w-4 h-4" /> Download HTML Report
+                            </a>
+                        </div>
+
+                        {/* PII Masking Report */}
+                        <div style={{
+                            height: 'calc(100vh - 120px)',
+                            width: '100%',
+                            background: '#fff',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            border: '1px solid #D1D9E0'
+                        }}>
+                            <iframe
+                                title="PII Masking Report"
+                                src={`/reports/${caseId}.html`}
+                                style={{ width: '100%', height: '100%', border: 'none' }}
+                            />
+                        </div>
+                    </>
+                )}
+
+                {/* Tabs */}
+                {caseData?.status !== 'BLOCKED_SAFETY' && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #D1D9E0' }}>
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActivePanel(tab.key)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    borderBottom: activePanel === tab.key ? '2px solid #00467F' : '2px solid transparent',
+                                    padding: '12px 16px',
+                                    fontSize: '14px',
+                                    fontWeight: activePanel === tab.key ? 600 : 500,
+                                    color: activePanel === tab.key ? '#00263E' : '#5a7184',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                {tab.label}
+                                {tab.count !== undefined && (
+                                    <span style={{
+                                        background: activePanel === tab.key ? '#e8f0fa' : '#F4F6F8',
+                                        color: activePanel === tab.key ? '#00467F' : '#5a7184',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '12px'
+                                    }}>
+                                        {tab.count}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Main Content Area */}
+                {caseData?.status !== 'BLOCKED_SAFETY' && (
+                    <div>
+                        {activePanel === 'summary' && caseData && <CaseSummaryPanel caseData={caseData} timeline={timeline} />}
+                        {activePanel === 'emails' && <EmailChainPanel emails={emails} />}
+                        {activePanel === 'documents' && <DocumentsPanel documents={documents} />}
+                        {activePanel === 'classification' && <ClassificationPanel classification={classification} />}
+                    </div>
+                )}
             </div>
         </div>
     );

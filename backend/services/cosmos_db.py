@@ -124,6 +124,18 @@ class CosmosDBService:
         await container.upsert_item(case)
         logger.info(f"Updated case {case_id} status to {status.value}")
 
+    async def update_case_safety(self, case_id: str, safety_result: Dict) -> None:
+        """Update case with content safety results."""
+        case = await self.get_case(case_id)
+        if not case:
+            logger.error(f"Case not found for safety update: {case_id}")
+            return
+        case["content_safety_result"] = safety_result
+        case["updated_at"] = datetime.utcnow().isoformat()
+        container = await self._get_container(CONTAINER_CASES)
+        await container.upsert_item(case)
+        logger.debug(f"Attached Content Safety results to case {case_id}")
+
     async def delete_case_data(self, case_id: str) -> None:
         """
         Rollback helper: Delete the case and ALL associated records across all containers.

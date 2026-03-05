@@ -14,44 +14,80 @@ def generate_case_pii_report(case_id: str, original_text: str, masked_text: str,
         by_type[t] = by_type.get(t, 0) + 1
 
     lines = [
-        "<!DOCTYPE html><html><head>",
+        "<!DOCTYPE html><html lang='en'><head>",
         "<meta charset='utf-8'>",
+        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
         f"<title>PII Masking Report - {case_id}</title>",
         "<style>",
-        "body{font-family:monospace;background:#1a1a1a;color:#e0e0e0;padding:20px;}",
-        "h1{color:#60a5fa;} h2{color:#34d399;border-bottom:1px solid #444;padding-bottom:6px;}",
-        ".stat{color:#fbbf24;} .original{background:#2d1515;padding:12px;border-radius:6px;white-space:pre-wrap;margin:8px 0;}",
-        ".masked{background:#152d15;padding:12px;border-radius:6px;white-space:pre-wrap;margin:8px 0;}",
-        "table{border-collapse:collapse;width:100%;margin:10px 0;}",
-        "th{background:#333;padding:6px 12px;text-align:left;}",
-        "td{padding:6px 12px;border-bottom:1px solid #333;}",
-        ".label{color:#a78bfa;font-weight:bold;}",
+        "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');",
+        "body { font-family: 'Inter', sans-serif; background: #F4F6F8; color: #00263E; margin: 0; padding: 32px; line-height: 1.6; }",
+        ".container { max-width: 1200px; margin: 0 auto; }",
+        ".header { background: #ffffff; border: 1px solid #D1D9E0; border-radius: 8px; padding: 24px 32px; box-shadow: 0 1px 3px rgba(0,38,62,0.04); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }",
+        "h1 { color: #00263E; font-size: 20px; font-weight: 700; margin: 0; }",
+        ".stats-bar { display: flex; gap: 32px; }",
+        ".stat-box { display: flex; flex-direction: column; }",
+        ".stat-label { font-size: 11px; color: #5a7184; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; font-weight: 600; }",
+        ".stat-value { font-size: 20px; color: #00467F; font-weight: 700; }",
+        ".content-wrapper { display: flex; gap: 24px; align-items: flex-start; }",
+        ".main-content { flex: 2; background: #ffffff; border: 1px solid #D1D9E0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,38,62,0.04); }",
+        ".sidebar { flex: 1; display: flex; flex-direction: column; gap: 24px; }",
+        "h2 { color: #00263E; font-size: 16px; font-weight: 700; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 1px solid #D1D9E0; }",
+        ".masked-text { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; color: #334155; white-space: pre-wrap; line-height: 1.7; background: #f8fafc; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; max-height: 600px; overflow-y: auto; }",
+        ".card { background: #ffffff; border: 1px solid #D1D9E0; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,38,62,0.04); }",
+        "table { width: 100%; border-collapse: collapse; text-align: left; }",
+        "th { padding: 10px 12px; border-bottom: 2px solid #D1D9E0; color: #5a7184; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; background: #F4F6F8; }",
+        "td { padding: 12px; border-bottom: 1px solid #eef1f4; font-size: 13px; color: #00263E; }",
+        "tr:last-child td { border-bottom: none; }",
+        "tr:hover td { background-color: #f0f5fb; }",
+        ".badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #e8f0fa; color: #00467F; border: 1px solid #cdd8e2; }",
+        ".highlight { color: #059669; font-weight: 600; background: #d1fae5; padding: 2px 6px; border-radius: 4px; display: inline-block; }",
         "</style></head><body>",
-        f"<h1>🔒 Case {case_id} - PII Masking Report</h1>",
-        f"<p>Characters analyzed: <span class='stat'>{len(original_text):,}</span> &nbsp;|&nbsp; PII entities found: <span class='stat'>{pii_count}</span></p>"
+        "<div class='container'>",
+        "<div class='header'>",
+        "<div>",
+        f"<h1>Data Privacy & Masking Report</h1>",
+        f"<p style='color: #5a7184; font-size: 13px; margin: 4px 0 0 0;'>Case ID: <strong style='font-family: monospace; color: #00467F;'>{case_id}</strong></p>",
+        "</div>",
+        "<div class='stats-bar'>",
+        f"<div class='stat-box'><span class='stat-label'>Processed Size</span><span class='stat-value'>{len(original_text):,} chars</span></div>"
+        f"<div class='stat-box'><span class='stat-label'>PII Entities Masked</span><span class='stat-value'>{pii_count}</span></div>",
+        "</div>",
+        "</div>",
+        "<div class='content-wrapper'>",
+        "<div class='main-content'>",
+        "<h2>Masked Document Content</h2>",
+        f"<div class='masked-text'>{masked_text}</div>",
+        "</div>",
+        "<div class='sidebar'>",
     ]
 
-    # Type breakdown
+    # Type breakdown Card
     if by_type:
-        lines.append("<table><tr><th>PII Type</th><th>Count</th></tr>")
-        for ptype, count in sorted(by_type.items()):
-            lines.append(f"<tr><td class='label'>{ptype}</td><td>{count}</td></tr>")
+        lines.append("<div class='card'>")
+        lines.append("<h2>Entities by Category</h2>")
+        lines.append("<table><tr><th>Category</th><th style='text-align: right;'>Count</th></tr>")
+        for ptype, count in sorted(by_type.items(), key=lambda item: item[1], reverse=True):
+            lines.append(f"<tr><td><span class='badge'>{ptype}</span></td><td style='text-align: right; font-weight: 600;'>{count}</td></tr>")
         lines.append("</table>")
+        lines.append("</div>")
 
-    lines.append("<b>Original text:</b>")
-    lines.append(f"<div class='original'>{original_text}</div>")
-    lines.append("<b>Masked text:</b>")
-    lines.append(f"<div class='masked'>{masked_text}</div>")
-
-    # Mappings table
+    # Mappings table Card
     if pii_mappings:
-        lines.append("<b>Detected PII:</b>")
-        lines.append("<table><tr><th>Type</th><th>Original Value</th><th>Replaced With</th></tr>")
+        lines.append("<div class='card'>")
+        lines.append("<h2>Replacement Map</h2>")
+        lines.append("<table><tr><th>Replaced Value</th><th>Original Value</th></tr>")
         for m in pii_mappings:
-            original = m.get("original_value", m.get("original_value_encrypted", "")[:20] + "…")
-            lines.append(f"<tr><td class='label'>{m.get('pii_type')}</td><td>{original}</td><td>{m.get('masked_value')}</td></tr>")
+            original = m.get("original_value", m.get("original_value_encrypted", ""))
+            # Truncate if too long (optional)
+            if len(original) > 40:
+                original = original[:40] + "..."
+            lines.append(f"<tr><td><span class='highlight'>{m.get('masked_value')}</span></td><td>{original}</td></tr>")
         lines.append("</table>")
+        lines.append("</div>")
 
+    lines.append("</div>") # Close sidebar
+    lines.append("</div>") # Close content-wrapper
+    lines.append("</div>") # Close container
     lines.append("</body></html>")
 
     output_dir = Path(__file__).parent.parent.parent / "frontend" / "public" / "reports"

@@ -15,6 +15,16 @@ class CaseStatus(str, Enum):
     PENDING_REVIEW = "PENDING_REVIEW"
     NOTIFIED = "NOTIFIED"
     FAILED = "FAILED"
+    BLOCKED_SAFETY = "BLOCKED_SAFETY"
+    NEEDS_REVIEW_SAFETY = "NEEDS_REVIEW_SAFETY"
+
+
+class ContentSafetyResult(BaseModel):
+    hate_severity: int = 0
+    self_harm_severity: int = 0
+    sexual_severity: int = 0
+    violence_severity: int = 0
+
 
 
 class ClassificationCategory(str, Enum):
@@ -42,6 +52,7 @@ class CaseDocument(BaseModel):
     email_count: int = 1
     requires_human_review: bool = False
     summary: Optional[str] = None
+    content_safety_result: Optional[ContentSafetyResult] = None
 
 
 class CaseResponse(BaseModel):
@@ -57,6 +68,7 @@ class CaseResponse(BaseModel):
     email_count: int
     requires_human_review: bool
     summary: Optional[str] = None
+    content_safety_result: Optional[ContentSafetyResult] = None
 
 
 class CaseListResponse(BaseModel):

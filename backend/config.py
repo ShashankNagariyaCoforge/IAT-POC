@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Azure Document Intelligence (OCR - ACI)
     doc_intelligence_endpoint: Optional[str] = None
 
+    # Azure Content Safety
+    azure_content_safety_endpoint: Optional[str] = None
+    azure_content_safety_key: Optional[str] = None
+
     # Microsoft Graph API
     graph_auth_mode: str = "certificate"  # "certificate" or "secret"
     graph_client_id: Optional[str] = None
