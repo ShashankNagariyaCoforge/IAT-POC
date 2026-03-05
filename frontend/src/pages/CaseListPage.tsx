@@ -64,16 +64,38 @@ export default function CaseListPage() {
         setError(null);
         setSyncMessage(null);
         try {
+            // Fire sync request
             const response = await apiClient.post('/cases/sync');
             const data = response.data;
             setSyncMessage(data.message);
-            // Reload cases
-            await fetchCases();
+
+            // Keep polling until the case count has been stable for 2 checks (cases stopped loading)
+            let prevTotal = -1;
+            let stableCount = 0;
+
+            while (stableCount < 2) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const result = await casesApi.listCases(apiClient, {
+                    page, page_size: 50, sort_by: sortBy, sort_order: sortOrder,
+                    ...(search ? { search } : {}),
+                    ...(category ? { category } : {}),
+                    ...(status ? { status } : {}),
+                });
+                setCases(result.cases);
+                setTotal(result.total);
+                setTotalPages(result.total_pages);
+
+                if (result.total === prevTotal) {
+                    stableCount++;
+                } else {
+                    stableCount = 0;
+                    prevTotal = result.total;
+                }
+            }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to sync emails.');
         } finally {
             setIsSyncing(false);
-            // Hide success message after 5 seconds
             setTimeout(() => setSyncMessage(null), 5000);
         }
     };
