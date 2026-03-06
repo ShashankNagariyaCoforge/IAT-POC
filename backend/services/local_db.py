@@ -91,6 +91,17 @@ class LocalDBService:
         db.storage.flush()
         logger.info(f"[LocalDB] Successfully rolled back data for {case_id}")
 
+    async def update_case_safety(self, case_id: str, safety_result: dict) -> None:
+        """Update case with content safety scores."""
+        db = _get_db()
+        Case = Query()
+        db.table("cases").update(
+            {"content_safety_result": safety_result, "updated_at": datetime.utcnow().isoformat()},
+            Case.case_id == case_id
+        )
+        db.storage.flush()
+        logger.info(f"[LocalDB] Saved content safety result for case {case_id}")
+
     async def list_cases(
         self,
         page: int = 1,

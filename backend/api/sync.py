@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from config import settings
 from services.blob_storage import BlobStorageService
 from services.classifier import Classifier
+from services.content_safety import ContentSafetyService
 from services.email_fetcher import EmailFetcherService
 from utils.pii_report import generate_case_pii_report
 
@@ -49,6 +50,7 @@ async def sync_emails_from_blob():
 
     parser = DocumentParser()
     masker = PIIMasker()
+    safety_svc = ContentSafetyService()
 
     # ── Step 0: Fetch unread emails from inbox → upload to blob ───────────────
     emails_fetched = 0
@@ -185,6 +187,39 @@ async def sync_emails_from_blob():
                     container_client = await db_service._get_container("emails")
                     await container_client.upsert_item(email_dump)
 
+                # 5.5. Content Safety Check (mirrors pipeline.py Step 7b)
+                from models.case import CaseStatus
+                safety_result = await safety_svc.analyze_text(masked_text)
+                safety_flagged_for_review = False
+
+                if safety_result:
+                    # Save safety scores to DB immediately (same as pipeline.py)
+                    await db_service.update_case_safety(case_id, safety_result.model_dump())
+
+                    max_severity = max(
+                        safety_result.hate_severity,
+                        safety_result.self_harm_severity,
+                        safety_result.sexual_severity,
+                        safety_result.violence_severity,
+                    )
+
+                    if max_severity >= 4:  # High/Critical — block entirely (matches pipeline.py)
+                        logger.warning(
+                            f"[Sync] Case {case_id} BLOCKED by Content Safety "
+                            f"(max severity={max_severity}). Skipping classification."
+                        )
+                        await db_service.update_case_status(case_id, CaseStatus.BLOCKED_SAFETY)
+                        await blob_service.mark_as_processed(container, email_json_path)
+                        failure_count += 1
+                        continue  # skip to next folder
+                    elif max_severity >= 2:  # Medium — flag for human review (matches pipeline.py)
+                        logger.warning(
+                            f"[Sync] Case {case_id} flagged for review by Content Safety "
+                            f"(max severity={max_severity})."
+                        )
+                        await db_service.update_case_status(case_id, CaseStatus.NEEDS_REVIEW_SAFETY)
+                        safety_flagged_for_review = True
+
                 # 6. AI Classification
                 classification = await classifier.classify(masked_text)
                 
@@ -194,14 +229,25 @@ async def sync_emails_from_blob():
                 classification["classified_at"] = datetime.utcnow().isoformat()
                 
                 await db_service.save_classification_result(classification)
-                
-                await db_service.update_case_status(
-                    case_id,
-                    CaseStatus.PROCESSED,
-                    classification_category=classification["classification_category"],
-                    confidence_score=classification["confidence_score"],
-                    requires_human_review=classification["requires_human_review"]
-                )
+
+                # Only update to PROCESSED if content safety didn't already set a review status
+                if not safety_flagged_for_review:
+                    await db_service.update_case_status(
+                        case_id,
+                        CaseStatus.PROCESSED,
+                        classification_category=classification["classification_category"],
+                        confidence_score=classification["confidence_score"],
+                        requires_human_review=classification["requires_human_review"]
+                    )
+                else:
+                    # Keep NEEDS_REVIEW_SAFETY status but still save classification fields
+                    await db_service.update_case_status(
+                        case_id,
+                        CaseStatus.NEEDS_REVIEW_SAFETY,
+                        classification_category=classification["classification_category"],
+                        confidence_score=classification["confidence_score"],
+                        requires_human_review=True  # force review due to safety flag
+                    )
                 
                 # 7. Success! Tag the blob
                 await blob_service.mark_as_processed(container, email_json_path)
