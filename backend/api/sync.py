@@ -52,15 +52,31 @@ async def sync_emails_from_blob():
 
     # ── Step 0: Fetch unread emails from inbox → upload to blob ───────────────
     emails_fetched = 0
-    if settings.graph_client_id and settings.target_mailbox and settings.azure_storage_connection_string:
-        try:
-            fetcher = EmailFetcherService()
-            emails_fetched = await fetcher.fetch_and_upload()
-            logger.info(f"Step 0 complete: {emails_fetched} email(s) uploaded to blob storage.")
-        except Exception as e:
-            logger.warning(f"Step 0 (inbox fetch) failed — continuing with blob pipeline anyway: {e}")
-    else:
-        logger.info("Step 0 skipped: Graph API or blob storage not fully configured.")
+    missing = []
+    if not settings.graph_client_id or not settings.graph_tenant_id or not settings.graph_client_secret:
+        missing.append("GRAPH_CLIENT_ID / GRAPH_TENANT_ID / GRAPH_CLIENT_SECRET")
+    if not settings.target_mailbox:
+        missing.append("TARGET_MAILBOX")
+    if not settings.azure_storage_connection_string:
+        missing.append("AZURE_STORAGE_CONNECTION_STRING")
+
+    if missing:
+        logger.warning(f"Step 0 skipped — missing config: {', '.join(missing)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Email sync is not configured. Missing required settings: {', '.join(missing)}. "
+                   f"Please set these in your .env file and restart the server."
+        )
+
+    try:
+        fetcher = EmailFetcherService()
+        emails_fetched = await fetcher.fetch_and_upload()
+        logger.info(f"Step 0 complete: {emails_fetched} email(s) uploaded to blob storage.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Step 0 (inbox fetch) failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch emails from inbox: {e}")
 
     try:
         container = settings.blob_container_raw_emails

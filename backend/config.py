@@ -6,7 +6,8 @@ Uses pydantic-settings for validation and type safety.
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
+from pydantic.aliases import AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,7 +31,8 @@ class Settings(BaseSettings):
     # Azure Blob Storage
     azure_storage_account_url: Optional[str] = None
     azure_storage_connection_string: Optional[str] = None  # Added for ingest sync
-    blob_container_raw_emails: str = "iat_documents"  # default matching the ingest script
+    # Accepts both BLOB_CONTAINER_RAW_EMAILS (app convention) and BLOB_CONTAINER (standalone script)
+    blob_container_raw_emails: str = Field("iat_documents", validation_alias=AliasChoices('BLOB_CONTAINER_RAW_EMAILS', 'BLOB_CONTAINER'))
     blob_container_attachments: str = "raw-attachments"
     blob_container_extracted_text: str = "extracted-text"
 
@@ -48,14 +50,16 @@ class Settings(BaseSettings):
     azure_content_safety_key: Optional[str] = None
 
     # Microsoft Graph API
+    # Accepts both GRAPH_CLIENT_ID (app convention) and CLIENT_ID (standalone script)
     graph_auth_mode: str = "certificate"  # "certificate" or "secret"
-    graph_client_id: Optional[str] = None
-    graph_tenant_id: Optional[str] = None
-    graph_client_secret: Optional[str] = None  # Used when graph_auth_mode = "secret"
+    graph_client_id: Optional[str] = Field(None, validation_alias=AliasChoices('GRAPH_CLIENT_ID', 'CLIENT_ID'))
+    graph_tenant_id: Optional[str] = Field(None, validation_alias=AliasChoices('GRAPH_TENANT_ID', 'TENANT_ID'))
+    graph_client_secret: Optional[str] = Field(None, validation_alias=AliasChoices('GRAPH_CLIENT_SECRET', 'CLIENT_SECRET'))  # Used when graph_auth_mode = "secret"
     graph_cert_name: str = "graph-api-certificate"  # Used when graph_auth_mode = "certificate"
 
     # Mailbox routing
-    target_mailbox: Optional[str] = None
+    # Accepts both TARGET_MAILBOX (app convention) and USER_EMAIL (standalone script)
+    target_mailbox: Optional[str] = Field(None, validation_alias=AliasChoices('TARGET_MAILBOX', 'USER_EMAIL'))
     downstream_email: Optional[str] = None
     webhook_url: Optional[str] = None
 
