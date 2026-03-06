@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from config import settings
 from services.blob_storage import BlobStorageService
 from services.classifier import Classifier
+from services.email_fetcher import EmailFetcherService
 from utils.pii_report import generate_case_pii_report
 
 logger = logging.getLogger(__name__)
@@ -28,33 +29,49 @@ class SyncResult(BaseModel):
 @router.post("/cases/sync", response_model=SyncResult)
 async def sync_emails_from_blob():
     """
-    Scans Blob Storage for new `email.json` files that haven't been processed
-    (missing `is_processed=true` tag), downloads them, parses their details,
-    downloads attachments, and runs them through the main ingestion pipeline and AI.
+    Two-step sync:
+      Step 0 — Fetch unread emails from the configured mailbox (via Graph API)
+               and upload them + attachments to Azure Blob Storage.
+      Step 1 — Scan Blob Storage for unprocessed email.json folders, run them
+               through the PII masking and AI classification pipeline, and save
+               the results to the database.
     """
-    logger.info("Starting Blob Storage Email Sync...")
-    
+    logger.info("Starting Email Sync (Step 0: inbox fetch + Step 1: blob pipeline)...")
+
     blob_service = BlobStorageService()
     db_service = _get_db()
     classifier = Classifier()
-    
-    # Needs to be true pipeline since we're writing to cosmos. But pipeline expects a Graph API format.
-    # The external script json is very similar but we need to structure it into the DB correctly.
-    # To keep it atomic, we'll instantiate our own services.
+
     from services.document_parser import DocumentParser
     from services.pii_masker import PIIMasker
     import uuid
     from datetime import datetime
-    
+
     parser = DocumentParser()
     masker = PIIMasker()
-    
+
+    # ── Step 0: Fetch unread emails from inbox → upload to blob ───────────────
+    emails_fetched = 0
+    if settings.graph_client_id and settings.target_mailbox and settings.azure_storage_connection_string:
+        try:
+            fetcher = EmailFetcherService()
+            emails_fetched = await fetcher.fetch_and_upload()
+            logger.info(f"Step 0 complete: {emails_fetched} email(s) uploaded to blob storage.")
+        except Exception as e:
+            logger.warning(f"Step 0 (inbox fetch) failed — continuing with blob pipeline anyway: {e}")
+    else:
+        logger.info("Step 0 skipped: Graph API or blob storage not fully configured.")
+
     try:
         container = settings.blob_container_raw_emails
         unprocessed_folders = await blob_service.list_unprocessed_email_folders(container)
-        
+
         if not unprocessed_folders:
-            return SyncResult(new_cases_processed=0, failed=0, message="No new emails found.")
+            return SyncResult(
+                new_cases_processed=0,
+                failed=0,
+                message=f"Fetched {emails_fetched} new email(s) from inbox. No unprocessed folders found in blob storage."
+            )
             
         logger.info(f"Found {len(unprocessed_folders)} unprocessed email folders.")
         success_count = 0
