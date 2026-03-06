@@ -219,6 +219,10 @@ def _build_job_title_recognizer() -> PatternRecognizer:
 
 # ── PIIMasker ──────────────────────────────────────────────────────────────────
 
+# Max characters to send to spaCy NER at once (limit is 1,000,000 — we use 500K for safety)
+MAX_CHUNK_SIZE = 500_000
+
+
 class PIIMasker:
     """
     Detects and masks PII using Microsoft Presidio.
@@ -260,21 +264,61 @@ class PIIMasker:
     ) -> Tuple[str, List[Dict]]:
         """
         Mask all PII in the given text and return masked text with PII mapping records.
-
-        Args:
-            text: Original text containing potential PII.
-            case_id: Associated case ID (stored with mapping).
-            document_id: Associated document ID.
-
-        Returns:
-            Tuple of (masked_text, list_of_pii_mapping_dicts).
+        Automatically chunks text larger than MAX_CHUNK_SIZE to avoid spaCy's 1M char limit.
         """
         if not text.strip():
             return text, []
 
-        logger.info(f"Running PII analysis on {len(text)} characters for document {document_id}")
+        logger.info(f"[PIIMasker] Running PII analysis on {len(text):,} characters for document {document_id}")
 
-        # Analyze text for PII
+        if len(text) > MAX_CHUNK_SIZE:
+            return await self._mask_chunked(text, case_id, document_id)
+
+        return self._mask_chunk(text, case_id, document_id)
+
+    async def _mask_chunked(
+        self,
+        text: str,
+        case_id: str,
+        document_id: str,
+    ) -> Tuple[str, List[Dict]]:
+        """Split text into ~MAX_CHUNK_SIZE chunks (splitting on newlines) and mask each."""
+        chunks: List[str] = []
+        start = 0
+        while start < len(text):
+            end = start + MAX_CHUNK_SIZE
+            if end < len(text):
+                # Try to split on a newline so we don't cut mid-sentence
+                nl = text.rfind('\n', start, end)
+                if nl > start:
+                    end = nl + 1
+            chunks.append(text[start:end])
+            start = end
+
+        logger.info(
+            f"[PIIMasker] Text too large ({len(text):,} chars) — "
+            f"splitting into {len(chunks)} chunk(s) of up to {MAX_CHUNK_SIZE:,} chars each."
+        )
+
+        masked_parts: List[str] = []
+        all_mappings: List[Dict] = []
+
+        for i, chunk in enumerate(chunks, 1):
+            logger.info(f"[PIIMasker] Processing chunk {i}/{len(chunks)} ({len(chunk):,} chars)...")
+            masked_chunk, chunk_mappings = self._mask_chunk(chunk, case_id, document_id)
+            masked_parts.append(masked_chunk)
+            all_mappings.extend(chunk_mappings)
+
+        logger.info(f"[PIIMasker] All {len(chunks)} chunks processed. Total PII entities: {len(all_mappings)}.")
+        return "".join(masked_parts), all_mappings
+
+    def _mask_chunk(
+        self,
+        text: str,
+        case_id: str,
+        document_id: str,
+    ) -> Tuple[str, List[Dict]]:
+        """Mask PII in a single chunk of text (must be under MAX_CHUNK_SIZE)."""
         results = self._analyzer.analyze(
             text=text,
             entities=ALL_ENTITIES,
@@ -282,19 +326,16 @@ class PIIMasker:
         )
 
         if not results:
-            logger.info("No PII detected in document text.")
+            logger.info("[PIIMasker] No PII detected in chunk.")
             return text, []
 
-        logger.info(f"Detected {len(results)} PII entities.")
+        logger.info(f"[PIIMasker] Detected {len(results)} PII entities in chunk.")
 
-        pii_mappings = []
-        # Build operator config to replace each entity with typed placeholder
         operators = {}
         for result in results:
             placeholder = PLACEHOLDER_MAP.get(result.entity_type, "****")
             operators[result.entity_type] = OperatorConfig("replace", {"new_value": placeholder})
 
-        # Anonymize
         anonymized = self._anonymizer.anonymize(
             text=text,
             analyzer_results=results,
@@ -302,7 +343,7 @@ class PIIMasker:
         )
         masked_text = anonymized.text
 
-        # Build PII mapping records (original values encrypted)
+        pii_mappings = []
         for result in results:
             original_value = text[result.start:result.end]
             encrypted_value = self._encrypt(original_value)
@@ -317,7 +358,6 @@ class PIIMasker:
             }
             pii_mappings.append(mapping)
 
-        logger.info(f"PII masking complete. {len(pii_mappings)} values encrypted.")
         return masked_text, pii_mappings
 
     def _encrypt(self, plaintext: str) -> str:
