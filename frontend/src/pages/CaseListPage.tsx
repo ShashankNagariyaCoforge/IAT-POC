@@ -85,7 +85,12 @@ export default function CaseListPage() {
                 setTotal(result.total);
                 setTotalPages(result.total_pages);
 
-                if (result.total === prevTotal) {
+                // Still processing if: new cases being added OR any case hasn't been classified yet
+                const hasProcessingCases = result.cases.some(
+                    c => c.status === 'RECEIVED' || c.status === 'PROCESSING'
+                );
+
+                if (result.total === prevTotal && !hasProcessingCases) {
                     stableCount++;
                 } else {
                     stableCount = 0;
