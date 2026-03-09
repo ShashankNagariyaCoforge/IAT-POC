@@ -215,7 +215,7 @@ export default function CommandCenterPage() {
                                 <div className="space-y-8 max-w-3xl">
                                     {selectedDetails.emails.length > 0 && selectedDetails.emails[0] && (
                                         <div className="flex flex-col gap-6">
-                                            {(selectedDetails.emails[0].body || selectedDetails.emails[0].body_preview || '(No email content available)').split(/_+/g).map((threadPart: string, i: number) => (
+                                            {(selectedDetails.emails[0].body || selectedDetails.emails[0].body_preview || (selectedDetails.emails[0] as any).body_masked || '(No email content available)').split(/_+/g).map((threadPart: string, i: number) => (
                                                 <div key={i} className={`p-5 rounded-2xl text-[14px] leading-relaxed font-medium whitespace-pre-wrap ${i === 0 ? 'bg-white border border-slate-200 text-slate-800 shadow-sm' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
                                                     {threadPart.trim()}
                                                 </div>
@@ -262,9 +262,9 @@ export default function CommandCenterPage() {
 
             {/* RIGHT: AI ASSISTANT (w-96) */}
             {showAI && selectedCase && (
-                <div className="w-96 border-l border-slate-200 bg-white shrink-0 flex flex-col items-stretch">
-                    <div className="p-6">
-                        <div className="flex items-center justify-between mb-6">
+                <div className="w-96 border-l border-slate-200 bg-white shrink-0 flex flex-col h-screen overflow-y-auto custom-scrollbar">
+                    <div className="p-6 flex flex-col min-h-full">
+                        <div className="flex items-center justify-between mb-6 shrink-0">
                             <div className="flex items-center gap-2">
                                 <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
                                     <BrainCircuit size={20} />
@@ -277,24 +277,28 @@ export default function CommandCenterPage() {
                             </div>
                         </div>
 
-                        <AgentPipelinePanel
-                            caseId={selectedCase.case_id}
-                            compact
-                        />
+                        <div className="shrink-0 mb-8">
+                            <AgentPipelinePanel
+                                caseId={selectedCase.case_id}
+                                compact
+                            />
+                        </div>
 
-                        <button
-                            onClick={() => navigate(`/cases/${selectedCase.case_id}`)}
-                            className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2"
-                        >
-                            <Search size={16} />
-                            View Action Screen
-                        </button>
-                        <button
-                            className="w-full mt-3 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-red-600 font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2"
-                        >
-                            <Activity size={15} />
-                            Reset & Reprocess
-                        </button>
+                        <div className="mt-auto shrink-0 pt-6">
+                            <button
+                                onClick={() => navigate(`/cases/${selectedCase.case_id}`)}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                            >
+                                <Search size={16} />
+                                View Agent Action Screen
+                            </button>
+                            <button
+                                className="w-full mt-3 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-red-600 font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+                            >
+                                <Activity size={15} />
+                                Reset & Reprocess
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
