@@ -59,10 +59,11 @@ export interface Email {
     sender: string;
     recipients: string[];
     subject: string;
+    body_preview: string | null;
+    body: string;
     received_at: string;
     has_attachments: boolean;
     attachment_count: number;
-    body_preview: string | null;
 }
 
 export interface Document {
