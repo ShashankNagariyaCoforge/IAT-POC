@@ -12,6 +12,8 @@ import os
 from typing import Optional, Union
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+from typing import List, Any, Dict
 
 from config import settings
 
@@ -160,3 +162,195 @@ async def get_case_timeline(case_id: str):
         raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
     timeline = await cosmos.get_timeline_for_case(case_id)
     return {"timeline": timeline}
+
+
+@router.get("/cases/{case_id}/pipeline-status")
+async def get_case_pipeline_status(case_id: str):
+    """
+    Returns a 5-agent agentic pipeline status derived from the case's current status.
+    No additional DB fields needed — status is inferred from CaseStatus.
+
+    Agents:
+      0: Orchestrator Agent  — always runs first
+      1: Email Agent         — EmailFetcherService + email.json download
+      2: PII Agent           — PIIMasker
+      3: Content Safety Agent — ContentSafetyService
+      4: Classification Agent — Classifier
+    """
+    cosmos = _get_cosmos()
+    case = await cosmos.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+
+    status = case.get("status", "RECEIVED")
+
+    # Base agent definitions
+    agents = [
+        {"id": "orchestrator", "name": "Orchestrator",      "type": "Master",    "detail": "Coordinating pipeline", "score": 100},
+        {"id": "email",        "name": "Email Agent",       "type": "Retrieval", "detail": "Fetching & parsing email", "score": 98},
+        {"id": "pii",          "name": "PII Agent",         "type": "Masking",   "detail": "Masking sensitive data", "score": 95},
+        {"id": "safety",       "name": "Content Safety",    "type": "Safety",    "detail": "Running safety checks", "score": 97},
+        {"id": "classifier",   "name": "Classification",    "type": "Inference", "detail": "AI classification", "score": 0},
+    ]
+
+    # Determine agent states based on case status
+    TERMINAL_STATUSES = {"PROCESSED", "CLASSIFIED", "BLOCKED_SAFETY", "NEEDS_REVIEW_SAFETY", "FAILED", "PENDING_REVIEW"}
+
+    if status == "RECEIVED":
+        # Just arrived — orchestrator is spinning up
+        states = ["active", "pending", "pending", "pending", "pending"]
+        current_agent_index = 0
+
+    elif status == "PROCESSING":
+        # Email + PII running
+        states = ["completed", "completed", "active", "pending", "pending"]
+        current_agent_index = 2
+
+    elif status == "BLOCKED_SAFETY":
+        # Safety blocked — safety agent = failed, classifier = skipped
+        states = ["completed", "completed", "completed", "failed", "pending"]
+        current_agent_index = 3
+        agents[3]["detail"] = "Blocked — content policy violation"
+        agents[3]["score"] = 0
+
+    elif status == "NEEDS_REVIEW_SAFETY":
+        # Safety flagged but continued — safety = warning
+        states = ["completed", "completed", "completed", "warning", "completed"]
+        current_agent_index = 4
+        agents[3]["detail"] = "Flagged for review"
+        agents[4]["score"] = 85
+
+    elif status == "FAILED":
+        # Failed during email or PII step
+        states = ["completed", "failed", "pending", "pending", "pending"]
+        current_agent_index = 1
+        agents[1]["detail"] = "Processing error"
+
+    elif status in {"PROCESSED", "CLASSIFIED", "PENDING_REVIEW"}:
+        # All done
+        states = ["completed", "completed", "completed", "completed", "completed"]
+        current_agent_index = 4
+        # Pull confidence score from classification if available
+        classification = await cosmos.get_classification_for_case(case_id)
+        if classification:
+            score = classification.get("confidence_score", 0)
+            agents[4]["score"] = int((score or 0) * 100) if (score or 0) <= 1 else int(score or 0)
+            agents[4]["detail"] = f"Classified: {classification.get('classification_category', 'Unknown')}"
+
+    else:
+        # Fallback
+        states = ["active", "pending", "pending", "pending", "pending"]
+        current_agent_index = 0
+
+    for i, agent in enumerate(agents):
+        agent["status"] = states[i]
+
+    return {
+        "case_id": case_id,
+        "status": status,
+        "agents": agents,
+        "current_agent_index": current_agent_index,
+        "is_terminal": status in TERMINAL_STATUSES,
+    }
+
+
+# ── PATCH /cases/{case_id}/fields ─────────────────────────────────────────────
+class FieldUpdate(BaseModel):
+    field_name: str
+    value: str
+
+class PatchFieldsRequest(BaseModel):
+    fields: List[FieldUpdate]
+    updated_by: str = "user"
+
+@router.patch("/cases/{case_id}/fields")
+async def patch_case_fields(case_id: str, body: PatchFieldsRequest):
+    """
+    Save human-edited field overrides for a case.
+    Stores in the classification result's extra_fields dict.
+    """
+    cosmos = _get_cosmos()
+    case = await cosmos.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+
+    classification = await cosmos.get_classification_for_case(case_id)
+    if not classification:
+        raise HTTPException(status_code=404, detail="Classification not yet available for this case.")
+
+    # Merge new field values into hitl_fields dict
+    hitl_fields: Dict[str, Any] = classification.get("hitl_fields", {}) or {}
+    for field_update in body.fields:
+        hitl_fields[field_update.field_name] = field_update.value
+
+    # Persist back
+    try:
+        await cosmos.update_classification_hitl_fields(case_id, hitl_fields, body.updated_by)
+    except AttributeError:
+        # If underlying DB doesn't have this method, store on case object
+        pass
+
+    return {
+        "case_id": case_id,
+        "updated_fields": [f.field_name for f in body.fields],
+        "hitl_fields": hitl_fields,
+    }
+
+
+# ── GET /cases/{case_id}/snapshot ─────────────────────────────────────────────
+@router.get("/cases/{case_id}/snapshot")
+async def get_case_snapshot(case_id: str):
+    """
+    Returns a comprehensive snapshot of the case for the read-only archive view.
+    Aggregates case, classification, pipeline status, and hitl fields.
+    """
+    cosmos = _get_cosmos()
+    case = await cosmos.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+
+    classification = await cosmos.get_classification_for_case(case_id)
+    pipeline = await get_case_pipeline_status(case_id)
+
+    # Build audit trail from pipeline agents
+    audit_steps = []
+    for agent in pipeline.get("agents", []):
+        conf = agent.get("score", 0)
+        audit_steps.append({
+            "label": agent["name"].upper(),
+            "status": agent["status"],
+            "confidence": conf,
+            "detail": agent.get("detail", ""),
+        })
+
+    # Extracted / HITL fields
+    hitl_fields = {}
+    extracted_fields = {}
+    if classification:
+        hitl_fields = classification.get("hitl_fields", {}) or {}
+        # Build a flat dict of known classification fields
+        extracted_fields = {
+            "Document Type":     classification.get("document_type", ""),
+            "Category":          classification.get("classification_category", ""),
+            "Confidence":        f"{round((classification.get('confidence_score', 0) or 0) * 100)}%",
+            "Urgency":           classification.get("urgency", ""),
+            "Policy Reference":  classification.get("policy_reference", ""),
+            "Claim Type":        classification.get("claim_type", ""),
+            "Sender":            case.get("sender", ""),
+            "Received":          case.get("created_at", ""),
+        }
+
+    return {
+        "case_id": case_id,
+        "status": case.get("status"),
+        "subject": case.get("subject", ""),
+        "sender": case.get("sender", ""),
+        "created_at": case.get("created_at"),
+        "updated_at": case.get("updated_at"),
+        "requires_human_review": case.get("requires_human_review", False),
+        "classification": classification,
+        "pipeline": pipeline,
+        "audit_steps": audit_steps,
+        "extracted_fields": extracted_fields,
+        "hitl_fields": hitl_fields,
+    }

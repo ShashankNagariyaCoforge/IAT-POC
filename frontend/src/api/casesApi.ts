@@ -14,6 +14,7 @@ import type {
     ClassificationResult,
     TimelineEvent,
     Stats,
+    PipelineStatus,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -86,4 +87,7 @@ export const casesApi = {
 
     getStats: (client: AxiosInstance) =>
         client.get<Stats>('/stats').then((r) => r.data),
+
+    getPipelineStatus: (client: AxiosInstance, caseId: string) =>
+        client.get<PipelineStatus>(`/cases/${caseId}/pipeline-status`).then((r) => r.data),
 };

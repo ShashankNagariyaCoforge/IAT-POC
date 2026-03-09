@@ -1,11 +1,18 @@
-
 import { useState } from 'react';
-import { PublicClientApplication } from '@azure/msal-browser';
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { PublicClientApplication, InteractionStatus } from '@azure/msal-browser';
+import { MsalProvider, useMsal } from '@azure/msal-react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { msalConfig, loginRequest } from './auth/msalConfig';
-import CaseListPage from './pages/CaseListPage';
-import CaseDetailPage from './pages/CaseDetailPage';
+
+// Pages
+import CommandCenterPage from './pages/CommandCenterPage';
+import CaseActionScreen from './pages/CaseActionScreen';
+import CaseSnapshotPage from './pages/CaseSnapshotPage';
+
+// Contexts
+import { PipelineProvider } from './contexts/PipelineContext';
+
+import { Mail, Fingerprint, ShieldCheck, BrainCircuit, ArrowRight, Lock, Activity, Loader2 } from 'lucide-react';
 import './index.css';
 
 // ─── Dev bypass ─────────────────────────────────────────────────────────────
@@ -14,123 +21,199 @@ const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
-function LoginPage({ onDevMode }: { onDevMode: () => void }) {
-  const { instance } = useMsal();
+function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () => void }) {
+  const features = [
+    { icon: <Mail size={15} />, text: 'Email Agent — Automatic intake & parsing' },
+    { icon: <Fingerprint size={15} />, text: 'PII Agent — Real-time data masking' },
+    { icon: <ShieldCheck size={15} />, text: 'Content Safety Agent — Policy compliance' },
+    { icon: <BrainCircuit size={15} />, text: 'Classification Agent — AI-driven triage' },
+  ];
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#F4F6F8' }}>
-      {/* Top utility bar matching IAT website */}
-      <div style={{ background: '#1E3E5C', padding: '8px 32px', display: 'flex', justifyContent: 'flex-end', gap: '24px' }}>
-        <span style={{ color: '#cdd8e2', fontSize: '12px' }}>Agent &amp; Brokers</span>
-        <span style={{ color: '#cdd8e2', fontSize: '12px' }}>Contact Us</span>
-      </div>
+    <div style={{
+      minHeight: '100vh', background: '#f8fafc',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+    }}>
+      {/* Card */}
+      <div style={{
+        width: '100%', maxWidth: '1000px',
+        display: 'grid', gridTemplateColumns: '1fr 1fr',
+        background: '#ffffff', borderRadius: '40px',
+        overflow: 'hidden',
+        boxShadow: '0 40px 80px -20px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)',
+      }}>
 
-      {/* Main navbar */}
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #D1D9E0', padding: '12px 32px' }}>
-        <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
-      </div>
-
-      {/* Login card */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 16px' }}>
+        {/* ── Left dark panel ── */}
         <div style={{
-          background: '#ffffff',
-          border: '1px solid #D1D9E0',
-          borderRadius: '8px',
-          padding: '48px 40px',
-          width: '100%',
-          maxWidth: '420px',
-          textAlign: 'center',
-          boxShadow: '0 4px 24px rgba(0,38,62,0.08)',
+          background: 'linear-gradient(160deg, #0f172a 60%, #1e1b4b)',
+          padding: '52px 48px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          position: 'relative', overflow: 'hidden',
         }}>
-          <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '52px', width: 'auto', objectFit: 'contain', marginBottom: '24px' }} />
-          <h1 style={{ color: '#00263E', fontSize: '22px', fontWeight: 700, margin: '0 0 6px 0' }}>AI Email Automation</h1>
-          <p style={{ color: '#5a7184', fontSize: '14px', margin: '0 0 28px 0' }}>Sign in with your organisation account to access the case management portal.</p>
-          <button
-            onClick={() => instance.loginRedirect(loginRequest)}
-            style={{
-              width: '100%',
-              background: '#00467F',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '13px 24px',
-              fontSize: '15px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              transition: 'background 0.2s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#005099')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#00467F')}
-          >
-            <svg style={{ width: '18px', height: '18px' }} viewBox="0 0 21 21" fill="none">
-              <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-              <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-              <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-              <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-            </svg>
-            Sign in with Microsoft
-          </button>
+          {/* Ambient blobs */}
+          <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', background: 'rgba(79,70,229,0.18)', borderRadius: '50%', filter: 'blur(80px)' }} />
+          <div style={{ position: 'absolute', bottom: '-40px', left: '-40px', width: '180px', height: '180px', background: 'rgba(30,64,175,0.15)', borderRadius: '50%', filter: 'blur(80px)' }} />
 
-          <button
-            onClick={onDevMode}
-            style={{
-              width: '100%',
-              background: 'transparent',
-              color: '#5a7184',
-              border: '1px solid #D1D9E0',
-              borderRadius: '6px',
-              padding: '13px 24px',
-              fontSize: '15px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              marginTop: '12px',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F4F6F8'; e.currentTarget.style.color = '#00263E'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#5a7184'; }}
-          >
-            Developer Mode Bypass
-          </button>
+          {/* Top section */}
+          <div style={{ position: 'relative' }}>
+            {/* Logo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
+              <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '36px', filter: 'brightness(0) invert(1)', opacity: 0.9 }} />
+            </div>
 
-          <p style={{ color: '#8fa1b0', fontSize: '11px', marginTop: '20px' }}>Secured by Azure Active Directory</p>
+            <h2 style={{
+              color: '#ffffff', fontSize: '32px', fontWeight: 900,
+              margin: '0 0 14px 0', lineHeight: 1.15, letterSpacing: '-0.02em',
+            }}>
+              AI-Powered<br />Underwriting<br />Command Center.
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px', margin: '0 0 32px 0', lineHeight: 1.6, fontWeight: 400 }}>
+              Access your agentic intake pipeline. Five specialized AI agents process
+              every submission with neural-precision.
+            </p>
+
+            {/* Feature list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {features.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '30px', height: '30px', borderRadius: '8px',
+                    background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#818cf8', flexShrink: 0,
+                  }}>{f.icon}</div>
+                  <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', fontWeight: 500 }}>{f.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom section */}
+          <div style={{ position: 'relative', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '14px', padding: '14px 18px', marginBottom: '16px',
+            }}>
+              <p style={{ margin: '0 0 4px 0', fontSize: '9px', fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Live System Status</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontWeight: 500 }}>All 5 agents operational</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Lock size={12} style={{ color: 'rgba(255,255,255,0.3)' }} />
+              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>End-to-end encrypted · SOC-2 compliant</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Footer bar */}
-      <div style={{ background: '#00263E', padding: '12px 32px', textAlign: 'center' }}>
-        <span style={{ color: '#7a9bb0', fontSize: '12px' }}>© IAT Insurance Group. All rights reserved.</span>
+        {/* ── Right white form panel ── */}
+        <div style={{ padding: '52px 52px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ maxWidth: '360px', margin: '0 auto', width: '100%' }}>
+            <div style={{ marginBottom: '36px' }}>
+              <h3 style={{ color: '#0f172a', fontSize: '26px', fontWeight: 900, margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+                Sign In
+              </h3>
+              <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0, fontWeight: 500 }}>
+                Authenticate with your organisation account
+              </p>
+            </div>
+
+            {/* Microsoft SSO button */}
+            <button
+              onClick={onLogin}
+              style={{
+                width: '100%', background: '#0f172a', color: '#ffffff', border: 'none',
+                borderRadius: '14px', padding: '15px 20px', fontSize: '14px', fontWeight: 700,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: '10px', marginBottom: '12px', letterSpacing: '0.01em',
+                boxShadow: '0 8px 24px rgba(15,23,42,0.18)',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#0f172a')}
+            >
+              <svg style={{ width: '18px', height: '18px', flexShrink: 0 }} viewBox="0 0 21 21" fill="none">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
+              Sign in with Microsoft
+              <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
+            </button>
+
+            {/* Dev bypass button */}
+            <button
+              onClick={onDevMode}
+              style={{
+                width: '100%', background: 'transparent', color: '#64748b',
+                border: '1.5px solid #e2e8f0', borderRadius: '14px', padding: '14px 20px',
+                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              Developer Mode Bypass
+            </button>
+
+            {/* Security notice */}
+            <div style={{
+              marginTop: '28px', padding: '14px 18px',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px',
+            }}>
+              <Activity size={15} style={{ color: '#d97706', flexShrink: 0, marginTop: '1px' }} />
+              <div>
+                <p style={{ margin: '0 0 2px 0', fontSize: '9px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Security Notice</p>
+                <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.5, fontWeight: 500 }}>
+                  Authorised underwriting staff only. All activity is monitored per compliance protocol.
+                </p>
+              </div>
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: '11px', marginTop: '20px', textAlign: 'center' }}>
+              Secured by Azure Active Directory
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function AppRoutes() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<CaseListPage />} />
-        <Route path="/cases/:caseId" element={<CaseDetailPage />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+function AuthenticatedApp({ onDevMode, useDevBypass }: { onDevMode: () => void, useDevBypass: boolean }) {
+  const { instance, accounts, inProgress } = useMsal();
+  const isAuthenticated = accounts.length > 0;
 
-function AppRoutesWithAuth({ onDevMode }: { onDevMode: () => void }) {
+  if (inProgress === InteractionStatus.Login || inProgress === InteractionStatus.HandleRedirect) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4 text-gray-500">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm font-medium">Signing in via Azure AD...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (inProgress === InteractionStatus.None && !isAuthenticated && !useDevBypass) {
+    return <LoginView onLogin={() => instance.loginRedirect(loginRequest)} onDevMode={onDevMode} />;
+  }
+
   return (
-    <BrowserRouter>
-      <AuthenticatedTemplate>
+    <PipelineProvider>
+      <div className="min-h-screen bg-gray-50 pb-8">
         <Routes>
-          <Route path="/" element={<CaseListPage />} />
-          <Route path="/cases/:caseId" element={<CaseDetailPage />} />
+          <Route path="/" element={<CommandCenterPage />} />
+          <Route path="/cases/:caseId" element={<CaseActionScreen />} />
+          <Route path="/cases/:caseId/snapshot" element={<CaseSnapshotPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthenticatedTemplate>
-      <UnauthenticatedTemplate>
-        <LoginPage onDevMode={onDevMode} />
-      </UnauthenticatedTemplate>
-    </BrowserRouter>
+      </div>
+    </PipelineProvider>
   );
 }
 
@@ -144,12 +227,11 @@ export default function App() {
     setUseDevBypass(true);
   };
 
-  if (useDevBypass) {
-    return <AppRoutes />;
-  }
   return (
     <MsalProvider instance={msalInstance}>
-      <AppRoutesWithAuth onDevMode={handleDevMode} />
+      <BrowserRouter>
+        <AuthenticatedApp onDevMode={handleDevMode} useDevBypass={useDevBypass} />
+      </BrowserRouter>
     </MsalProvider>
   );
 }
