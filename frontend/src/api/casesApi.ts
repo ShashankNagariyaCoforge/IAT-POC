@@ -90,4 +90,7 @@ export const casesApi = {
 
     getPipelineStatus: (client: AxiosInstance, caseId: string) =>
         client.get<PipelineStatus>(`/cases/${caseId}/pipeline-status`).then((r) => r.data),
+
+    getDashboardMetrics: (client: AxiosInstance) =>
+        client.get<any>('/cases/dashboard-metrics').then((r) => r.data),
 };
