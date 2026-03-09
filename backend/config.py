@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     webhook_subscription_renewal_hours: int = 48
     classification_confidence_threshold: float = 0.75
     cases_per_page: int = 50
+    email_poll_interval_seconds: int = 10  # How often auto-polling checks for new emails
 
     # CORS origins (comma-separated, or * for dev)
     _allowed_origins_raw: str = "*"

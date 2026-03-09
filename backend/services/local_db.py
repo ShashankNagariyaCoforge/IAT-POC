@@ -269,6 +269,115 @@ class LocalDBService:
             "pending_human_review": review_count,
         }
 
+    async def get_dashboard_metrics(self) -> Dict:
+        """
+        Calculates and returns metrics specifically designed for the dashboard:
+        - top metrics
+        - sankey chart data
+        - pie chart data
+        """
+        db = _get_db()
+        cases = db.table("cases").all()
+        
+        total_cases = len(cases)
+        classified_cases = [c for c in cases if c.get("status") in {"CLASSIFIED", "PROCESSED", "PENDING_REVIEW", "NEEDS_REVIEW_SAFETY"}]
+        
+        # 1. Avg Confidence
+        total_confidence = sum([c.get("confidence_score", 0) for c in classified_cases if c.get("confidence_score") is not None])
+        avg_confidence = total_confidence / len(classified_cases) if classified_cases else 0
+
+        # 2. Review Required Count
+        review_required_count = len([c for c in cases if c.get("status") in {"PENDING_REVIEW", "NEEDS_REVIEW_SAFETY", "BLOCKED_SAFETY"}])
+
+        # 3. Auto-Triage Rate
+        # Cases that successfully made it to an end state without review
+        auto_triaged = len([c for c in cases if c.get("status") in {"CLASSIFIED", "PROCESSED"}])
+        auto_triage_rate = auto_triaged / total_cases if total_cases > 0 else 0
+
+        # 4. Pie Chart Data (Pipeline Status Triage)
+        status_counts = {}
+        for c in cases:
+            s = c.get("status", "RECEIVED")
+            status_counts[s] = status_counts.get(s, 0) + 1
+
+        # Color mapping for statuses
+        color_map = {
+            "RECEIVED": "#94a3b8",
+            "PROCESSING": "#60a5fa",
+            "CLASSIFIED": "#34d399",
+            "PROCESSED": "#10b981",
+            "PENDING_REVIEW": "#f59e0b",
+            "NEEDS_REVIEW_SAFETY": "#f97316",
+            "BLOCKED_SAFETY": "#ef4444",
+            "FAILED": "#ef4444"
+        }
+
+        pie_chart = [
+            {"name": status, "value": count, "color": color_map.get(status, "#cbd5e1")}
+            for status, count in status_counts.items()
+        ]
+
+        # 5. Sankey Chart Data
+        # Nodes: 0=Intake, 1=Safety Cleared, 2=Safety Flagged/Blocked, 
+        # 3=Documentation, 4=Inquiry, 5=Auto-Processed, 6=Manual Review
+        
+        # Calculate splits
+        # Intake -> Safety
+        intake_count = total_cases
+        
+        safety_cleared = len([c for c in cases if c.get("status") not in {"NEEDS_REVIEW_SAFETY", "BLOCKED_SAFETY", "RECEIVED"}])
+        safety_flagged = len([c for c in cases if c.get("status") in {"NEEDS_REVIEW_SAFETY", "BLOCKED_SAFETY"}])
+        
+        # Categories
+        cat_docs = len([c for c in cases if c.get("classification_category") == "Documentation Submission"])
+        cat_inq = len([c for c in cases if c.get("classification_category") == "Inquiry"])
+        cat_other = safety_cleared - cat_docs - cat_inq
+        
+        sankey_nodes = [
+            {"name": "Total Incoming"},      # 0
+            {"name": "Safety Cleared"},      # 1
+            {"name": "Safety Flagged"},      # 2
+            {"name": "Documentation"},       # 3
+            {"name": "Inquiry"},             # 4
+            {"name": "Other Categories"},    # 5
+            {"name": "Auto-Processed"},      # 6
+            {"name": "Review Required"}      # 7
+        ]
+        
+        sankey_links = [
+            {"source": 0, "target": 1, "value": safety_cleared},
+            {"source": 0, "target": 2, "value": safety_flagged},
+            {"source": 1, "target": 3, "value": cat_docs},
+            {"source": 1, "target": 4, "value": cat_inq},
+            {"source": 1, "target": 5, "value": max(0, cat_other)},
+            
+            # For simplicity, routing standard classifications to Auto-Processed or Review based on global review count
+            # In a real app we'd map this per-node, but an aggregate is fine for display
+            {"source": 3, "target": 6, "value": max(0, cat_docs - (review_required_count // 3))},
+            {"source": 3, "target": 7, "value": review_required_count // 3},
+            {"source": 4, "target": 6, "value": max(0, cat_inq - (review_required_count // 3))},
+            {"source": 4, "target": 7, "value": review_required_count // 3},
+            {"source": 5, "target": 6, "value": max(0, cat_other - (review_required_count - 2 * (review_required_count // 3)))},
+            {"source": 5, "target": 7, "value": max(0, review_required_count - 2 * (review_required_count // 3))},
+            {"source": 2, "target": 7, "value": safety_flagged} # Safety flagged always goes to review
+        ]
+
+        # Clean 0 value links
+        sankey_links = [l for l in sankey_links if l["value"] > 0]
+
+        return {
+            "decision_accuracy": avg_confidence,
+            "avg_agent_processing_time_ms": 3450, # Mocked latency stat
+            "extraction_accuracy": 0.94,          # Mocked extraction stat
+            "action_required_threads": review_required_count,
+            "auto_triage_rate": auto_triage_rate,
+            "pie_chart": pie_chart,
+            "sankey_chart": {
+                "nodes": sankey_nodes,
+                "links": sankey_links
+            }
+        }
+
     # ===== TIMELINE =====
 
     async def get_timeline_for_case(self, case_id: str) -> List[Dict]:

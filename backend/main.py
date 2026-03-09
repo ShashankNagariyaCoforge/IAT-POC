@@ -18,6 +18,7 @@ from api.health import router as health_router
 from middleware.auth import JWTAuthMiddleware
 from services.cosmos_db import CosmosDBService
 from services.graph_client import GraphClient
+from services.email_poller import start_email_poll_loop
 from utils.logging import setup_logging
 
 # Setup structured JSON logging
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting IAT Insurance Email Automation Platform...")
 
     renewal_task = None
+    poll_task = None
 
     if settings.demo_mode:
         # ── Demo Mode: skip all cloud service initialization ──────────────
@@ -55,19 +57,25 @@ async def lifespan(app: FastAPI):
             if not settings.graph_client_id or not settings.graph_tenant_id:
                 logger.warning(
                     "GRAPH_CLIENT_ID / GRAPH_TENANT_ID not configured — "
-                    "Microsoft Graph webhook subscription will be unavailable. "
-                    "Set these in your .env file."
+                    "Microsoft Graph webhook subscription will be unavailable."
                 )
             else:
                 graph = GraphClient()
                 await graph.ensure_webhook_subscription()
                 logger.info("Graph API webhook subscription active.")
-
-                # Schedule background subscription renewal
                 renewal_task = asyncio.create_task(_renew_subscription_loop(graph))
                 app.state.renewal_task = renewal_task
         except Exception as e:
             logger.warning(f"Graph webhook setup skipped: {e}")
+
+    # ── Auto Email Polling (always start — gracefully skips if creds missing) ──
+    poll_task = asyncio.create_task(
+        start_email_poll_loop(interval_seconds=settings.email_poll_interval_seconds)
+    )
+    app.state.poll_task = poll_task
+    logger.info(
+        f"📧 Email auto-poller started — interval: {settings.email_poll_interval_seconds}s"
+    )
 
     logger.info("Application startup complete.")
     yield
@@ -76,6 +84,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
     if renewal_task is not None:
         renewal_task.cancel()
+    if poll_task is not None:
+        poll_task.cancel()
+        logger.info("Email auto-poller stopped.")
 
 
 async def _renew_subscription_loop(graph: GraphClient):

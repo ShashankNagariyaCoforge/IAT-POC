@@ -63,6 +63,19 @@ async def list_cases(
     )
     return result
 
+@router.get("/cases/dashboard-metrics")
+async def get_dashboard_metrics():
+    """Returns aggregated metrics for the dashboard view."""
+    if settings.demo_mode:
+        from services.local_db import LocalDBService
+        db = LocalDBService()
+    else:
+        from services.cosmos_db import CosmosDBService
+        db = CosmosDBService()
+        
+    metrics = await db.get_dashboard_metrics()
+    return metrics
+
 
 @router.get("/cases/{case_id}")
 async def get_case(case_id: str):
@@ -148,7 +161,6 @@ async def get_case_classification(case_id: str):
     if not result:
         return {"classification": None, "message": "Classification not yet available."}
     return {"classification": result}
-
 
 @router.get("/cases/{case_id}/timeline")
 async def get_case_timeline(case_id: str):
