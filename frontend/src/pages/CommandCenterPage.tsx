@@ -215,13 +215,10 @@ export default function CommandCenterPage() {
                                 <div className="space-y-8 max-w-3xl">
                                     {selectedDetails.emails.length > 0 && selectedDetails.emails[0] && (
                                         <div className="flex flex-col gap-6">
-                                            {(selectedDetails.emails[0].body || selectedDetails.emails[0].body_preview || (selectedDetails.emails[0] as any).body_masked || '(No email content available)').split(/_+/g).map((threadPart: string, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    className={`p-5 rounded-2xl text-[14px] leading-relaxed font-medium ${i === 0 ? 'bg-white border border-slate-200 text-slate-800 shadow-sm' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
-                                                    dangerouslySetInnerHTML={{ __html: threadPart.trim() }}
-                                                />
-                                            ))}
+                                            <div
+                                                className="p-5 rounded-2xl text-[14px] leading-relaxed font-medium bg-white border border-slate-200 text-slate-800 shadow-sm"
+                                                dangerouslySetInnerHTML={{ __html: (selectedDetails.emails[0].body || selectedDetails.emails[0].body_preview || (selectedDetails.emails[0] as any).body_masked || '(No email content available)') }}
+                                            />
                                         </div>
                                     )}
 
