@@ -1,122 +1,98 @@
 import { useEffect, useRef, useState } from 'react';
 import {
     Network, Mail, Fingerprint, ShieldCheck, BrainCircuit,
-    CheckCircle2, XCircle, AlertTriangle, Loader2,
+    CheckCircle2, XCircle, Loader2,
 } from 'lucide-react';
-import { createApiClient } from '../api/casesApi';
-import { casesApi } from '../api/casesApi';
+import { createApiClient, casesApi } from '../api/casesApi';
 import { useMsal } from '@azure/msal-react';
 import type { AgentStatus, PipelineStatus } from '../types';
+import { formatDistanceToNow } from 'date-fns';
 
 const AGENT_ICONS: Record<string, React.ReactNode> = {
-    orchestrator: <Network size={22} />,
-    email: <Mail size={22} />,
-    pii: <Fingerprint size={22} />,
-    safety: <ShieldCheck size={22} />,
-    classifier: <BrainCircuit size={22} />,
+    orchestrator: <Network size={16} />,
+    email: <Mail size={16} />,
+    pii: <Fingerprint size={16} />,
+    safety: <ShieldCheck size={16} />,
+    classifier: <BrainCircuit size={16} />,
 };
 
-const STATUS_COLORS = {
-    pending: { bg: '#f1f5f9', border: '#e2e8f0', icon: '#cbd5e1', text: '#94a3b8' },
-    active: { bg: '#eef2ff', border: '#818cf8', icon: '#4f46e5', text: '#4f46e5' },
-    completed: { bg: '#ecfdf5', border: '#6ee7b7', icon: '#059669', text: '#059669' },
-    failed: { bg: '#fff1f2', border: '#fda4af', icon: '#e11d48', text: '#e11d48' },
-    warning: { bg: '#fffbeb', border: '#fcd34d', icon: '#d97706', text: '#d97706' },
-};
+function VerticalAgentCard({ agent, isActive, isLast }: { agent: AgentStatus; isActive: boolean; isLast: boolean }) {
+    const isCompleted = agent.status === 'completed';
+    const isFailed = agent.status === 'failed';
+    const isWarning = agent.status === 'warning';
+    const isPending = agent.status === 'pending';
 
-function AgentStatusIcon({ status }: { status: string }) {
-    if (status === 'active') return <Loader2 size={14} className="animate-spin" style={{ color: '#4f46e5' }} />;
-    if (status === 'completed') return <CheckCircle2 size={14} style={{ color: '#059669' }} />;
-    if (status === 'failed') return <XCircle size={14} style={{ color: '#e11d48' }} />;
-    if (status === 'warning') return <AlertTriangle size={14} style={{ color: '#d97706' }} />;
-    return null;
-}
-
-interface AgentCardProps {
-    agent: AgentStatus;
-    isActive: boolean;
-}
-
-function AgentCard({ agent, isActive }: AgentCardProps) {
-    const colors = STATUS_COLORS[agent.status] ?? STATUS_COLORS.pending;
+    let iconBoxClass = "border-slate-300 text-slate-400";
+    if (isCompleted) iconBoxClass = "border-indigo-500 text-indigo-500 shadow-md shadow-indigo-500/50";
+    else if (isActive) iconBoxClass = "border-cyan-500 text-cyan-500 shadow-md shadow-cyan-500/40 ring-1 ring-cyan-500";
+    else if (isWarning) iconBoxClass = "border-amber-500 text-amber-500 shadow-md shadow-amber-500/50";
+    else if (isFailed) iconBoxClass = "border-red-500 text-red-500 shadow-md shadow-red-500/40 ring-1 ring-red-500";
 
     return (
-        <div style={{
-            background: '#ffffff',
-            border: `1.5px solid ${isActive ? '#4f46e5' : colors.border}`,
-            borderRadius: '20px',
-            padding: '20px',
-            flex: 1,
-            minWidth: 0,
-            boxShadow: isActive ? '0 8px 24px rgba(79,70,229,0.15)' : '0 1px 4px rgba(0,0,0,0.04)',
-            transition: 'all 0.4s ease',
-            position: 'relative',
-            overflow: 'hidden',
-        }}>
-            {/* Active pulse background */}
-            {isActive && (
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'linear-gradient(135deg, rgba(79,70,229,0.04), transparent)',
-                    borderRadius: '20px',
-                }} />
-            )}
-
-            {/* Icon box */}
-            <div style={{
-                width: '44px', height: '44px', borderRadius: '12px',
-                background: colors.bg,
-                border: `1px solid ${colors.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: '14px', color: colors.icon,
-                transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                transition: 'transform 0.3s',
-            }}>
-                {AGENT_ICONS[agent.id]}
-            </div>
-
-            {/* Type badge */}
-            <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: '4px',
-                marginBottom: '8px',
-            }}>
-                <span style={{
-                    fontSize: '9px', fontWeight: 800, textTransform: 'uppercase',
-                    letterSpacing: '0.12em', color: colors.text,
-                    background: colors.bg, border: `1px solid ${colors.border}`,
-                    padding: '2px 8px', borderRadius: '6px',
-                }}>{agent.type}</span>
-                {agent.status !== 'pending' && <AgentStatusIcon status={agent.status} />}
-            </div>
-
-            <h4 style={{
-                margin: '0 0 4px 0', fontSize: '13px', fontWeight: 800,
-                color: '#0f172a', letterSpacing: '-0.01em',
-            }}>{agent.name}</h4>
-
-            <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>
-                {agent.detail}
-            </p>
-
-            {/* Score progress bar */}
-            {agent.score > 0 && (
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#cbd5e1' }}>
-                            Model Score
-                        </span>
-                        <span style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a' }}>{agent.score}%</span>
+        <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+                <div className="relative shrink-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 bg-white border ${iconBoxClass}`}>
+                        {AGENT_ICONS[agent.id] || <BrainCircuit size={16} />}
                     </div>
-                    <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
-                        <div style={{
-                            height: '100%', borderRadius: '999px',
-                            background: agent.score >= 90 ? '#4f46e5' : agent.score >= 70 ? '#f59e0b' : '#e11d48',
-                            width: `${agent.score}%`,
-                            transition: 'width 1s ease',
-                        }} />
-                    </div>
+                    {isActive && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm ring-1 ring-cyan-100 z-10">
+                            <Loader2 className="animate-spin text-cyan-500" size={14} />
+                        </div>
+                    )}
+                    {isCompleted && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm ring-1 ring-indigo-100 z-10">
+                            <CheckCircle2 className="text-indigo-500" size={14} />
+                        </div>
+                    )}
+                    {isFailed && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm ring-1 ring-red-100 z-10">
+                            <XCircle className="text-red-500" size={14} />
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {!isLast && (
+                    <div className={`w-0.5 flex-1 min-h-[36px] my-1.5 rounded-full transition-all duration-700 ${isCompleted ? 'bg-gradient-to-b from-indigo-400 to-indigo-100' : 'bg-slate-200'}`} />
+                )}
+            </div>
+
+            <div className="pb-6 min-w-0 flex-1 pt-1">
+                <div className="flex items-center gap-2 mb-1">
+                    <h4 className={`text-sm font-bold leading-tight transition-colors duration-300 ${isCompleted ? "text-slate-800" : isActive ? "text-slate-900" : "text-slate-400"}`}>
+                        {agent.name}
+                    </h4>
+                    {!isPending && (
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{agent.type}</span>
+                    )}
+                </div>
+
+                <p className={`text-xs leading-relaxed transition-colors duration-300 mb-2 ${isActive ? "text-cyan-600 font-medium" : isCompleted ? "text-slate-600" : "text-slate-500"}`}>
+                    {agent.detail}
+                </p>
+
+                {agent.score > 0 && !isPending && (
+                    <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-baseline gap-0.5">
+                            <span className={`text-[12px] font-black leading-none tabular-nums ${isCompleted ? "text-indigo-600" : isActive ? "text-cyan-600" : "text-slate-400"}`}>
+                                {agent.score}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">%</span>
+                        </div>
+                        <div className="flex-1 max-w-[120px]">
+                            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-1000 ease-out ${isCompleted ? "bg-gradient-to-r from-indigo-400 to-indigo-500" : isActive ? "bg-gradient-to-r from-cyan-400 to-cyan-500" : "bg-slate-300"}`}
+                                    style={{ width: `${agent.score}%` }}
+                                />
+                            </div>
+                        </div>
+                        <span className={`text-[9px] font-bold uppercase tracking-widest ${isCompleted ? "text-indigo-500" : isActive ? "text-cyan-500" : "text-slate-400"}`}>
+                            Confidence
+                        </span>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -125,7 +101,6 @@ interface AgentPipelinePanelProps {
     caseId: string;
     initialStatus?: PipelineStatus | null;
     initialRevealIndex?: number;
-    /** Called whenever the pipeline status updates (e.g., to propagate status to parent) */
     onStatusChange?: (status: PipelineStatus) => void;
     onRevealIndexChange?: (index: number) => void;
     compact?: boolean;
@@ -140,11 +115,13 @@ export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, 
     const [revealIndex, setRevealIndex] = useState(initialRevealIndex ?? 0);
     const [loading, setLoading] = useState(!initialStatus);
     const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [lastActivity, setLastActivity] = useState<Date>(new Date());
 
     const fetchStatus = async () => {
         try {
             const data = await casesApi.getPipelineStatus(apiClient, caseId);
             setPipeline(data);
+            setLastActivity(new Date());
             onStatusChange?.(data);
             return data;
         } catch {
@@ -189,77 +166,69 @@ export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, 
     }, [pipeline, revealIndex, onRevealIndexChange]);
 
     if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', gap: '12px', color: '#94a3b8' }}>
-            <Loader2 size={20} className="animate-spin" />
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>Loading pipeline…</span>
+        <div className="flex flex-col items-center justify-center h-48 gap-3 bg-white border border-slate-200 rounded-[24px] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200/50">
+                <Loader2 className="animate-spin text-white" size={20} />
+            </div>
+            <div className="text-center">
+                <p className="text-sm font-bold text-slate-800">Initializing AI Agents</p>
+                <p className="text-xs text-slate-500 mt-0.5">Setting up orchestration pipeline...</p>
+            </div>
         </div>
     );
 
     if (!pipeline) return null;
 
-    const progressPct = pipeline.agents.length > 1
-        ? (pipeline.current_agent_index / (pipeline.agents.length - 1)) * 100
-        : 0;
-
     return (
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: compact ? '16px' : '24px', padding: compact ? '20px' : '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+        <div className={`bg-white border border-slate-200 rounded-[24px] ${compact ? 'p-4' : 'p-6'} shadow-sm flex flex-col h-full`}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
                 <div>
-                    <p style={{ margin: 0, fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#94a3b8' }}>
-                        Agentic Pipeline
-                    </p>
-                    <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
-                        Agent Intelligence Flow
-                    </h3>
+                    <h3 className="text-lg font-black text-slate-800 tracking-tight">Agent Intelligence Flow</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Multi-Agent Orchestration</p>
                 </div>
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    background: pipeline.is_terminal ? '#ecfdf5' : '#eef2ff',
-                    border: `1px solid ${pipeline.is_terminal ? '#6ee7b7' : '#818cf8'}`,
-                    padding: '5px 12px', borderRadius: '8px',
-                }}>
-                    <div style={{
-                        width: '6px', height: '6px', borderRadius: '50%',
-                        background: pipeline.is_terminal ? '#059669' : '#4f46e5',
-                        animation: pipeline.is_terminal ? 'none' : 'ping 1.5s ease-in-out infinite',
-                    }} />
-                    <span style={{
-                        fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-                        color: pipeline.is_terminal ? '#059669' : '#4f46e5',
-                    }}>
-                        {pipeline.is_terminal ? 'Completed' : 'Processing'}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${pipeline.is_terminal ? 'bg-emerald-50 border-emerald-200' : 'bg-indigo-50 border-indigo-200'}`}>
+                    <div className={`w-2 h-2 rounded-full ${pipeline.is_terminal ? 'bg-emerald-500' : 'bg-indigo-500 animate-pulse'}`} />
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${pipeline.is_terminal ? 'text-emerald-700' : 'text-indigo-700'}`}>
+                        {pipeline.is_terminal ? 'Completed' : 'Syncing'}
                     </span>
                 </div>
             </div>
 
-            {/* Progress connector line */}
-            <div style={{ position: 'relative', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                {/* Agent cards */}
+            {/* Vertical Flow */}
+            <div className="flex-1">
                 {pipeline.agents.map((agent, i) => {
-                    const isVisible = i <= revealIndex;
-                    if (!isVisible) return <div key={agent.id} style={{ flex: 1, minWidth: 0 }} />;
+                    const isRevealed = i <= revealIndex;
+                    const displayAgent = isRevealed ? agent : { ...agent, status: 'pending', detail: 'Pending execution...', score: 0 };
+
                     return (
-                        <div key={agent.id} style={{ flex: 1, minWidth: 0, animation: 'fadeIn 0.4s ease-out forwards' }}>
-                            <AgentCard
-                                agent={agent}
-                                isActive={agent.status === 'active' && i === pipeline.current_agent_index}
+                        <div
+                            key={agent.id}
+                            className={`transition-all duration-700 ease-out ${isRevealed ? "opacity-100 translate-y-0" : "opacity-40 translate-y-4"}`}
+                        >
+                            <VerticalAgentCard
+                                agent={displayAgent as AgentStatus}
+                                isActive={agent.status === 'active' && i === pipeline.current_agent_index && isRevealed}
+                                isLast={i === pipeline.agents.length - 1}
                             />
                         </div>
                     );
                 })}
             </div>
 
-            {/* Bottom progress bar */}
-            <div style={{ height: '3px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
-                <div style={{
-                    height: '100%', borderRadius: '999px',
-                    background: 'linear-gradient(90deg, #4f46e5, #818cf8)',
-                    width: pipeline.is_terminal ? '100%' : `${progressPct}%`,
-                    transition: 'width 0.8s ease',
-                    boxShadow: '0 0 8px rgba(79,70,229,0.4)',
-                }} />
-            </div>
+            {/* Footer */}
+            {!pipeline.is_terminal && (
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Live Status</span>
+                            <span className="text-[11px] font-medium text-slate-500">
+                                Last activity: {formatDistanceToNow(lastActivity, { addSuffix: true })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

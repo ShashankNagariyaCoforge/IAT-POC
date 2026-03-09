@@ -52,9 +52,9 @@ export default function CommandCenterPage() {
         fetchCases();
     }, [fetchCases]);
 
-    // Auto poll list if there are active cases
+    // Auto poll list if there are cases actively processing
     useEffect(() => {
-        const hasActive = cases.some(c => c.status === 'RECEIVED' || c.status === 'PROCESSING');
+        const hasActive = cases.some(c => c.status === 'PROCESSING');
         if (!hasActive) return;
         const tm = setInterval(fetchCases, 5000);
         return () => clearInterval(tm);
