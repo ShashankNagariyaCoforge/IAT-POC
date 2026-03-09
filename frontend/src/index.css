@@ -2,28 +2,108 @@
 
 @theme {
   /* IAT Insurance Brand Colors */
-  --color-iat-navy:   #00263E;
-  --color-iat-mid:    #1E3E5C;
-  --color-iat-blue:   #00467F;
-  --color-iat-gold:   #F9A61A;
-  --color-iat-light:  #F4F6F8;
+  --color-iat-navy: #00263E;
+  --color-iat-mid: #1E3E5C;
+  --color-iat-blue: #00467F;
+  --color-iat-gold: #F9A61A;
+  --color-iat-light: #F4F6F8;
   --color-iat-border: #D1D9E0;
 
   --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 @layer base {
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
+
   body {
     @apply font-sans antialiased;
-    background-color: #F4F6F8;
-    color: #333333;
+    background-color: #f8fafc;
+    color: #0f172a;
     margin: 0;
   }
 }
 
 /* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #edf0f3; }
-::-webkit-scrollbar-thumb { background: #b0bec9; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #8fa1b0; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Keyframe animations used by the pipeline panel and sync modal */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  75%,
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-ping {
+  animation: ping 1.5s ease-in-out infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-fade {
+  animation: fadeIn 0.4s ease both;
+}

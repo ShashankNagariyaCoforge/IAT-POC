@@ -108,3 +108,22 @@ export interface Stats {
     by_category: Record<string, number>;
     pending_human_review: number;
 }
+
+export type AgentStatusType = 'pending' | 'active' | 'completed' | 'failed' | 'warning';
+
+export interface AgentStatus {
+    id: string;
+    name: string;
+    type: string;
+    detail: string;
+    score: number;
+    status: AgentStatusType;
+}
+
+export interface PipelineStatus {
+    case_id: string;
+    status: CaseStatus;
+    agents: AgentStatus[];
+    current_agent_index: number;
+    is_terminal: boolean;
+}

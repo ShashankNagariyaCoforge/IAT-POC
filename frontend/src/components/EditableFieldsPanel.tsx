@@ -1,0 +1,170 @@
+import { useState } from 'react';
+import { History, Loader2, CheckCircle2, AlertTriangle, Lock } from 'lucide-react';
+
+interface Props {
+    groupedFields: Record<string, { label: string; value: string; original?: string; confidence?: number; isCritical?: boolean; error?: string }[]>;
+    onSave: (fields: { field_name: string; value: string }[]) => Promise<void>;
+    isReadOnly?: boolean;
+}
+
+export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false }: Props) {
+    const [editedFields, setEditedFields] = useState<Record<string, string>>({});
+    const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
+    const [showOriginal, setShowOriginal] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Initialize all categories as expanded
+    if (Object.keys(expandedCats).length === 0 && Object.keys(groupedFields).length > 0) {
+        const initCats: Record<string, boolean> = {};
+        Object.keys(groupedFields).forEach(k => initCats[k] = true);
+        setExpandedCats(initCats);
+    }
+
+    const handleFieldChange = (label: string, val: string) => {
+        if (isReadOnly) return;
+        setEditedFields(prev => ({ ...prev, [label]: val }));
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        const updates = Object.entries(editedFields).map(([k, v]) => ({ field_name: k, value: v }));
+        try {
+            await onSave(updates);
+            setEditedFields({});
+            setShowOriginal(null);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const hasEdits = Object.keys(editedFields).length > 0;
+
+    return (
+        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col h-full">
+            <div className="px-6 py-4 border-b bg-slate-50/50 flex items-center justify-between shrink-0">
+                <h2 className="text-lg font-bold text-slate-800">Extracted Entities</h2>
+                {isReadOnly ? (
+                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full flex items-center gap-1">
+                        <Lock size={10} /> Read-only
+                    </span>
+                ) : hasEdits && (
+                    <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                        {Object.keys(editedFields).length} field(s) modified
+                    </span>
+                )}
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                    {Object.entries(groupedFields).map(([category, fields]) => (
+                        <div key={category} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden flex flex-col">
+                            <div
+                                className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-200 cursor-pointer flex items-center justify-between transition-colors hover:bg-slate-100"
+                                onClick={() => setExpandedCats(p => ({ ...p, [category]: !p[category] }))}
+                            >
+                                <div>
+                                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">{category}</h4>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">{fields.length} fields</p>
+                                </div>
+                            </div>
+
+                            {expandedCats[category] && (
+                                <div className="p-4 space-y-3">
+                                    {fields.map(f => {
+                                        const currentVal = editedFields[f.label] !== undefined ? editedFields[f.label] : f.value;
+                                        const isEdited = editedFields[f.label] !== undefined || (f.original && f.original !== f.value);
+                                        const isFocus = showOriginal === f.label;
+
+                                        return (
+                                            <div key={f.label} className="space-y-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                                        {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
+                                                    </label>
+                                                    {isEdited ? (
+                                                        <div className="flex items-center gap-1">
+                                                            {f.original && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowOriginal(isFocus ? null : f.label)}
+                                                                    className="text-amber-600 hover:bg-amber-100 p-0.5 rounded transition"
+                                                                >
+                                                                    <History size={11} />
+                                                                </button>
+                                                            )}
+                                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">MODIFIED</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[9px] font-bold text-emerald-500 px-1.5 py-0.5 rounded">
+                                                            Confidence: {f.confidence || 0}%
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {f.label.toLowerCase().includes('summary') ? (
+                                                    <textarea
+                                                        value={currentVal || ''}
+                                                        onChange={(e) => handleFieldChange(f.label, e.target.value)}
+                                                        readOnly={isReadOnly}
+                                                        rows={3}
+                                                        className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
+                                                                f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
+                                                                    isEdited ? 'bg-amber-50/50 border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-700 font-semibold' :
+                                                                        'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-slate-700 font-semibold'
+                                                            }`}
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        value={currentVal || ''}
+                                                        onChange={(e) => handleFieldChange(f.label, e.target.value)}
+                                                        readOnly={isReadOnly}
+                                                        className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
+                                                                f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
+                                                                    isEdited ? 'bg-amber-50/50 border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-700 font-semibold' :
+                                                                        'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-slate-700 font-semibold'
+                                                            }`}
+                                                    />
+                                                )}
+
+                                                {isFocus && f.original && (
+                                                    <p className="text-[10px] text-slate-500 italic mt-0.5 flex items-center gap-1">
+                                                        Original: {f.original}
+                                                    </p>
+                                                )}
+                                                {f.error && (
+                                                    <p className="text-[10px] text-red-500 flex items-center gap-1 mt-0.5">
+                                                        <AlertTriangle size={10} /> {f.error}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {!isReadOnly && (
+                <div className="p-4 border-t border-slate-200 bg-slate-50/30 shrink-0 flex justify-end">
+                    <button
+                        onClick={handleSave}
+                        disabled={!hasEdits || isSaving}
+                        className={`px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${!hasEdits
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md'
+                            }`}
+                    >
+                        {isSaving ? (
+                            <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                        ) : (
+                            <><CheckCircle2 size={16} /> Save Changes</>
+                        )}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}

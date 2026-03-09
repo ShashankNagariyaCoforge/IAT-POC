@@ -1,0 +1,310 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useMsal } from '@azure/msal-react';
+import {
+    ChevronLeft, ExternalLink, Activity, CheckCircle2,
+    FileText, Eye, RefreshCw, Loader2
+} from 'lucide-react';
+import { createApiClient, casesApi } from '../api/casesApi';
+import type { Case, Document as CaseDoc, ClassificationResult } from '../types';
+import { usePipeline } from '../contexts/PipelineContext';
+import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
+import { IngestionStatsCard } from '../components/IngestionStatsCard';
+import { InlinePdfViewer } from '../components/InlinePdfViewer';
+import { PdfViewerModal } from '../components/PdfViewerModal';
+import { EditableFieldsPanel } from '../components/EditableFieldsPanel';
+import { DecisionPanel } from '../components/DecisionPanel';
+import { format } from 'date-fns';
+
+const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+
+export default function CaseActionScreen() {
+    const { caseId } = useParams<{ caseId: string }>();
+    const navigate = useNavigate();
+    const { instance } = useMsal();
+    const apiClient = DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance);
+
+    const { getSnapshot, setSnapshot } = usePipeline();
+    const cachedContext = caseId ? getSnapshot(caseId) : null;
+
+    const [caseData, setCaseData] = useState<Case | null>(null);
+    const [docs, setDocs] = useState<CaseDoc[]>([]);
+    const [classification, setClassification] = useState<ClassificationResult | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
+    const [activePdfName, setActivePdfName] = useState<string | null>(null);
+    const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
+
+    const fetchAll = async () => {
+        if (!caseId) return;
+        try {
+            const [c, d, cls] = await Promise.all([
+                casesApi.getCase(apiClient, caseId),
+                casesApi.getCaseDocuments(apiClient, caseId),
+                casesApi.getCaseClassification(apiClient, caseId),
+            ]);
+            setCaseData(c);
+            setDocs(d.documents);
+            setClassification(cls.classification);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAll();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [caseId]);
+
+    const handleSaveFields = async (updates: { field_name: string; value: string }[]) => {
+        if (!caseId) return;
+        // Call new PATCH /fields endpoint
+        await fetch(`/api/cases/${caseId}/fields`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: updates, updated_by: 'automated_user' }),
+        });
+        // Refresh classification data to reflect HITL fields
+        const cls = await casesApi.getCaseClassification(apiClient, caseId);
+        setClassification(cls.classification);
+    };
+
+    const handleDecision = async (decision: 'accept' | 'reject', _remarks: string) => {
+        if (!caseId) return;
+        const newStatus = decision === 'accept' ? 'PROCESSED' : 'FAILED';
+        await fetch(`/api/cases/${caseId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+        });
+        await fetchAll(); // Reload everything
+    };
+
+    if (loading || !caseData) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400">
+                <Loader2 size={32} className="animate-spin" />
+            </div>
+        );
+    }
+
+    const isTerminal = ['PROCESSED', 'CLASSIFIED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY', 'PENDING_REVIEW'].includes(caseData.status);
+    const isApproved = ['PROCESSED', 'CLASSIFIED'].includes(caseData.status);
+
+    // Build field groups from classification + case
+    // In a real app, this layout logic would be driven by the schema
+    const hitlFields = (classification as any)?.hitl_fields || {};
+    const kf = classification?.key_fields;
+
+    const groupedFields: Record<string, any[]> = {
+        'Submission Details': [
+            { label: 'Subject', value: caseData.subject },
+            { label: 'Sender', value: caseData.sender },
+            { label: 'Received At', value: format(new Date(caseData.created_at), 'PPPp') },
+        ],
+        'Classification Insights': [
+            { label: 'Category', value: classification?.classification_category || 'N/A', confidence: Math.round((classification?.confidence_score || 0) * 100) },
+            { label: 'Document Type', value: kf?.document_type || 'Unknown' },
+            { label: 'Urgency', value: kf?.urgency || 'Unknown', isCritical: kf?.urgency === 'high' },
+        ],
+        'Policy & Claims': [
+            { label: 'Policy Reference', value: kf?.policy_reference || 'N/A' },
+            { label: 'Claim Type', value: kf?.claim_type || 'N/A' },
+        ],
+        'AI Summary': [
+            { label: 'Executive Summary', value: classification?.summary || 'Processing...' },
+        ]
+    };
+
+    // Merge HITL overrides
+    Object.values(groupedFields).flat().forEach(f => {
+        if (hitlFields[f.label]) {
+            f.original = f.value;
+            f.value = hitlFields[f.label];
+        }
+    });
+
+    return (
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            {/* Sticky Header */}
+            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                        <ChevronLeft size={20} />
+                    </button>
+                    <div className="flex items-center gap-3 border-r border-slate-200 pr-4">
+                        <img src="/assets/iat-logo.png" alt="IAT" className="h-6" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Case ID: {caseId}</span>
+                            <span className="px-2 py-0.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase text-slate-500 bg-slate-50">
+                                {caseData.status}
+                            </span>
+                        </div>
+                        <h1 className="text-lg font-bold text-slate-800 leading-tight truncate max-w-xl">{caseData.subject}</h1>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button onClick={fetchAll} className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                        <RefreshCw size={18} />
+                    </button>
+                    <button
+                        onClick={() => navigate(`/cases/${caseId}/snapshot`)}
+                        disabled={!isApproved}
+                        className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${isApproved
+                            ? 'bg-slate-900 text-white hover:bg-slate-800 shadow-md border-slate-800 cursor-pointer'
+                            : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                            }`}
+                    >
+                        <ExternalLink size={16} /> PAS Snapshot
+                    </button>
+                </div>
+            </header>
+
+            {/* Main 12-col layout */}
+            <main className="flex-1 max-w-[1600px] w-full mx-auto p-6 grid grid-cols-12 gap-6">
+
+                {/* LEFT COL (4) */}
+                <div className="col-span-4 flex flex-col gap-6">
+                    <IngestionStatsCard
+                        emailCount={caseData.email_count || 1}
+                        docCount={docs.length}
+                        progressPct={isTerminal ? 100 : 60}
+                        message={isTerminal ? 'All documents successfully processed and classified.' : `Processing ${caseData.email_count || 1} emails with ${docs.length} attachments`}
+                    />
+
+                    {/* Context-aware Agent Panel or PDF Viewer */}
+                    <div className="relative">
+                        {/* The Agent Panel fades out / slides when PDF is active */}
+                        <div className={`transition-all duration-500 ${activePdfUrl ? 'opacity-0 translate-x-[-20px] pointer-events-none absolute inset-0' : 'opacity-100 translate-x-0'}`}>
+                            <AgentPipelinePanel
+                                caseId={caseId!}
+                                initialRevealIndex={cachedContext?.revealIndex || 0}
+                                onRevealIndexChange={(idx) => caseId && setSnapshot(caseId, { revealIndex: idx })}
+                            />
+                        </div>
+
+                        {/* Inline PDF Viewer */}
+                        <div className={`transition-all duration-500 ${activePdfUrl ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
+                            {activePdfUrl && (
+                                <InlinePdfViewer
+                                    url={activePdfUrl}
+                                    name={activePdfName!}
+                                    onClose={() => setActivePdfUrl(null)}
+                                    onFullscreen={() => setShowFullscreenPdf(true)}
+                                />
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT COL (8) */}
+                <div className="col-span-8 flex flex-col gap-6">
+
+                    {/* Document Bundle */}
+                    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b bg-slate-50/50 flex items-center gap-2">
+                            <FileText size={16} className="text-slate-400" />
+                            <h2 className="text-lg font-bold text-slate-800">Document Submission Bundle</h2>
+                        </div>
+                        <div className="p-4 grid grid-cols-3 gap-4 bg-slate-50/30">
+                            {docs.map((doc, i) => {
+                                const url = `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
+                                const isSelected = activePdfUrl === url;
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={() => { setActivePdfUrl(url); setActivePdfName(doc.file_name); }}
+                                        className={`relative p-5 rounded-xl border text-left transition cursor-pointer group ${isSelected
+                                            ? 'border-indigo-400 bg-indigo-50/60 shadow-md ring-2 ring-indigo-100'
+                                            : 'border-slate-200 bg-white shadow-sm hover:border-indigo-300 hover:shadow-md'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="w-10 h-10 bg-red-50 text-red-500 border border-red-100 rounded-lg flex items-center justify-center font-black text-xs tracking-wider">
+                                                PDF
+                                            </div>
+                                            <span className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>
+                                                <Eye size={16} />
+                                            </span>
+                                        </div>
+                                        <p className="text-sm font-black text-slate-700 truncate mb-1">{doc.file_name}</p>
+                                        <p className="text-[11px] text-slate-500">Document #{i + 1}</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Extracted Fields */}
+                    <EditableFieldsPanel
+                        groupedFields={groupedFields}
+                        onSave={handleSaveFields}
+                        isReadOnly={isApproved}
+                    />
+
+                    {/* Decision Panel (only if processing is done) */}
+                    {isTerminal && (
+                        <DecisionPanel
+                            recommendation={{
+                                decision: 'accept',
+                                rationale: `Automated processing succeeded. Category: ${classification?.classification_category || 'Unknown'}`
+                            }}
+                            rules={[
+                                { name: 'Document Classification', result: classification ? 'PASS' : 'FAIL', rationale: 'Valid document structure detected' },
+                                { name: 'PII Scrubbing', result: 'PASS', rationale: 'Entities masked successfully' },
+                                { name: 'Safety Review', result: ['BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'].includes(caseData.status) ? 'FAIL' : 'PASS', rationale: 'Content policy checked' }
+                            ]}
+                            isReadOnly={isApproved}
+                            initialOverride={isApproved ? (caseData.status === 'PROCESSED' || caseData.status === 'CLASSIFIED' ? 'accept' : 'reject') : null}
+                            onSubmit={handleDecision}
+                        />
+                    )}
+
+                    {/* Reconciliation Footer Banner */}
+                    <div className={`p-6 rounded-2xl border flex items-center justify-between transition-all ${!isTerminal ? 'bg-slate-50' : 'bg-emerald-50 border-emerald-200 shadow-lg'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-full ${!isTerminal ? 'bg-slate-200 animate-spin' : 'bg-emerald-500 text-white'}`}>
+                                {!isTerminal ? <Activity size={24} /> : <CheckCircle2 size={24} />}
+                            </div>
+                            <div>
+                                <p className="font-black text-slate-800">
+                                    {!isTerminal
+                                        ? 'Cross-Document Reconciliation...'
+                                        : 'Engine Recommendation: Auto-Process Approved'
+                                    }
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                    {!isTerminal
+                                        ? `Processing ${docs.length} documents for reconciliation.`
+                                        : `Data reconciled across ${docs.length} documents.`
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        {isTerminal && (
+                            <button
+                                onClick={() => navigate(`/cases/${caseId}/snapshot`)}
+                                className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-md bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 cursor-pointer"
+                            >
+                                View PAS Snapshot <ExternalLink size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                </div>
+            </main>
+
+            {/* Fullscreen PDF Modal Overlay */}
+            {showFullscreenPdf && activePdfUrl && (
+                <PdfViewerModal
+                    url={activePdfUrl}
+                    name={activePdfName!}
+                    onClose={() => setShowFullscreenPdf(false)}
+                />
+            )}
+        </div>
+    );
+}

@@ -1,28 +1,67 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { ArrowLeft, AlertTriangle, RefreshCw, Download } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw, Download, XCircle } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
-import { StatusBadge } from '../components/StatusBadge';
-import { CategoryBadge } from '../components/CategoryBadge';
 import { CaseSummaryPanel } from '../components/CaseSummaryPanel';
 import { EmailChainPanel } from '../components/EmailChainPanel';
 import { DocumentsPanel } from '../components/DocumentsPanel';
 import { ClassificationPanel } from '../components/ClassificationPanel';
-import type { Case, Email, Document, ClassificationResult, TimelineEvent } from '../types';
+import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
+import { ExtractedFieldsCard } from '../components/ExtractedFieldsCard';
+import type { Case, Email, Document, ClassificationResult, TimelineEvent, CaseStatus } from '../types';
+import { format } from 'date-fns';
 
 type Panel = 'summary' | 'emails' | 'documents' | 'classification';
 
-const getSeverityColor = (score: number) => {
-    if (score >= 4) return 'bg-red-100 text-red-800 border-red-200';
-    if (score >= 2) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    return 'bg-green-100 text-green-800 border-green-200';
+// ── Status pill helper ──────────────────────────────────────────────────────
+const STATUS_STYLES: Record<string, { bg: string; border: string; color: string; label: string }> = {
+    RECEIVED: { bg: '#f0f9ff', border: '#bae6fd', color: '#0369a1', label: 'Received' },
+    PROCESSING: { bg: '#eef2ff', border: '#a5b4fc', color: '#4338ca', label: 'Processing' },
+    CLASSIFIED: { bg: '#f0fdf4', border: '#86efac', color: '#15803d', label: 'Classified' },
+    PROCESSED: { bg: '#f0fdf4', border: '#86efac', color: '#15803d', label: 'Processed' },
+    PENDING_REVIEW: { bg: '#fefce8', border: '#fde047', color: '#a16207', label: 'Pending Review' },
+    FAILED: { bg: '#fff1f2', border: '#fda4af', color: '#be123c', label: 'Failed' },
+    BLOCKED_SAFETY: { bg: '#fff1f2', border: '#fda4af', color: '#be123c', label: 'Blocked' },
+    NEEDS_REVIEW_SAFETY: { bg: '#fffbeb', border: '#fcd34d', color: '#b45309', label: 'Safety Review' },
 };
-const getSeverityLabel = (score: number) => {
-    if (score >= 4) return 'High';
-    if (score >= 2) return 'Medium';
-    return 'Safe';
+
+const CATEGORY_STYLES: Record<string, { bg: string; border: string; color: string }> = {
+    'New': { bg: '#eef2ff', border: '#c7d2fe', color: '#4338ca' },
+    'Renewal': { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
+    'Query/General': { bg: '#f0f9ff', border: '#bae6fd', color: '#0284c7' },
+    'Follow-up': { bg: '#fdf4ff', border: '#e9d5ff', color: '#7e22ce' },
+    'Complaint/Escalation': { bg: '#fff1f2', border: '#fecdd3', color: '#be123c' },
+    'Regulatory/Legal': { bg: '#fff7ed', border: '#fed7aa', color: '#c2410c' },
+    'Documentation/Evidence': { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' },
+    'Spam/Irrelevant': { bg: '#f8fafc', border: '#cbd5e1', color: '#64748b' },
 };
+
+function StatusPill({ status }: { status: CaseStatus }) {
+    const st = STATUS_STYLES[status] ?? { bg: '#f8fafc', border: '#e2e8f0', color: '#64748b', label: status };
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center',
+            padding: '3px 10px', borderRadius: '999px',
+            background: st.bg, border: `1px solid ${st.border}`,
+            color: st.color, fontSize: '10px', fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>{st.label}</span>
+    );
+}
+
+function CategoryPill({ category }: { category: string | null }) {
+    if (!category) return null;
+    const cat = CATEGORY_STYLES[category] ?? { bg: '#f8fafc', border: '#e2e8f0', color: '#64748b' };
+    return (
+        <span style={{
+            display: 'inline-block', padding: '3px 10px', borderRadius: '8px',
+            background: cat.bg, border: `1px solid ${cat.border}`,
+            color: cat.color, fontSize: '10px', fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+        }}>{category}</span>
+    );
+}
 
 export default function CaseDetailPage() {
     const { caseId = '' } = useParams();
@@ -71,205 +110,242 @@ export default function CaseDetailPage() {
         { key: 'classification', label: 'Classification' },
     ];
 
+    // Loading state
     if (loading) return (
-        <div style={{ minHeight: '100vh', background: '#F4F6F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <RefreshCw className="w-8 h-8 animate-spin" style={{ color: '#00467F' }} />
+        <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+                <RefreshCw size={32} style={{ color: '#4f46e5', animation: 'spin 1s linear infinite', display: 'block', margin: '0 auto 16px' }} />
+                <p style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 600, margin: 0 }}>Loading case…</p>
+            </div>
         </div>
     );
 
     if (error) return (
-        <div style={{ minHeight: '100vh', background: '#F4F6F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-                <p style={{ color: '#b91c1c', fontSize: '16px', fontWeight: 500, marginBottom: '8px' }}>Error loading case</p>
-                <p style={{ color: '#8fa1b0', fontSize: '13px', marginBottom: '16px' }}>{error}</p>
-                <button onClick={() => navigate('/')} style={{ color: '#00467F', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}>
+        <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+                <XCircle size={40} style={{ color: '#e11d48', margin: '0 auto 16px', display: 'block' }} />
+                <p style={{ color: '#be123c', fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Error loading case</p>
+                <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>{error}</p>
+                <button onClick={() => navigate('/')} style={{ color: '#4f46e5', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '8px 20px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
                     ← Back to cases
                 </button>
             </div>
         </div>
     );
 
+    // ── Blocked Safety full-page view ──────────────────────────────────────
+    if (caseData?.status === 'BLOCKED_SAFETY') {
+        return (
+            <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+                {/* Header */}
+                <header style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(226,232,240,0.8)', padding: '0 32px', position: 'sticky', top: 0, zIndex: 50 }}>
+                    <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '16px' }}>
+                        <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '34px', objectFit: 'contain' }} />
+                        <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
+                        <button onClick={() => navigate('/')} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+                            <ArrowLeft size={15} /> Cases
+                        </button>
+                        <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
+                        <span style={{ fontFamily: 'monospace', color: '#4f46e5', fontWeight: 700, fontSize: '13px' }}>{caseId}</span>
+                        <StatusPill status={caseData.status} />
+                    </div>
+                </header>
+                {/* Blocked content */}
+                <div style={{ maxWidth: '600px', margin: '80px auto', padding: '0 24px' }}>
+                    <div style={{ background: '#ffffff', border: '1.5px solid #fda4af', borderRadius: '24px', padding: '48px 40px', textAlign: 'center', boxShadow: '0 8px 32px rgba(225,29,72,0.08)' }}>
+                        <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#fff1f2', border: '1.5px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                            <AlertTriangle size={36} style={{ color: '#e11d48' }} />
+                        </div>
+                        <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#9f1239', margin: '0 0 12px 0', letterSpacing: '-0.01em' }}>Content Blocked by Safety Policy</h2>
+                        <p style={{ fontSize: '14px', color: '#be123c', margin: '0 0 28px 0', lineHeight: 1.6 }}>
+                            This document triggered a strict safety violation and was blocked from further AI classification to protect downstream systems.
+                        </p>
+                        {caseData.content_safety_result && (
+                            <div style={{ display: 'flex', justifyContent: 'space-around', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '14px', padding: '16px' }}>
+                                {[
+                                    { label: 'Hate', score: caseData.content_safety_result.hate_severity },
+                                    { label: 'Self-Harm', score: caseData.content_safety_result.self_harm_severity },
+                                    { label: 'Violence', score: caseData.content_safety_result.violence_severity },
+                                    { label: 'Sexual', score: caseData.content_safety_result.sexual_severity },
+                                ].map(cat => (
+                                    <div key={cat.label} style={{ textAlign: 'center' }}>
+                                        <p style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9f1239', margin: '0 0 4px 0' }}>{cat.label}</p>
+                                        <span style={{ fontSize: '16px', fontWeight: 900, color: cat.score >= 4 ? '#dc2626' : '#b91c1c' }}>{cat.score}/7</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
-            {/* ── Header ── */}
-            <header style={{ background: '#ffffff', borderBottom: '1px solid #D1D9E0', padding: '0 32px' }}>
-                <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '16px' }}>
-                    <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
-                    <div style={{ width: '1px', height: '24px', background: '#D1D9E0' }} />
-                    <button
-                        onClick={() => navigate('/')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00467F', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Cases
+        <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+
+            {/* ── Glassmorphism header ── */}
+            <header style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(226,232,240,0.8)', padding: '0 32px', position: 'sticky', top: 0, zIndex: 50 }}>
+                <div style={{ maxWidth: '1560px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '14px' }}>
+                    <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '34px', objectFit: 'contain' }} />
+                    <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
+                    <button onClick={() => navigate('/')} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+                        <ArrowLeft size={15} /> Cases
                     </button>
-                    <div style={{ width: '1px', height: '24px', background: '#D1D9E0' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                        <span style={{ fontFamily: 'monospace', color: '#00467F', fontWeight: 600, fontSize: '14px' }}>{caseId}</span>
-                        {caseData && <StatusBadge status={caseData.status} />}
-                        {caseData && <CategoryBadge category={caseData.classification_category} />}
+                    <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
+
+                    {/* Case meta */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'monospace', color: '#4f46e5', fontWeight: 700, fontSize: '13px' }}>{caseId}</span>
+                        {caseData && <StatusPill status={caseData.status} />}
+                        {caseData && <CategoryPill category={caseData.classification_category} />}
                         {caseData?.requires_human_review && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontSize: '12px', fontWeight: 500 }}>
-                                <AlertTriangle className="w-3.5 h-3.5" /> Human Review Required
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#d97706', fontSize: '12px', fontWeight: 700, background: '#fffbeb', border: '1px solid #fcd34d', padding: '3px 10px', borderRadius: '8px' }}>
+                                <AlertTriangle size={12} /> Human Review Required
                             </span>
                         )}
                     </div>
-                    <button
-                        onClick={fetchAll}
-                        title="Refresh"
-                        style={{ background: 'none', border: '1px solid #D1D9E0', borderRadius: '6px', padding: '7px', cursor: 'pointer', color: '#00467F', display: 'flex' }}
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <a
+                            href={`/reports/${caseId}.html`}
+                            download={`${caseId}_report.html`}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#4f46e5', color: '#fff', padding: '8px 16px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 12px rgba(79,70,229,0.25)' }}
+                        >
+                            <Download size={14} /> Report
+                        </a>
+                        <button onClick={fetchAll} style={{ background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: '#4f46e5', display: 'flex' }}>
+                            <RefreshCw size={15} />
+                        </button>
+                    </div>
                 </div>
             </header>
 
-            <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 32px' }}>
+            {/* Content */}
+            <div style={{ maxWidth: '1560px', margin: '0 auto', padding: '28px 32px' }}>
 
-                {/* ── AI Summary and Action Bar ── */}
-                {caseData?.status === 'BLOCKED_SAFETY' ? (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '32px 24px', textAlign: 'center', margin: '40px auto', maxWidth: '600px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                            <div style={{ background: '#fee2e2', borderRadius: '50%', padding: '16px' }}>
-                                <AlertTriangle className="w-8 h-8 text-red-600" style={{ color: '#dc2626' }} />
-                            </div>
+                {/* Safety warning banner (non-blocking) */}
+                {caseData?.status === 'NEEDS_REVIEW_SAFETY' && caseData?.content_safety_result && (
+                    <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '16px', padding: '14px 20px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                            <strong style={{ color: '#92400e', fontSize: '14px' }}>Content Safety Warning — </strong>
+                            <span style={{ color: '#b45309', fontSize: '13px' }}>This document was flagged for moderate harmful content. Please review carefully.</span>
                         </div>
-                        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#991b1b', margin: '0 0 12px 0' }}>Content Blocked by Safety Policy</h2>
-                        <p style={{ fontSize: '15px', color: '#7f1d1d', margin: '0 0 24px 0', lineHeight: '1.6' }}>
-                            This document triggered a strict safety violation and was blocked from further AI classification or processing to protect downstream systems.
-                        </p>
-
-                        {caseData.content_safety_result && (
-                            <div style={{ background: '#ffffff', borderRadius: '6px', padding: '16px', border: '1px solid #fecaca', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-                                <div>
-                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Hate</p>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.hate_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.hate_severity}/7</span>
-                                </div>
-                                <div style={{ width: '1px', height: '30px', background: '#fecaca' }} />
-                                <div>
-                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Self-Harm</p>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.self_harm_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.self_harm_severity}/7</span>
-                                </div>
-                                <div style={{ width: '1px', height: '30px', background: '#fecaca' }} />
-                                <div>
-                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Violence</p>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.violence_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.violence_severity}/7</span>
-                                </div>
-                                <div style={{ width: '1px', height: '30px', background: '#fecaca' }} />
-                                <div>
-                                    <p style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>Sexual</p>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: caseData.content_safety_result.sexual_severity >= 4 ? '#dc2626' : '#991b1b' }}>{caseData.content_safety_result.sexual_severity}/7</span>
-                                </div>
-                            </div>
-                        )}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            {[
+                                { label: 'Hate', score: caseData.content_safety_result.hate_severity },
+                                { label: 'Self-Harm', score: caseData.content_safety_result.self_harm_severity },
+                                { label: 'Violence', score: caseData.content_safety_result.violence_severity },
+                                { label: 'Sexual', score: caseData.content_safety_result.sexual_severity },
+                            ].map(cat => (
+                                <span key={cat.label} style={{
+                                    padding: '3px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 800,
+                                    background: cat.score >= 4 ? '#fff1f2' : cat.score >= 2 ? '#fffbeb' : '#f0fdf4',
+                                    color: cat.score >= 4 ? '#be123c' : cat.score >= 2 ? '#b45309' : '#15803d',
+                                    border: `1px solid ${cat.score >= 4 ? '#fda4af' : cat.score >= 2 ? '#fcd34d' : '#86efac'}`,
+                                }}>{cat.label}: {cat.score}</span>
+                            ))}
+                        </div>
                     </div>
-                ) : (
-                    <>
-                        {caseData?.status === 'NEEDS_REVIEW_SAFETY' && caseData?.content_safety_result && (
-                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '16px 20px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <AlertTriangle className="w-5 h-5" style={{ color: '#d97706' }} />
-                                    <strong style={{ color: '#92400e', fontSize: '15px' }}>Content Safety Warning:</strong>
-                                    <span style={{ color: '#b45309', fontSize: '14px' }}>This document was flagged for moderate harmful content. Please review carefully.</span>
-                                </div>
-                                <div style={{ display: 'flex', gap: '12px', paddingLeft: '32px' }}>
-                                    {[
-                                        { label: 'Hate', score: caseData.content_safety_result.hate_severity },
-                                        { label: 'Self-Harm', score: caseData.content_safety_result.self_harm_severity },
-                                        { label: 'Violence', score: caseData.content_safety_result.violence_severity },
-                                        { label: 'Sexual', score: caseData.content_safety_result.sexual_severity }
-                                    ].map(cat => (
-                                        <span key={cat.label} className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getSeverityColor(cat.score)}`}>
-                                            {cat.label}: {getSeverityLabel(cat.score)}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                )}
 
-                        <div style={{ marginBottom: '20px', display: 'flex', gap: '24px', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                            <div style={{ flex: 1, background: '#fff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,38,62,0.04)' }}>
-                                <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#00263E', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Classification Summary</h2>
-                                <p style={{ fontSize: '14px', color: '#5a7184', margin: 0, lineHeight: '1.5' }}>
-                                    {caseData?.summary || classification?.summary || 'No summary available.'}
-                                </p>
-                            </div>
+                {/* ── 2-column layout ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', alignItems: 'start' }}>
 
-                            <a
-                                href={`/reports/${caseId}.html`}
-                                download={`${caseId}_report.html`}
-                                style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '8px', background: '#00467F', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0, 70, 127, 0.15)', transition: 'transform 0.1s' }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                            >
-                                <Download className="w-4 h-4" /> Download HTML Report
-                            </a>
+                    {/* ── Left column ── */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        {/* Agent Pipeline Panel — full width of left column */}
+                        <AgentPipelinePanel caseId={caseId} />
+
+                        {/* Tab switcher */}
+                        <div style={{ background: '#f1f5f9', padding: '4px', borderRadius: '14px', display: 'inline-flex', gap: '2px' }}>
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActivePanel(tab.key)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        padding: '8px 16px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                                        fontSize: '13px', fontWeight: 700,
+                                        background: activePanel === tab.key ? '#ffffff' : 'transparent',
+                                        color: activePanel === tab.key ? '#0f172a' : '#64748b',
+                                        boxShadow: activePanel === tab.key ? '0 1px 6px rgba(0,0,0,0.08)' : 'none',
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    {tab.label}
+                                    {tab.count !== undefined && (
+                                        <span style={{
+                                            background: activePanel === tab.key ? '#eef2ff' : '#e2e8f0',
+                                            color: activePanel === tab.key ? '#4f46e5' : '#94a3b8',
+                                            padding: '1px 7px', borderRadius: '10px', fontSize: '11px', fontWeight: 800,
+                                        }}>{tab.count}</span>
+                                    )}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* PII Masking Report */}
+                        {/* Tab content panels */}
+                        <div>
+                            {activePanel === 'summary' && caseData && <CaseSummaryPanel caseData={caseData} timeline={timeline} />}
+                            {activePanel === 'emails' && <EmailChainPanel emails={emails} />}
+                            {activePanel === 'documents' && <DocumentsPanel documents={documents} />}
+                            {activePanel === 'classification' && <ClassificationPanel classification={classification} />}
+                        </div>
+                    </div>
+
+                    {/* ── Right dark sidebar ── */}
+                    <div style={{ position: 'sticky', top: '80px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                        {/* Extracted fields dark card */}
+                        <ExtractedFieldsCard caseData={caseData} classification={classification} dark />
+
+                        {/* Case meta card (dark) */}
                         <div style={{
-                            height: 'calc(100vh - 120px)',
-                            width: '100%',
-                            background: '#fff',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            border: '1px solid #D1D9E0'
+                            background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '20px', padding: '20px',
                         }}>
-                            <iframe
-                                title="PII Masking Report"
-                                src={`/reports/${caseId}.html`}
-                                style={{ width: '100%', height: '100%', border: 'none' }}
-                            />
+                            <p style={{ margin: '0 0 16px 0', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.3)' }}>Case Metadata</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {[
+                                    { label: 'Case ID', value: caseId },
+                                    { label: 'Email Count', value: String(caseData?.email_count ?? 0) },
+                                    { label: 'Last Updated', value: caseData?.updated_at ? format(new Date(caseData.updated_at), 'dd MMM HH:mm') : '—' },
+                                ].map(f => (
+                                    <div key={f.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>{f.label}</span>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.75)', fontFamily: f.label === 'Case ID' ? 'monospace' : 'inherit' }}>{f.value}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </>
-                )}
 
-                {/* Tabs */}
-                {caseData?.status !== 'BLOCKED_SAFETY' && (
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #D1D9E0' }}>
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActivePanel(tab.key)}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    borderBottom: activePanel === tab.key ? '2px solid #00467F' : '2px solid transparent',
-                                    padding: '12px 16px',
-                                    fontSize: '14px',
-                                    fontWeight: activePanel === tab.key ? 600 : 500,
-                                    color: activePanel === tab.key ? '#00263E' : '#5a7184',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                {tab.label}
-                                {tab.count !== undefined && (
-                                    <span style={{
-                                        background: activePanel === tab.key ? '#e8f0fa' : '#F4F6F8',
-                                        color: activePanel === tab.key ? '#00467F' : '#5a7184',
-                                        padding: '2px 8px',
-                                        borderRadius: '12px',
-                                        fontSize: '12px'
-                                    }}>
-                                        {tab.count}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
+                        {/* PII Report link */}
+                        <a
+                            href={`/reports/${caseId}.html`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.25)',
+                                borderRadius: '16px', padding: '16px 18px',
+                                textDecoration: 'none',
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(79,70,229,0.2)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(79,70,229,0.12)')}
+                        >
+                            <div>
+                                <p style={{ margin: '0 0 2px 0', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8' }}>PII Report</p>
+                                <p style={{ margin: 0, fontSize: '12px', color: '#c7d2fe', fontWeight: 600 }}>View masked content</p>
+                            </div>
+                            <Download size={16} style={{ color: '#818cf8' }} />
+                        </a>
                     </div>
-                )}
-
-                {/* Main Content Area */}
-                {caseData?.status !== 'BLOCKED_SAFETY' && (
-                    <div>
-                        {activePanel === 'summary' && caseData && <CaseSummaryPanel caseData={caseData} timeline={timeline} />}
-                        {activePanel === 'emails' && <EmailChainPanel emails={emails} />}
-                        {activePanel === 'documents' && <DocumentsPanel documents={documents} />}
-                        {activePanel === 'classification' && <ClassificationPanel classification={classification} />}
-                    </div>
-                )}
+                </div>
             </div>
         </div>
     );
