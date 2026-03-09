@@ -201,7 +201,7 @@ export default function CommandCenterPage() {
                                     onClick={() => navigate(`/cases/${selectedCase.case_id}`)}
                                     className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-indigo-700 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition"
                                 >
-                                    View Details <ChevronRight size={16} />
+                                    View Agent Action Screen <ChevronRight size={16} />
                                 </button>
                             )}
                         </div>
@@ -213,9 +213,13 @@ export default function CommandCenterPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-8 max-w-3xl">
-                                    {selectedDetails.emails.length > 0 && (
-                                        <div className="text-slate-700 leading-relaxed text-[15px] whitespace-pre-wrap font-medium">
-                                            {selectedDetails.emails[0].body_preview || '(No email body preview available)'}
+                                    {selectedDetails.emails.length > 0 && selectedDetails.emails[0] && (
+                                        <div className="flex flex-col gap-6">
+                                            {(selectedDetails.emails[0].body || selectedDetails.emails[0].body_preview || '(No email content available)').split(/_+/g).map((threadPart: string, i: number) => (
+                                                <div key={i} className={`p-5 rounded-2xl text-[14px] leading-relaxed font-medium whitespace-pre-wrap ${i === 0 ? 'bg-white border border-slate-200 text-slate-800 shadow-sm' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+                                                    {threadPart.trim()}
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
 
