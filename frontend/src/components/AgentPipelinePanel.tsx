@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
     Network, Mail, Fingerprint, ShieldCheck, BrainCircuit,
     CheckCircle2, XCircle, Loader2,
@@ -110,7 +110,7 @@ const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
 export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, onStatusChange, onRevealIndexChange, compact = false }: AgentPipelinePanelProps) {
     const { instance } = useMsal();
-    const apiClient = DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance);
+    const apiClient = useMemo(() => (DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance)), [instance]);
     const [pipeline, setPipeline] = useState<PipelineStatus | null>(initialStatus ?? null);
     const [revealIndex, setRevealIndex] = useState(initialRevealIndex ?? 0);
     const [loading, setLoading] = useState(!initialStatus);

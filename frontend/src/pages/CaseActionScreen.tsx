@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
@@ -22,7 +22,7 @@ export default function CaseActionScreen() {
     const { caseId } = useParams<{ caseId: string }>();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const apiClient = DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance);
+    const apiClient = useMemo(() => (DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance)), [instance]);
 
     const { getSnapshot, setSnapshot } = usePipeline();
     const cachedContext = caseId ? getSnapshot(caseId) : null;

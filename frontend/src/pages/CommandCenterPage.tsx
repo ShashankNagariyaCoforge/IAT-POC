@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
@@ -18,7 +18,7 @@ const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 export default function CommandCenterPage() {
     const { instance } = useMsal();
     const navigate = useNavigate();
-    const apiClient = DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance);
+    const apiClient = useMemo(() => (DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance)), [instance]);
 
     const [activeTab, setActiveTab] = useState<'inbox' | 'dashboard'>('inbox');
     const [cases, setCases] = useState<Case[]>([]);

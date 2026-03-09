@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
@@ -144,7 +144,7 @@ function SyncPipelineModal({ onClose }: { onClose: () => void }) {
 export default function CaseListPage() {
     const { instance, accounts } = useMsal();
     const navigate = useNavigate();
-    const apiClient = createApiClient(instance);
+    const apiClient = useMemo(() => createApiClient(instance), [instance]);
 
     const [cases, setCases] = useState<Case[]>([]);
     const [total, setTotal] = useState(0);
