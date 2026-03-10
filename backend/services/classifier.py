@@ -35,7 +35,15 @@ Classification Rules:
 - If an email is following up on a New application, use Follow-up, NOT New.
 - If an email just says "Thank you" or "Received", classify it as Spam/Irrelevant.
 
-NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders.
+Extraction Instructions:
+- insured_name: The entity protected by the policy.
+- broker_name: The intermediary managing the insurance placement.
+- obligor: The party responsible for making payments.
+- effective_date/expiration_date: Normalize to YYYY-MM-DD.
+- limit_of_liability/premium_amount: Include the numeric value and symbols.
+- currency: Use 3-letter ISO codes (USD, GBP, EUR, etc.).
+
+NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked (e.g., [NAME] as a broker), return the placeholder.
 
 Respond ONLY with valid JSON in this exact format. You MUST provide your step-by-step reasoning FIRST before outputting the final category.
 {
@@ -47,7 +55,16 @@ Respond ONLY with valid JSON in this exact format. You MUST provide your step-by
     "document_type": "<type>",
     "urgency": "<low|medium|high>",
     "policy_reference": "<masked value or null>",
-    "claim_type": "<type or null>"
+    "claim_type": "<type or null>",
+    "insured_name": "<value or null>",
+    "broker_name": "<value or null>",
+    "obligor": "<value or null>",
+    "effective_date": "<YYYY-MM-DD or null>",
+    "expiration_date": "<YYYY-MM-DD or null>",
+    "tenor": "<value or null>",
+    "limit_of_liability": "<value or null>",
+    "premium_amount": "<value or null>",
+    "currency": "<ISO code or null>"
   },
   "requires_human_review": <true if confidence < 0.75, else false>
 }"""
