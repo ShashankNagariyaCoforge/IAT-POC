@@ -93,4 +93,7 @@ export const casesApi = {
 
     getDashboardMetrics: (client: AxiosInstance) =>
         client.get<any>('/cases/dashboard-metrics', { params: { _t: Date.now() } }).then((r) => r.data),
+
+    resetCase: (client: AxiosInstance, caseId: string) =>
+        client.post(`/cases/${caseId}/reset`).then((r) => r.data),
 };

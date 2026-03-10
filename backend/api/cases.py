@@ -428,19 +428,37 @@ async def get_case_masked_report(case_id: str):
 
     blob_path = classification["pii_report_blob_path"]
     try:
-        from services.blob_storage import BlobStorageService
-        blob = BlobStorageService()
-        
-        container = settings.blob_container_extracted_text
-        html_content = await blob.download_text(container, blob_path)
-        
+        from fastapi import Response
+        import os # Added for os.path.exists
+        if settings.demo_mode:
+            # Read from local file
+            if not os.path.exists(blob_path):
+                 raise HTTPException(status_code=404, detail="Local report file not found.")
+            with open(blob_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        else:
+            # Read from Azure Blob
+            from services.blob_storage import BlobStorageService
+            blob = BlobStorageService()
+            container, name = blob_path.split("/", 1)
+            content = await blob.download_text(container, name)
+
         return Response(
-            content=html_content,
+            content=content,
             media_type="text/html",
             headers={
-                "Content-Disposition": f"attachment; filename=PII_Masked_Report_{case_id}.html"
+                "Content-Disposition": f"attachment; filename=pii_report_{case_id}.html"
             }
         )
     except Exception as e:
-        logger.error(f"Failed to download masked report for {case_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve report from storage")
+        logger.error(f"Failed to download report for {case_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving masking report.")
+
+@router.post("/cases/{case_id}/reset")
+async def reset_case(case_id: str):
+    """
+    Resets a case by clearing its classification and safety results.
+    """
+    cosmos = _get_cosmos()
+    await cosmos.reset_case(case_id)
+    return {"message": f"Successfully reset case {case_id}"}

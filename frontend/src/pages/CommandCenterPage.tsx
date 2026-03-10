@@ -118,6 +118,19 @@ export default function CommandCenterPage() {
         }
     };
 
+    const handleResetAndReprocess = async () => {
+        if (!selectedCaseId) return;
+        setIsProcessing(true);
+        try {
+            await casesApi.resetCase(apiClient, selectedCaseId);
+            await handleProcess();
+        } catch (error) {
+            console.error("Failed to reset and reprocess case:", error);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const navPrevNext = (dir: -1 | 1) => {
         if (!selectedCaseId) return;
         const idx = cases.findIndex(c => c.case_id === selectedCaseId);
@@ -319,10 +332,12 @@ export default function CommandCenterPage() {
                                 View Agent Action Screen
                             </button>
                             <button
-                                className="w-full mt-3 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-red-600 font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+                                onClick={handleResetAndReprocess}
+                                disabled={isProcessing}
+                                className={`w-full mt-3 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-red-600 font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
-                                <Activity size={15} />
-                                Reset & Reprocess
+                                <Activity size={15} className={isProcessing ? 'animate-spin' : ''} />
+                                {isProcessing ? 'Processing...' : 'Reset & Reprocess'}
                             </button>
                         </div>
                     </div>

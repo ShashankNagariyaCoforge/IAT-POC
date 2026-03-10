@@ -1,5 +1,6 @@
 import logging
 import uuid
+import os
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -86,21 +87,39 @@ async def process_single_case(case_id: str):
             pii_mappings=pii_mappings
         )
 
-        # Upload HTML report as a blob
+        # Upload report/masked text (Blob or Local)
         report_blob_name = f"cases/{case_id}/pii_masking_report.html"
-        await blob_service.upload_text(
-            settings.blob_container_extracted_text,
-            report_blob_name,
-            html_report,
-            content_type="text/html"
-        )
-
         masked_blob_name = f"cases/{case_id}/masked_full_content.txt"
-        await blob_service.upload_text(
-            settings.blob_container_extracted_text,
-            masked_blob_name,
-            masked_text
-        )
+
+        if settings.demo_mode:
+            # Save locally for demo
+            local_report_dir = os.path.join(settings.demo_data_dir or "demo_data", "extracted_text")
+            os.makedirs(local_report_dir, exist_ok=True)
+            
+            with open(os.path.join(local_report_dir, f"{case_id}_pii_report.html"), "w", encoding="utf-8") as f:
+                f.write(html_report)
+            with open(os.path.join(local_report_dir, f"{case_id}_masked.txt"), "w", encoding="utf-8") as f:
+                f.write(masked_text)
+            
+            # For demo, we still set these paths to something recognizable
+            report_blob_path = os.path.join(local_report_dir, f"{case_id}_pii_report.html")
+            masked_blob_path = os.path.join(local_report_dir, f"{case_id}_masked.txt")
+        else:
+            # Upload HTML report as a blob
+            await blob_service.upload_text(
+                settings.blob_container_extracted_text,
+                report_blob_name,
+                html_report,
+                content_type="text/html"
+            )
+
+            await blob_service.upload_text(
+                settings.blob_container_extracted_text,
+                masked_blob_name,
+                masked_text
+            )
+            report_blob_path = report_blob_name
+            masked_blob_path = masked_blob_name
 
         # 5. Content Safety (on masked text)
         safety_result = await safety_svc.analyze_text(masked_text)
@@ -133,8 +152,8 @@ async def process_single_case(case_id: str):
         classification["result_id"] = str(uuid.uuid4())
         classification["case_id"] = case_id
         classification["classified_at"] = datetime.utcnow().isoformat()
-        classification["masked_text_blob_path"] = masked_blob_name
-        classification["pii_report_blob_path"] = report_blob_name
+        classification["masked_text_blob_path"] = masked_blob_path
+        classification["pii_report_blob_path"] = report_blob_path
         
         await db_service.save_classification_result(classification)
 
