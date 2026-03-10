@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import CaseListPage from './CaseListPage';
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+const POLL_INTERVAL_MS = parseInt(import.meta.env.VITE_DASHBOARD_POLL_INTERVAL_MS || '30000', 10);
 
 export default function CommandCenterPage() {
     const { instance } = useMsal();
@@ -52,13 +53,22 @@ export default function CommandCenterPage() {
         fetchCases();
     }, [fetchCases]);
 
-    // Auto poll list if there are cases actively processing
+    const fetchCasesRef = useRef(fetchCases);
+
     useEffect(() => {
-        const hasActive = cases.some(c => c.status === 'PROCESSING');
-        if (!hasActive) return;
-        const tm = setInterval(fetchCases, 5000);
+        fetchCasesRef.current = fetchCases;
+    }, [fetchCases]);
+
+    // Auto poll list globally for new cases
+    useEffect(() => {
+        if (POLL_INTERVAL_MS <= 0) return;
+
+        const tm = setInterval(() => {
+            fetchCasesRef.current();
+        }, POLL_INTERVAL_MS);
+
         return () => clearInterval(tm);
-    }, [cases, fetchCases]);
+    }, []);
 
     useEffect(() => {
         if (!selectedCaseId) return;
