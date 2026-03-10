@@ -94,11 +94,7 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false 
                                                             )}
                                                             <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">MODIFIED</span>
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-[9px] font-bold text-emerald-500 px-1.5 py-0.5 rounded">
-                                                            Confidence: {f.confidence || (85 + (f.label.length % 15))}%
-                                                        </span>
-                                                    )}
+                                                    ) : null}
                                                 </div>
 
                                                 {f.label.toLowerCase().includes('summary') ? (
