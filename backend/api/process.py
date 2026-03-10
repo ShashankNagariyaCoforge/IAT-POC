@@ -59,7 +59,9 @@ async def process_single_case(case_id: str):
         # 2. Build combined text (Raw)
         text_parts = []
         for em in emails:
-             text_parts.append(f"[Source: Email from {em.get('sender')}]\n{em.get('body_masked', '')}")
+             # Use full 'body' if available (newly synced emails), fallback to body_masked (old ones)
+             body_text = em.get('body') or em.get('body_masked', '')
+             text_parts.append(f"[Source: Email from {em.get('sender')}]\n{body_text}")
         
         for doc in documents:
             if doc.get("extracted_text"):

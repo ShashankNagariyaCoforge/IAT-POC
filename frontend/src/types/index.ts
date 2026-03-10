@@ -28,7 +28,8 @@ export type ClassificationCategory =
     | 'Complaint/Escalation'
     | 'Regulatory/Legal'
     | 'Documentation/Evidence'
-    | 'Spam/Irrelevant';
+    | 'Spam/Irrelevant'
+    | 'BOR';
 
 export interface Case {
     case_id: string;

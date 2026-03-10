@@ -29,8 +29,10 @@ Categories:
 6. Regulatory/Legal - FCA, legal, compliance communications
 7. Documentation/Evidence - Supporting documents for existing cases
 8. Spam/Irrelevant - Unsolicited or non-insurance emails
+9. BOR - Broker of Record change requests
 
 Classification Rules:
+- If an email specifies a change in the designated broker for a policy, classify it as BOR.
 - If an email contains both a Complaint and a General Query, ALWAYS classify it as Complaint/Escalation.
 - If an email is following up on a New application, use Follow-up, NOT New.
 - If an email just says "Thank you" or "Received", classify it as Spam/Irrelevant.

@@ -21,6 +21,7 @@ class EmailDocument(BaseModel):
     has_attachments: bool = False
     attachment_count: int = 0
     body_preview: Optional[str] = None  # First 500 chars of body (PII masked)
+    body: Optional[str] = None  # Full body text (PII unmasked, cleaned)
 
 
 class EmailResponse(BaseModel):
@@ -34,3 +35,4 @@ class EmailResponse(BaseModel):
     has_attachments: bool
     attachment_count: int
     body_preview: Optional[str] = None
+    body: Optional[str] = None

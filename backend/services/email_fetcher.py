@@ -94,7 +94,10 @@ class EmailFetcherService:
             "&$expand=attachments"
             "&$top=50"
         )
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Prefer": 'outlook.body-content-type="text"'
+        }
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()

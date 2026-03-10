@@ -45,8 +45,19 @@ export default function CaseActionScreen() {
                 casesApi.getCaseClassification(apiClient, caseId),
             ]);
             setCaseData(c);
-            setDocs(d.documents);
+            const normalizedDocs = d.documents.map((doc: any) => ({
+                ...doc,
+                file_name: doc.file_name || doc.filename // Robust fallback
+            }));
+            setDocs(normalizedDocs);
             setClassification(cls.classification);
+
+            // Auto-select first PDF if nothing is active
+            if (normalizedDocs.length > 0 && !activePdfUrl) {
+                const firstUrl = `/api/cases/${caseId}/documents/${normalizedDocs[0].document_id}/pdf`;
+                setActivePdfUrl(firstUrl);
+                setActivePdfName(normalizedDocs[0].file_name);
+            }
         } finally {
             setLoading(false);
         }
@@ -153,10 +164,10 @@ export default function CaseActionScreen() {
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Case ID: {caseId}</span>
                             <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${caseData.status === 'RECEIVED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                    caseData.status === 'PROCESSING' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
-                                        ['PROCESSED', 'CLASSIFIED'].includes(caseData.status) ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                                            ['BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY', 'FAILED', 'PENDING_REVIEW'].includes(caseData.status) ? 'bg-red-100 text-red-700 border-red-200' :
-                                                'bg-slate-50 text-slate-500 border-slate-200'
+                                caseData.status === 'PROCESSING' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
+                                    ['PROCESSED', 'CLASSIFIED'].includes(caseData.status) ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                        ['BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY', 'FAILED', 'PENDING_REVIEW'].includes(caseData.status) ? 'bg-red-100 text-red-700 border-red-200' :
+                                            'bg-slate-50 text-slate-500 border-slate-200'
                                 }`}>
                                 {caseData.status.replace(/_/g, ' ')}
                             </span>

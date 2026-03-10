@@ -118,9 +118,23 @@ async def run_email_sync_pipeline() -> dict:
                 attachment_paths = [b for b in blobs_in_folder if b != email_json_path and "/unzipped/" not in b]
 
                 combined_text = email_data.get("body", "") + " \n\n "
+                SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".csv", ".png", ".jpg", ".jpeg", ".gif"}
+                
                 for att_path in attachment_paths:
-                    att_bytes = await blob_service.download_bytes(container, att_path)
                     att_filename = att_path.split("/")[-1]
+                    ext = "." + att_filename.rsplit(".", 1)[-1].lower() if "." in att_filename else ""
+                    
+                    if ext not in SUPPORTED_EXTENSIONS:
+                        logger.info(f"[Poller] Skipping unsupported extension: {att_filename}")
+                        continue
+                        
+                    att_bytes = await blob_service.download_bytes(container, att_path)
+                    
+                    # Size filter for images (signature icons/tracking pixels are usually < 10KB)
+                    if ext in {".png", ".jpg", ".jpeg", ".gif"} and len(att_bytes) < 10240:
+                        logger.info(f"[Poller] Skipping small image (likely signature icon): {att_filename} ({len(att_bytes)} bytes)")
+                        continue
+
                     parse_result = await parser.parse(att_filename, att_bytes)
                     combined_text += f"\n\n--- Attachment: {att_filename} ---\n{parse_result.raw_text}"
 
@@ -134,8 +148,13 @@ async def run_email_sync_pipeline() -> dict:
                     }
                     await db_service.create_document(doc_record)
 
-                # Store raw body (unmasked) initially for the UI Inbox
-                email_record["body_masked"] = email_data.get("body", "")[:2000]
+                # Clean and store full body
+                from utils.html_utils import clean_html
+                raw_body = email_data.get("body", "")
+                cleaned_body = clean_html(raw_body)
+                
+                email_record["body"] = cleaned_body
+                email_record["body_masked"] = cleaned_body[:2000] # Still keep preview for UI list
                 if settings.demo_mode:
                     from tinydb import Query
                     from services.local_db import _get_db as get_tinydb

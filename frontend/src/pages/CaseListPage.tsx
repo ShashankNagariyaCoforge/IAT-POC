@@ -14,6 +14,7 @@ import { SankeyChart } from '../components/SankeyChart';
 const CATEGORIES: ClassificationCategory[] = [
     'New', 'Renewal', 'Query/General', 'Follow-up',
     'Complaint/Escalation', 'Regulatory/Legal', 'Documentation/Evidence', 'Spam/Irrelevant',
+    'BOR',
 ];
 const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'PROCESSED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
 

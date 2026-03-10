@@ -37,6 +37,7 @@ class ClassificationCategory(str, Enum):
     REGULATORY_LEGAL = "Regulatory/Legal"
     DOCUMENTATION_EVIDENCE = "Documentation/Evidence"
     SPAM_IRRELEVANT = "Spam/Irrelevant"
+    BOR = "BOR"
 
 
 class CaseDocument(BaseModel):
