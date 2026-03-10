@@ -108,7 +108,20 @@ export default function CaseActionScreen() {
             { label: 'Document Type', value: kf?.document_type || 'Unknown' },
             { label: 'Urgency', value: kf?.urgency || 'Unknown', isCritical: kf?.urgency === 'high' },
         ],
-        'Policy & Claims': [
+        'Counterparty Details': [
+            { label: 'Insured', value: kf?.insured_name || 'N/A' },
+            { label: 'Broker', value: kf?.broker_name || 'N/A' },
+            { label: 'Obligor', value: kf?.obligor || 'N/A' },
+        ],
+        'Structural & Timeline': [
+            { label: 'Effective Date', value: kf?.effective_date || 'N/A' },
+            { label: 'Expiration Date', value: kf?.expiration_date || 'N/A' },
+            { label: 'Tenor', value: kf?.tenor || 'N/A' },
+        ],
+        'Financial Terms': [
+            { label: 'Limit of Liability', value: kf?.limit_of_liability || 'N/A' },
+            { label: 'Premium', value: kf?.premium_amount || 'N/A' },
+            { label: 'Currency', value: kf?.currency || 'N/A' },
             { label: 'Policy Reference', value: kf?.policy_reference || 'N/A' },
             { label: 'Claim Type', value: kf?.claim_type || 'N/A' },
         ],
@@ -210,7 +223,7 @@ export default function CaseActionScreen() {
                             <h2 className="text-lg font-bold text-slate-800">Document Submission Bundle</h2>
                         </div>
                         <div className="p-4 bg-slate-50/30">
-                            <div className="grid grid-cols-3 gap-4 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                            <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                                 {docs.map((doc, i) => {
                                     const url = `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
                                     const isSelected = activePdfUrl === url;
@@ -218,21 +231,23 @@ export default function CaseActionScreen() {
                                         <div
                                             key={i}
                                             onClick={() => { setActivePdfUrl(url); setActivePdfName(doc.file_name); }}
-                                            className={`relative p-5 rounded-xl border text-left transition cursor-pointer group ${isSelected
+                                            className={`relative p-3 rounded-xl border text-left transition cursor-pointer group flex flex-col gap-2 ${isSelected
                                                 ? 'border-indigo-400 bg-indigo-50/60 shadow-md ring-2 ring-indigo-100'
                                                 : 'border-slate-200 bg-white shadow-sm hover:border-indigo-300 hover:shadow-md'
                                                 }`}
                                         >
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="w-10 h-10 bg-red-50 text-red-500 border border-red-100 rounded-lg flex items-center justify-center font-black text-xs tracking-wider">
+                                            <div className="flex items-center justify-between">
+                                                <div className="w-8 h-8 bg-red-50 text-red-500 border border-red-100 rounded-lg flex items-center justify-center font-black text-[10px] tracking-wider shrink-0">
                                                     PDF
                                                 </div>
-                                                <span className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>
-                                                    <Eye size={16} />
+                                                <span className={`p-1 rounded-md transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>
+                                                    <Eye size={14} />
                                                 </span>
                                             </div>
-                                            <p className="text-sm font-black text-slate-700 truncate mb-1">{doc.file_name || (doc as any).filename}</p>
-                                            <p className="text-[11px] text-slate-500">Document #{i + 1}</p>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-700 truncate">{doc.file_name || (doc as any).filename}</p>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">Doc #{i + 1}</p>
+                                            </div>
                                         </div>
                                     );
                                 })}

@@ -82,6 +82,18 @@ export interface KeyFields {
     urgency: 'low' | 'medium' | 'high' | null;
     policy_reference: string | null;
     claim_type: string | null;
+    // Entity Info
+    insured_name: string | null;
+    broker_name: string | null;
+    obligor: string | null;
+    // Policy Details
+    effective_date: string | null;
+    expiration_date: string | null;
+    tenor: string | null;
+    // Financials
+    limit_of_liability: string | null;
+    premium_amount: string | null;
+    currency: string | null;
 }
 
 export interface ClassificationResult {

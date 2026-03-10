@@ -25,6 +25,7 @@ def classifier():
 async def test_classify_returns_structured_result(classifier):
     """Test that a valid GPT response is parsed correctly."""
     mock_response = {
+        "reasoning": "The document is a new application form for policy insurance.",
         "classification_category": "New",
         "confidence_score": 0.92,
         "summary": "A new policy application was submitted.",
@@ -33,6 +34,15 @@ async def test_classify_returns_structured_result(classifier):
             "urgency": "medium",
             "policy_reference": "[POLICY_NUMBER]",
             "claim_type": None,
+            "insured_name": "[NAME]",
+            "broker_name": "[NAME]",
+            "obligor": None,
+            "effective_date": "2024-01-01",
+            "expiration_date": "2025-01-01",
+            "tenor": "1 year",
+            "limit_of_liability": "$1M",
+            "premium_amount": "$5,000",
+            "currency": "USD"
         },
         "requires_human_review": False,
     }
@@ -52,10 +62,25 @@ async def test_classify_returns_structured_result(classifier):
 async def test_classify_low_confidence_flags_review(classifier):
     """Low confidence score should set requires_human_review=True."""
     mock_response = {
+        "reasoning": "The email content is very brief and lacks specific details for high-confidence classification.",
         "classification_category": "Query/General",
         "confidence_score": 0.65,
         "summary": "Uncertain classification.",
-        "key_fields": {"document_type": "unknown", "urgency": "low", "policy_reference": None, "claim_type": None},
+        "key_fields": {
+            "document_type": "unknown", 
+            "urgency": "low", 
+            "policy_reference": None, 
+            "claim_type": None,
+            "insured_name": None,
+            "broker_name": None,
+            "obligor": None,
+            "effective_date": None,
+            "expiration_date": None,
+            "tenor": None,
+            "limit_of_liability": None,
+            "premium_amount": None,
+            "currency": None
+        },
         "requires_human_review": False,  # GPT says false, but we override based on threshold
     }
     mock_choice = MagicMock()

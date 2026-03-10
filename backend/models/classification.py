@@ -10,10 +10,26 @@ from models.case import ClassificationCategory
 
 class KeyFields(BaseModel):
     """Structured key fields extracted by GPT-4o-mini."""
+    # Existing fields
     document_type: Optional[str] = None
     urgency: Optional[str] = None  # low | medium | high
-    policy_reference: Optional[str] = None  # masked value
+    policy_reference: Optional[str] = None
     claim_type: Optional[str] = None
+
+    # Entity Info
+    insured_name: Optional[str] = None
+    broker_name: Optional[str] = None
+    obligor: Optional[str] = None
+
+    # Policy Details
+    effective_date: Optional[str] = None  # YYYY-MM-DD
+    expiration_date: Optional[str] = None  # YYYY-MM-DD
+    tenor: Optional[str] = None
+
+    # Financials
+    limit_of_liability: Optional[str] = None
+    premium_amount: Optional[str] = None
+    currency: Optional[str] = None
 
 
 class ClassificationResult(BaseModel):
