@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
@@ -71,18 +71,32 @@ export default function CaseListPage() {
 
 
 
+    // Use refs to avoid stale closures in the interval
+    const fetchCasesRef = useRef(fetchCases);
+    const fetchDashboardMetricsRef = useRef(fetchDashboardMetrics);
+
+    useEffect(() => {
+        fetchCasesRef.current = fetchCases;
+        fetchDashboardMetricsRef.current = fetchDashboardMetrics;
+    }, [fetchCases, fetchDashboardMetrics]);
+
+    // Initial fetch and dependency-driven fetch
     useEffect(() => {
         fetchCases();
         fetchDashboardMetrics();
-
-        if (POLL_INTERVAL_MS > 0) {
-            const intervalId = setInterval(() => {
-                fetchCases();
-                fetchDashboardMetrics();
-            }, POLL_INTERVAL_MS);
-            return () => clearInterval(intervalId);
-        }
     }, [fetchCases, fetchDashboardMetrics]);
+
+    // Background auto-polling (runs exactly once, uses refs for latest state)
+    useEffect(() => {
+        if (POLL_INTERVAL_MS <= 0) return;
+
+        const intervalId = setInterval(() => {
+            fetchCasesRef.current();
+            fetchDashboardMetricsRef.current();
+        }, POLL_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
+    }, []); // Empty dependency array ensures this effect runs exactly once and the timer never gets cleared prematurely
 
     const handleSort = (col: string) => {
         if (sortBy === col) setSortOrder(o => o === 'ASC' ? 'DESC' : 'ASC');
