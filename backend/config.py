@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     dev_bypass_auth: bool = False  # Set DEV_BYPASS_AUTH=true in .env to skip JWT validation
     demo_mode: bool = False  # Set DEMO_MODE=true to use local TinyDB instead of Cosmos DB
+    demo_data_dir: str = "demo_data"
     webhook_subscription_renewal_hours: int = 48
     classification_confidence_threshold: float = 0.75
     cases_per_page: int = 50
