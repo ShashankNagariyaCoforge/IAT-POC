@@ -68,13 +68,13 @@ export interface ListCasesParams {
 /** All API functions — used by pages and components. */
 export const casesApi = {
     listCases: (client: AxiosInstance, params: ListCasesParams = {}) =>
-        client.get<CaseListResponse>('/cases', { params }).then((r) => r.data),
+        client.get<CaseListResponse>('/cases', { params: { ...params, _t: Date.now() } }).then((r) => r.data),
 
     getCase: (client: AxiosInstance, caseId: string) =>
         client.get<Case>(`/cases/${caseId}`).then((r) => r.data),
 
     getCaseEmails: (client: AxiosInstance, caseId: string) =>
-        client.get<{ emails: Email[]; total: number }>(`/cases/${caseId}/emails`).then((r) => r.data),
+        client.get<{ emails: Email[]; total: number }>(`/cases/${caseId}/emails`, { params: { _t: Date.now() } }).then((r) => r.data),
 
     getCaseDocuments: (client: AxiosInstance, caseId: string) =>
         client.get<{ documents: Document[]; total: number }>(`/cases/${caseId}/documents`).then((r) => r.data),
@@ -92,5 +92,5 @@ export const casesApi = {
         client.get<PipelineStatus>(`/cases/${caseId}/pipeline-status`).then((r) => r.data),
 
     getDashboardMetrics: (client: AxiosInstance) =>
-        client.get<any>('/cases/dashboard-metrics').then((r) => r.data),
+        client.get<any>('/cases/dashboard-metrics', { params: { _t: Date.now() } }).then((r) => r.data),
 };

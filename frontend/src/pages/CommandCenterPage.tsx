@@ -59,21 +59,30 @@ export default function CommandCenterPage() {
         fetchCasesRef.current = fetchCases;
     }, [fetchCases]);
 
-    // Auto poll list globally for new cases
+    const fetchDetailsRef = useRef<() => void>();
+
+    // Auto poll list globally for new cases and active email details
     useEffect(() => {
         if (POLL_INTERVAL_MS <= 0) return;
 
         const tm = setInterval(() => {
             fetchCasesRef.current();
+            if (fetchDetailsRef.current) fetchDetailsRef.current();
         }, POLL_INTERVAL_MS);
 
         return () => clearInterval(tm);
     }, []);
 
     useEffect(() => {
-        if (!selectedCaseId) return;
-        const fetchDetails = async () => {
-            setSelectedDetails(prev => ({ ...prev, loading: true }));
+        if (!selectedCaseId) {
+            fetchDetailsRef.current = undefined;
+            return;
+        }
+
+        const fetchDetails = async (isBackgroundPoll = false) => {
+            if (!isBackgroundPoll) {
+                setSelectedDetails(prev => ({ ...prev, loading: true }));
+            }
             try {
                 const [emData, docData] = await Promise.all([
                     casesApi.getCaseEmails(apiClient, selectedCaseId),
@@ -84,7 +93,13 @@ export default function CommandCenterPage() {
                 setSelectedDetails({ emails: [], documents: [], loading: false });
             }
         };
-        fetchDetails();
+
+        fetchDetailsRef.current = () => fetchDetails(true);
+        fetchDetails(false);
+
+        return () => {
+            fetchDetailsRef.current = undefined;
+        };
     }, [selectedCaseId, apiClient]);
 
     const selectedCase = cases.find(c => c.case_id === selectedCaseId);
