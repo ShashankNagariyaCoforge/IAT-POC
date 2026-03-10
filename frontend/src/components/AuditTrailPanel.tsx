@@ -18,7 +18,7 @@ function confColor(pct: number): { bg: string; text: string; border: string } {
     return { bg: '#fff1f2', text: '#be123c', border: '#fda4af' };
 }
 
-export function AuditTrailPanel({ steps, caseId }: Props) {
+export function AuditTrailPanel({ steps }: Props) {
     return (
         <div style={{
             background: '#ffffff', border: '1px solid #e2e8f0',

@@ -1,4 +1,4 @@
-import { X, Maximize2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Maximize2, Download } from 'lucide-react';
 
 interface Props {
     url: string;

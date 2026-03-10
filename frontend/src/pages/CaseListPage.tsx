@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     Search, AlertTriangle, ChevronUp, ChevronDown, LogOut, RefreshCw, X,
-    CheckCircle2, Clock, Zap, Network, Mail, Fingerprint, ShieldCheck, BrainCircuit,
-    Loader2, AlertCircle, ExternalLink
+    CheckCircle2, Clock, Zap, AlertCircle, ExternalLink
 } from 'lucide-react';
 import { createApiClient, casesApi, ListCasesParams } from '../api/casesApi';
 import type { Case, ClassificationCategory, CaseStatus } from '../types';
@@ -19,31 +18,6 @@ const CATEGORIES: ClassificationCategory[] = [
 const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'PROCESSED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
-
-// ── Status pill styles ──────────────────────────────────────────────────────
-const STATUS_STYLES: Record<string, { bg: string; border: string; color: string; label: string }> = {
-    RECEIVED: { bg: '#f0f9ff', border: '#bae6fd', color: '#0369a1', label: 'Received' },
-    PROCESSING: { bg: '#eef2ff', border: '#a5b4fc', color: '#4338ca', label: 'Processing' },
-    CLASSIFIED: { bg: '#f0fdf4', border: '#86efac', color: '#15803d', label: 'Classified' },
-    PROCESSED: { bg: '#f0fdf4', border: '#86efac', color: '#15803d', label: 'Processed' },
-    PENDING_REVIEW: { bg: '#fefce8', border: '#fde047', color: '#a16207', label: 'Pending Review' },
-    FAILED: { bg: '#fff1f2', border: '#fda4af', color: '#be123c', label: 'Failed' },
-    BLOCKED_SAFETY: { bg: '#fff1f2', border: '#fda4af', color: '#be123c', label: 'Blocked' },
-    NEEDS_REVIEW_SAFETY: { bg: '#fffbeb', border: '#fcd34d', color: '#b45309', label: 'Safety Review' },
-};
-
-const CATEGORY_STYLES: Record<string, { bg: string; border: string; color: string }> = {
-    'New': { bg: '#eef2ff', border: '#c7d2fe', color: '#4338ca' },
-    'Renewal': { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
-    'Query/General': { bg: '#f0f9ff', border: '#bae6fd', color: '#0284c7' },
-    'Follow-up': { bg: '#fdf4ff', border: '#e9d5ff', color: '#7e22ce' },
-    'Complaint/Escalation': { bg: '#fff1f2', border: '#fecdd3', color: '#be123c' },
-    'Regulatory/Legal': { bg: '#fff7ed', border: '#fed7aa', color: '#c2410c' },
-    'Documentation/Evidence': { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' },
-    'Spam/Irrelevant': { bg: '#f8fafc', border: '#cbd5e1', color: '#64748b' },
-};
-
-
 
 export default function CaseListPage() {
     const { instance, accounts } = useMsal();
@@ -335,7 +309,6 @@ export default function CaseListPage() {
                                         { key: 'classification_category', label: 'Product Line' },
                                         { key: 'confidence_score', label: 'Extraction Confidence' },
                                         { key: 'status', label: 'Process Status' },
-                                        { key: 'created_at', label: 'Premium Est.' },
                                     ].map(col => (
                                         <th
                                             key={col.key}
@@ -357,7 +330,7 @@ export default function CaseListPage() {
                                 {loading && !cases.length ? (
                                     Array.from({ length: 8 }).map((_, i) => (
                                         <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                            {Array.from({ length: 9 }).map((_, j) => (
+                                            {Array.from({ length: 8 }).map((_, j) => (
                                                 <td key={j} style={{ padding: '16px' }}>
                                                     <div style={{ height: '13px', background: '#f1f5f9', borderRadius: '6px', width: `${60 + Math.random() * 40}px`, animation: 'pulse 1.5s infinite' }} />
                                                 </td>
@@ -366,7 +339,7 @@ export default function CaseListPage() {
                                     ))
                                 ) : cases.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} style={{ padding: '64px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                                        <td colSpan={8} style={{ padding: '64px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
                                             No cases found matching your criteria.
                                         </td>
                                     </tr>
@@ -435,11 +408,6 @@ export default function CaseListPage() {
                                                         {(c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' || c.requires_human_review) && <AlertCircle size={10} />}
                                                         {c.status.replace('_', ' ')}
                                                     </span>
-                                                </td>
-
-                                                {/* Premium Est (Mocked as Date for now) */}
-                                                <td style={{ padding: '24px 16px', color: '#0f172a', fontSize: '14px', whiteSpace: 'nowrap', fontWeight: 800 }}>
-                                                    $—
                                                 </td>
 
                                                 {/* Action */}
