@@ -108,8 +108,11 @@ export default function CommandCenterPage() {
         if (!selectedCaseId) return;
         setIsProcessing(true);
         try {
-            await fetch('/api/cases/sync', { method: 'POST' }); // trigger sync
+            await apiClient.post(`/cases/${selectedCaseId}/process`);
             await fetchCases();
+            if (fetchDetailsRef.current) fetchDetailsRef.current();
+        } catch (error) {
+            console.error("Failed to process case:", error);
         } finally {
             setIsProcessing(false);
         }
