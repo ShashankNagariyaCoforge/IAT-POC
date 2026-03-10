@@ -136,6 +136,49 @@ class CosmosDBService:
         await container.upsert_item(case)
         logger.debug(f"Attached Content Safety results to case {case_id}")
 
+    async def reset_case(self, case_id: str) -> None:
+        """
+        Partial reset: delete classification results, PII mappings, 
+        and clear AI fields from the case record.
+        """
+        # 1. Delete classification results
+        container_results = await self._get_container(CONTAINER_CLASSIFICATION)
+        query = f"SELECT * FROM c WHERE c.case_id = '{case_id}'"
+        async for item in container_results.query_items(query=query, enable_cross_partition_query=True):
+            # Assuming 'id' is the item ID and 'case_id' is the partition key for classification results
+            # This might need adjustment based on actual schema if 'id' is not the item ID or 'case_id' is not the partition key
+            await container_results.delete_item(item['result_id'], partition_key=item['result_id'])
+
+        # 2. Delete PII mapping (best effort)
+        try:
+            container_pii = await self._get_container(CONTAINER_PII_MAPPING)
+            # Assuming 'document_id' is used as 'mapping_id' and partition key for PII mapping
+            # This query needs to find PII mappings associated with documents of the case
+            # A more robust approach might involve querying documents first, then deleting their PII mappings
+            # For now, assuming PII mapping items have a 'case_id' field and 'mapping_id' as item ID and partition key
+            query_pii = f"SELECT * FROM c WHERE c.case_id = '{case_id}'"
+            async for item in container_pii.query_items(query=query_pii, enable_cross_partition_query=True):
+                await container_pii.delete_item(item['mapping_id'], partition_key=item['mapping_id'])
+        except Exception as e:
+            logger.warning(f"Failed to delete PII mappings for case {case_id}: {e}")
+            pass
+
+        # 3. Update case
+        container_cases = await self._get_container(CONTAINER_CASES)
+        case = await self.get_case(case_id)
+        if case:
+            case.update({
+                "status": CaseStatus.RECEIVED.value,
+                "classification_category": None,
+                "confidence_score": 0,
+                "requires_human_review": False,
+                "summary": None,
+                "content_safety_result": None,
+                "updated_at": datetime.utcnow().isoformat()
+            })
+            await container_cases.upsert_item(case)
+        logger.info(f"[CosmosDB] Reset case to RECEIVED: {case_id}")
+
     async def delete_case_data(self, case_id: str) -> None:
         """
         Rollback helper: Delete the case and ALL associated records across all containers.

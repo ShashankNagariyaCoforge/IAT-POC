@@ -102,6 +102,25 @@ class LocalDBService:
         db.storage.flush()
         logger.info(f"[LocalDB] Saved content safety result for case {case_id}")
 
+    async def reset_case(self, case_id: str) -> None:
+        """Partial reset: clear classification and safety, set to RECEIVED."""
+        db = _get_db()
+        q = Query()
+        # Delete classification results
+        db.table("classification_results").remove(q.case_id == case_id)
+        # Update case record
+        db.table("cases").update({
+            "status": CaseStatus.RECEIVED.value,
+            "classification_category": None,
+            "confidence_score": 0,
+            "requires_human_review": False,
+            "summary": None,
+            "content_safety_result": None,
+            "updated_at": datetime.utcnow().isoformat()
+        }, q.case_id == case_id)
+        db.storage.flush()
+        logger.info(f"[LocalDB] Reset case to RECEIVED: {case_id}")
+
     async def list_cases(
         self,
         page: int = 1,

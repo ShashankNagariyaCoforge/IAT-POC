@@ -65,6 +65,7 @@ class BlobStorageService:
         container_name: str,
         blob_name: str,
         text: str,
+        content_type: str = "text/plain; charset=utf-8",
     ) -> str:
         """
         Upload a text string as a UTF-8 blob.
@@ -73,12 +74,13 @@ class BlobStorageService:
             container_name: Target container.
             blob_name: Blob name within the container.
             text: Text content to upload.
+            content_type: Optional MIME type.
 
         Returns:
             Full blob path.
         """
         data = text.encode("utf-8")
-        return await self.upload_bytes(container_name, blob_name, data, content_type="text/plain; charset=utf-8")
+        return await self.upload_bytes(container_name, blob_name, data, content_type=content_type)
 
     async def download_bytes(self, container_name: str, blob_name: str) -> bytes:
         """
