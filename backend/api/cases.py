@@ -143,7 +143,13 @@ async def get_case_documents(case_id: str):
                     preview = text[:500]
                 except Exception:
                     pass
-        enriched.append({**doc, "extracted_text_preview": preview})
+        
+        # Ensure 'file_name' exists for frontend compatibility
+        doc_data = {**doc, "extracted_text_preview": preview}
+        if "filename" in doc_data and "file_name" not in doc_data:
+            doc_data["file_name"] = doc_data["filename"]
+            
+        enriched.append(doc_data)
 
     return {"documents": enriched, "total": len(enriched)}
 

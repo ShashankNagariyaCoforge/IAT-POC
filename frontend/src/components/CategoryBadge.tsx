@@ -10,6 +10,7 @@ const CATEGORY_CONFIG: Record<ClassificationCategory, { className: string }> = {
     'Regulatory/Legal': { className: 'bg-amber-50 text-amber-700 border border-amber-200' },
     'Documentation/Evidence': { className: 'bg-teal-50 text-teal-700 border border-teal-200' },
     'Spam/Irrelevant': { className: 'bg-gray-100 text-gray-500 border border-gray-200' },
+    'BOR': { className: 'bg-orange-50 text-orange-700 border border-orange-200' },
 };
 
 interface CategoryBadgeProps {
