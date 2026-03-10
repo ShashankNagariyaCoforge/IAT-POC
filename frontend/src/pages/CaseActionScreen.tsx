@@ -152,8 +152,13 @@ export default function CaseActionScreen() {
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Case ID: {caseId}</span>
-                            <span className="px-2 py-0.5 rounded-full border border-slate-200 text-[10px] font-bold uppercase text-slate-500 bg-slate-50">
-                                {caseData.status}
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider ${caseData.status === 'RECEIVED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                    caseData.status === 'PROCESSING' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
+                                        ['PROCESSED', 'CLASSIFIED'].includes(caseData.status) ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                            ['BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY', 'FAILED', 'PENDING_REVIEW'].includes(caseData.status) ? 'bg-red-100 text-red-700 border-red-200' :
+                                                'bg-slate-50 text-slate-500 border-slate-200'
+                                }`}>
+                                {caseData.status.replace(/_/g, ' ')}
                             </span>
                         </div>
                         <h1 className="text-lg font-bold text-slate-800 leading-tight truncate max-w-xl">{caseData.subject}</h1>

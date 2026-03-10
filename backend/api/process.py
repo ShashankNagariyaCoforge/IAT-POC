@@ -107,6 +107,12 @@ async def process_single_case(case_id: str):
         safety_flagged_for_review = False
         
         if safety_result:
+            logger.info(f"[ContentSafety] Scores for case {case_id}: "
+                        f"Hate={safety_result.hate_severity}, "
+                        f"SelfHarm={safety_result.self_harm_severity}, "
+                        f"Sexual={safety_result.sexual_severity}, "
+                        f"Violence={safety_result.violence_severity}")
+            
             await db_service.update_case_safety(case_id, safety_result.model_dump())
             max_severity = max(
                 safety_result.hate_severity,
@@ -115,9 +121,11 @@ async def process_single_case(case_id: str):
                 safety_result.violence_severity,
             )
             if max_severity >= 4:
+                logger.warning(f"[ContentSafety] Case {case_id} BLOCKED. Max Severity: {max_severity}")
                 await db_service.update_case_status(case_id, CaseStatus.BLOCKED_SAFETY)
                 return {"message": "Case blocked by safety guardrails."}
             elif max_severity >= 2:
+                logger.info(f"[ContentSafety] Case {case_id} flagged for review. Max Severity: {max_severity}")
                 safety_flagged_for_review = True
 
         # 6. AI Classification

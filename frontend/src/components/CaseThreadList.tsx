@@ -43,6 +43,7 @@ export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props
             case 'PROCESSING': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
             case 'PROCESSED':
             case 'CLASSIFIED': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+            case 'BLOCKED_SAFETY':
             case 'NEEDS_REVIEW_SAFETY':
             case 'PENDING_REVIEW': return 'bg-red-100 text-red-700 border-red-200';
             default: return 'bg-slate-100 text-slate-700 border-slate-200';
