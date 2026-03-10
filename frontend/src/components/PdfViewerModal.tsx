@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Download } from 'lucide-react';
 
 interface Props {
     url: string;

@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Sankey, Tooltip, ResponsiveContainer, Layer, Rectangle } from 'recharts';
 // @ts-ignore
 import { useChartWidth } from 'recharts';
@@ -30,7 +30,7 @@ const CustomNode = memo((props: SankeyNodeProps) => {
 
     let containerWidth = 800;
     try {
-        containerWidth = useChartWidth();
+        containerWidth = useChartWidth() || 800;
     } catch {
         // use default fallback
     }
@@ -184,7 +184,6 @@ export const SankeyChart = memo(({
                     nodeWidth={nodeWidth}
                     nodePadding={nodePadding}
                     iterations={32}
-                    nodeAlign="left"
                     link={<CustomLink />}
                     node={<CustomNode />}
                     margin={{ top: 20, bottom: 20, left: 20, right: 100 }}
