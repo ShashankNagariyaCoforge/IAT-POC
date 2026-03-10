@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     ChevronLeft, ExternalLink, Activity, CheckCircle2,
-    FileText, Eye, RefreshCw, Loader2
+    FileText, Eye, RefreshCw, Loader2, Download
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import type { Case, Document as CaseDoc, ClassificationResult } from '../types';
@@ -162,6 +162,16 @@ export default function CaseActionScreen() {
                 <div className="flex items-center gap-3">
                     <button onClick={fetchAll} className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                         <RefreshCw size={18} />
+                    </button>
+                    <button
+                        onClick={() => window.open(`/api/cases/${caseId}/download-masked`, '_blank')}
+                        disabled={!classification}
+                        className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${classification
+                            ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-sm'
+                            : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                            }`}
+                    >
+                        <Download size={16} /> Masked Content
                     </button>
                     <button
                         onClick={() => navigate(`/cases/${caseId}/snapshot`)}

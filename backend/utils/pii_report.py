@@ -1,12 +1,10 @@
 import os
 from pathlib import Path
 
-def generate_case_pii_report(case_id: str, original_text: str, masked_text: str, pii_mappings: list) -> str:
+def format_pii_report_html(case_id: str, original_text: str, masked_text: str, pii_mappings: list) -> str:
     """
-    Generates an HTML report of PII masking for a specific case and saves it
-    to frontend/public/reports/{case_id}.html
+    Returns the HTML content for a PII masking report.
     """
-    # Compute stats
     pii_count = len(pii_mappings)
     by_type = {}
     for m in pii_mappings:
@@ -40,16 +38,15 @@ def generate_case_pii_report(case_id: str, original_text: str, masked_text: str,
         "tr:last-child td { border-bottom: none; }",
         "tr:hover td { background-color: #f0f5fb; }",
         ".badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #e8f0fa; color: #00467F; border: 1px solid #cdd8e2; }",
-        ".highlight { color: #059669; font-weight: 600; background: #d1fae5; padding: 2px 6px; border-radius: 4px; display: inline-block; }",
         "</style></head><body>",
         "<div class='container'>",
         "<div class='header'>",
         "<div>",
-        f"<h1>Data Privacy & Masking Report</h1>",
+        "<h1>Data Privacy & Masking Report</h1>",
         f"<p style='color: #5a7184; font-size: 13px; margin: 4px 0 0 0;'>Case ID: <strong style='font-family: monospace; color: #00467F;'>{case_id}</strong></p>",
         "</div>",
         "<div class='stats-bar'>",
-        f"<div class='stat-box'><span class='stat-label'>Processed Size</span><span class='stat-value'>{len(original_text):,} chars</span></div>"
+        f"<div class='stat-box'><span class='stat-label'>Processed Size</span><span class='stat-value'>{len(original_text):,} chars</span></div>",
         f"<div class='stat-box'><span class='stat-label'>PII Entities Masked</span><span class='stat-value'>{pii_count}</span></div>",
         "</div>",
         "</div>",
@@ -61,7 +58,6 @@ def generate_case_pii_report(case_id: str, original_text: str, masked_text: str,
         "<div class='sidebar'>",
     ]
 
-    # Type breakdown Card
     if by_type:
         lines.append("<div class='card'>")
         lines.append("<h2>Entities by Category</h2>")
@@ -71,18 +67,14 @@ def generate_case_pii_report(case_id: str, original_text: str, masked_text: str,
         lines.append("</table>")
         lines.append("</div>")
 
-    # Replacement Map removed per user request
+    lines.append("</div></div></div></body></html>")
+    return "\n".join(lines)
 
-    lines.append("</div>") # Close sidebar
-    lines.append("</div>") # Close content-wrapper
-    lines.append("</div>") # Close container
-    lines.append("</body></html>")
-
+def generate_case_pii_report(case_id: str, original_text: str, masked_text: str, pii_mappings: list) -> str:
+    html = format_pii_report_html(case_id, original_text, masked_text, pii_mappings)
     output_dir = Path(__file__).parent.parent.parent / "frontend" / "public" / "reports"
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / f"{case_id}.html"
-    
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
-        
+        f.write(html)
     return f"/reports/{case_id}.html"
