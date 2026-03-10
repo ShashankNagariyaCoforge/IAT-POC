@@ -12,6 +12,7 @@ import os
 from typing import Optional, Union
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List, Any, Dict
 
@@ -145,6 +146,45 @@ async def get_case_documents(case_id: str):
         enriched.append({**doc, "extracted_text_preview": preview})
 
     return {"documents": enriched, "total": len(enriched)}
+
+
+@router.get("/cases/{case_id}/documents/{document_id}/pdf")
+async def get_case_document_pdf(case_id: str, document_id: str):
+    """
+    Get the raw PDF bytes for a specific document.
+    """
+    cosmos = _get_cosmos()
+    case = await cosmos.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    docs = await cosmos.get_documents_for_case(case_id)
+    doc = next((d for d in docs if d.get("document_id") == document_id), None)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    blob_path = doc.get("blob_path")
+    
+    if not blob_path and settings.demo_mode:
+        # In demo mode, documents may not have a blob_path. They might just be stored locally.
+        # Fallback to checking local path if we have it
+        local_path = doc.get("local_path") or doc.get("extracted_text_local_path")
+        if local_path and os.path.exists(local_path):
+             # If it's a txt file, this is just a fallback. Usually we want the real PDF.
+             pass
+
+    if not blob_path:
+        raise HTTPException(status_code=404, detail="PDF blob path not found in document record")
+
+    try:
+        from services.blob_storage import BlobStorageService
+        blob = BlobStorageService()
+        container, blob_name = blob_path.split("/", 1)
+        pdf_bytes = await blob.download_bytes(container, blob_name)
+        return Response(content=pdf_bytes, media_type="application/pdf")
+    except Exception as e:
+        logger.error(f"Failed to download PDF {blob_path}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download PDF from storage")
 
 
 @router.get("/cases/{case_id}/classification")
