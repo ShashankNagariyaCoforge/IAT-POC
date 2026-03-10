@@ -208,7 +208,6 @@ export default function CommandCenterPage() {
                                 <div>
                                     <div className="text-sm">
                                         <span className="font-bold text-slate-900">{selectedCase.sender}</span>
-                                        <span className="text-slate-400 ml-2">→ internal@iat.com</span>
                                     </div>
                                     <div className="text-xs text-slate-500 mt-0.5">
                                         {format(new Date(selectedCase.created_at), 'PPP ')} · {formatRelativeTime(selectedCase.created_at)}
