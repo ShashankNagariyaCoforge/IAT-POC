@@ -209,7 +209,7 @@ export default function CaseActionScreen() {
                             <FileText size={16} className="text-slate-400" />
                             <h2 className="text-lg font-bold text-slate-800">Document Submission Bundle</h2>
                         </div>
-                        <div className="p-4 grid grid-cols-3 gap-4 bg-slate-50/30">
+                        <div className="p-4 grid grid-cols-3 gap-4 bg-slate-50/30 max-h-80 overflow-y-auto custom-scrollbar">
                             {docs.map((doc, i) => {
                                 const url = `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
                                 const isSelected = activePdfUrl === url;
@@ -230,7 +230,7 @@ export default function CaseActionScreen() {
                                                 <Eye size={16} />
                                             </span>
                                         </div>
-                                        <p className="text-sm font-black text-slate-700 truncate mb-1">{doc.file_name}</p>
+                                        <p className="text-sm font-black text-slate-700 truncate mb-1">{doc.file_name || (doc as any).filename}</p>
                                         <p className="text-[11px] text-slate-500">Document #{i + 1}</p>
                                     </div>
                                 );
