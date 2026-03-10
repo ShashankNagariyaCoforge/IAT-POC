@@ -179,7 +179,12 @@ async def get_case_document_pdf(case_id: str, document_id: str):
     try:
         from services.blob_storage import BlobStorageService
         blob = BlobStorageService()
-        container, blob_name = blob_path.split("/", 1)
+        
+        # In this architecture, blob_path is relative to the container.
+        # It does NOT include the container name.
+        container = settings.blob_container_raw_emails
+        blob_name = blob_path
+        
         pdf_bytes = await blob.download_bytes(container, blob_name)
         return Response(content=pdf_bytes, media_type="application/pdf")
     except Exception as e:

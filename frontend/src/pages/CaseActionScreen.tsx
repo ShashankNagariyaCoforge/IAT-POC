@@ -209,32 +209,34 @@ export default function CaseActionScreen() {
                             <FileText size={16} className="text-slate-400" />
                             <h2 className="text-lg font-bold text-slate-800">Document Submission Bundle</h2>
                         </div>
-                        <div className="p-4 grid grid-cols-3 gap-4 bg-slate-50/30 max-h-80 overflow-y-auto custom-scrollbar">
-                            {docs.map((doc, i) => {
-                                const url = `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
-                                const isSelected = activePdfUrl === url;
-                                return (
-                                    <div
-                                        key={i}
-                                        onClick={() => { setActivePdfUrl(url); setActivePdfName(doc.file_name); }}
-                                        className={`relative p-5 rounded-xl border text-left transition cursor-pointer group ${isSelected
-                                            ? 'border-indigo-400 bg-indigo-50/60 shadow-md ring-2 ring-indigo-100'
-                                            : 'border-slate-200 bg-white shadow-sm hover:border-indigo-300 hover:shadow-md'
-                                            }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="w-10 h-10 bg-red-50 text-red-500 border border-red-100 rounded-lg flex items-center justify-center font-black text-xs tracking-wider">
-                                                PDF
+                        <div className="p-4 bg-slate-50/30">
+                            <div className="grid grid-cols-3 gap-4 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                                {docs.map((doc, i) => {
+                                    const url = `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
+                                    const isSelected = activePdfUrl === url;
+                                    return (
+                                        <div
+                                            key={i}
+                                            onClick={() => { setActivePdfUrl(url); setActivePdfName(doc.file_name); }}
+                                            className={`relative p-5 rounded-xl border text-left transition cursor-pointer group ${isSelected
+                                                ? 'border-indigo-400 bg-indigo-50/60 shadow-md ring-2 ring-indigo-100'
+                                                : 'border-slate-200 bg-white shadow-sm hover:border-indigo-300 hover:shadow-md'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="w-10 h-10 bg-red-50 text-red-500 border border-red-100 rounded-lg flex items-center justify-center font-black text-xs tracking-wider">
+                                                    PDF
+                                                </div>
+                                                <span className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>
+                                                    <Eye size={16} />
+                                                </span>
                                             </div>
-                                            <span className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>
-                                                <Eye size={16} />
-                                            </span>
+                                            <p className="text-sm font-black text-slate-700 truncate mb-1">{doc.file_name || (doc as any).filename}</p>
+                                            <p className="text-[11px] text-slate-500">Document #{i + 1}</p>
                                         </div>
-                                        <p className="text-sm font-black text-slate-700 truncate mb-1">{doc.file_name || (doc as any).filename}</p>
-                                        <p className="text-[11px] text-slate-500">Document #{i + 1}</p>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
