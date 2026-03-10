@@ -67,11 +67,14 @@ class ContentSafetyService:
             request = AnalyzeTextOptions(text=text)
             response: AnalyzeTextResult = self.client.analyze_text(request)
 
+            # Parse results from the categories_analysis list (standard for SDK 1.0.0)
+            scores = {c.category: c.severity for c in response.categories_analysis}
+            logger.info(f"content safety score {scores}")
             result = ContentSafetyResult(
-                hate_severity=response.hate_result.severity if response.hate_result else 0,
-                self_harm_severity=response.self_harm_result.severity if response.self_harm_result else 0,
-                sexual_severity=response.sexual_result.severity if response.sexual_result else 0,
-                violence_severity=response.violence_result.severity if response.violence_result else 0,
+                hate_severity=scores.get("Hate", 0),
+                self_harm_severity=scores.get("SelfHarm", 0),
+                sexual_severity=scores.get("Sexual", 0),
+                violence_severity=scores.get("Violence", 0),
             )
 
             logger.info(
