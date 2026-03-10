@@ -18,6 +18,7 @@ const CATEGORIES: ClassificationCategory[] = [
 const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'PROCESSED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+const POLL_INTERVAL_MS = parseInt(import.meta.env.VITE_DASHBOARD_POLL_INTERVAL_MS || '30000', 10);
 
 export default function CaseListPage() {
     const { instance, accounts } = useMsal();
@@ -70,8 +71,18 @@ export default function CaseListPage() {
 
 
 
-    useEffect(() => { fetchCases(); }, [fetchCases]);
-    useEffect(() => { fetchDashboardMetrics(); }, [fetchDashboardMetrics]);
+    useEffect(() => {
+        fetchCases();
+        fetchDashboardMetrics();
+
+        if (POLL_INTERVAL_MS > 0) {
+            const intervalId = setInterval(() => {
+                fetchCases();
+                fetchDashboardMetrics();
+            }, POLL_INTERVAL_MS);
+            return () => clearInterval(intervalId);
+        }
+    }, [fetchCases, fetchDashboardMetrics]);
 
     const handleSort = (col: string) => {
         if (sortBy === col) setSortOrder(o => o === 'ASC' ? 'DESC' : 'ASC');
