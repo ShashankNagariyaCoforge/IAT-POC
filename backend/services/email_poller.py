@@ -160,51 +160,13 @@ async def run_email_sync_pipeline() -> dict:
                     container_client = await db_service._get_container("emails")
                     await container_client.upsert_item(email_record)
 
-                safety_result = await safety_svc.analyze_text(masked_text)
-                safety_flagged_for_review = False
-                from models.case import CaseStatus
-
-                if safety_result:
-                    await db_service.update_case_safety(case_id, safety_result.model_dump())
-                    max_severity = max(
-                        safety_result.hate_severity,
-                        safety_result.self_harm_severity,
-                        safety_result.sexual_severity,
-                        safety_result.violence_severity,
-                    )
-                    if max_severity >= 4:
-                        await db_service.update_case_status(case_id, CaseStatus.BLOCKED_SAFETY)
-                        await blob_service.mark_as_processed(container, email_json_path)
-                        failure_count += 1
-                        continue
-                    elif max_severity >= 2:
-                        await db_service.update_case_status(case_id, CaseStatus.NEEDS_REVIEW_SAFETY)
-                        safety_flagged_for_review = True
-
-                classification = await classifier.classify(masked_text)
-                classification["result_id"] = str(uuid.uuid4())
-                classification["case_id"] = case_id
-                classification["classified_at"] = datetime.utcnow().isoformat()
-                await db_service.save_classification_result(classification)
-
-                if not safety_flagged_for_review:
-                    await db_service.update_case_status(
-                        case_id, CaseStatus.PROCESSED,
-                        classification_category=classification["classification_category"],
-                        confidence_score=classification["confidence_score"],
-                        requires_human_review=classification["requires_human_review"],
-                    )
-                else:
-                    await db_service.update_case_status(
-                        case_id, CaseStatus.NEEDS_REVIEW_SAFETY,
-                        classification_category=classification["classification_category"],
-                        confidence_score=classification["confidence_score"],
-                        requires_human_review=True,
-                    )
+                # Skip Safety and AI Classification during background polling.
+                # Just mark the blob as processed and log success.
+                # The CaseStatus remains 'RECEIVED' so the user can manually process it in the UI.
 
                 await blob_service.mark_as_processed(container, email_json_path)
                 success_count += 1
-                logger.info(f"[Poller] ✅ Processed case {case_id} from {folder}")
+                logger.info(f"[Poller] ✅ Ingested case {case_id} from {folder} (Pending Manual Review)")
 
             except Exception as e:
                 logger.error(f"[Poller] Failed folder {folder}: {e}", exc_info=True)
