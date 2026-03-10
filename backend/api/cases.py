@@ -12,7 +12,7 @@ import os
 from typing import Optional, Union
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
 
@@ -411,3 +411,36 @@ async def get_case_snapshot(case_id: str):
         "extracted_fields": extracted_fields,
         "hitl_fields": hitl_fields,
     }
+
+
+@router.get("/cases/{case_id}/download-masked")
+async def get_case_masked_report(case_id: str):
+    """
+    Downloads the PII-masked HTML report for a processed case.
+    """
+    cosmos = _get_cosmos()
+    classification = await cosmos.get_classification_for_case(case_id)
+    if not classification or not classification.get("pii_report_blob_path"):
+        raise HTTPException(
+            status_code=404, 
+            detail="Masking report not found. Has this case been processed?"
+        )
+
+    blob_path = classification["pii_report_blob_path"]
+    try:
+        from services.blob_storage import BlobStorageService
+        blob = BlobStorageService()
+        
+        container = settings.blob_container_extracted_text
+        html_content = await blob.download_text(container, blob_path)
+        
+        return Response(
+            content=html_content,
+            media_type="text/html",
+            headers={
+                "Content-Disposition": f"attachment; filename=PII_Masked_Report_{case_id}.html"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to download masked report for {case_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve report from storage")

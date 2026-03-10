@@ -30,8 +30,6 @@ async def run_email_sync_pipeline() -> dict:
     from services.content_safety import ContentSafetyService
     from services.email_fetcher import EmailFetcherService
     from services.document_parser import DocumentParser
-    from services.pii_masker import PIIMasker
-    from utils.pii_report import generate_case_pii_report
     from fastapi import HTTPException
     import json, uuid
     from datetime import datetime
@@ -47,7 +45,6 @@ async def run_email_sync_pipeline() -> dict:
     db_service = _get_db()
     classifier = Classifier()
     parser = DocumentParser()
-    masker = PIIMasker()
     safety_svc = ContentSafetyService()
 
     # ── Step 0: Validate credentials ──────────────────────────────────────────
@@ -137,18 +134,8 @@ async def run_email_sync_pipeline() -> dict:
                     }
                     await db_service.create_document(doc_record)
 
-                masked_text, pii_mappings = await masker.mask_text(
-                    text=combined_text, case_id=case_id, document_id=case_id
-                )
-                for m in pii_mappings:
-                    try:
-                        m["original_value"] = masker._decrypt(m["original_value_encrypted"])
-                    except Exception:
-                        pass
-
-                generate_case_pii_report(case_id, combined_text, masked_text, pii_mappings)
-
-                email_record["body_masked"] = masked_text[:2000]
+                # Store raw body (unmasked) initially for the UI Inbox
+                email_record["body_masked"] = email_data.get("body", "")[:2000]
                 if settings.demo_mode:
                     from tinydb import Query
                     from services.local_db import _get_db as get_tinydb
