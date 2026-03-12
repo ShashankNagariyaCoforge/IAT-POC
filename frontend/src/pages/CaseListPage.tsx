@@ -36,7 +36,7 @@ export default function CaseListPage() {
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
     const [status, setStatus] = useState('');
-    const [sortBy, setSortBy] = useState('created_at');
+    const [sortBy, setSortBy] = useState('updated_at');
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
     // Stats & Dashboard
@@ -333,8 +333,9 @@ export default function CaseListPage() {
                                         { key: 'case_id', label: 'Submission ID' },
                                         { key: 'sender', label: 'Broker Entity' },
                                         { key: 'classification_category', label: 'Product Line' },
-                                        { key: 'confidence_score', label: 'Extraction Confidence' },
-                                        { key: 'status', label: 'Process Status' },
+                                        { key: 'confidence_score', label: 'Confidence' },
+                                        { key: 'status', label: 'Status' },
+                                        { key: 'updated_at', label: 'Last Activity' },
                                     ].map(col => (
                                         <th
                                             key={col.key}
@@ -434,6 +435,18 @@ export default function CaseListPage() {
                                                         {(c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' || c.requires_human_review) && <AlertCircle size={10} />}
                                                         {c.status.replace('_', ' ')}
                                                     </span>
+                                                </td>
+
+                                                {/* Last Activity */}
+                                                <td style={{ padding: '24px 16px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                        <span style={{ color: '#1e293b', fontSize: '13px', fontWeight: 700 }}>
+                                                            {new Date(c.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                        </span>
+                                                        <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 500 }}>
+                                                            {new Date(c.updated_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
                                                 </td>
 
                                                 {/* Action */}
