@@ -39,7 +39,7 @@ export default function CommandCenterPage() {
 
     const fetchCases = useCallback(async () => {
         try {
-            const data = await casesApi.listCases(apiClient, { sort_by: 'created_at', sort_order: 'DESC', page_size: 50 });
+            const data = await casesApi.listCases(apiClient, { sort_by: 'updated_at', sort_order: 'DESC', page_size: 50 });
             setCases(data.cases);
             if (!selectedCaseId && data.cases.length > 0) {
                 setSelectedCaseId(data.cases[0].case_id);

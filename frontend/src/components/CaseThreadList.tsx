@@ -101,7 +101,7 @@ export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props
                                             {c.status.replace(/_/g, ' ')}
                                         </span>
                                         <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap">
-                                            {formatRelativeTime(c.created_at)}
+                                            {formatRelativeTime(c.updated_at)}
                                         </span>
                                     </div>
 
