@@ -96,7 +96,7 @@ class EmailFetcherService:
         )
         headers = {
             "Authorization": f"Bearer {token}",
-            "Prefer": 'outlook.body-content-type="text"'
+            "Prefer": 'outlook.body-content-type="html"'
         }
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(url, headers=headers)

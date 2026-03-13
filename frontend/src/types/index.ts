@@ -62,6 +62,7 @@ export interface Email {
     recipients: string[];
     subject: string;
     body_preview: string | null;
+    body_masked?: string;
     body: string;
     received_at: string;
     has_attachments: boolean;
