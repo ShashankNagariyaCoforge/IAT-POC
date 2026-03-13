@@ -148,13 +148,13 @@ async def run_email_sync_pipeline() -> dict:
                     }
                     await db_service.create_document(doc_record)
 
-                # Clean and store full body
+                # Preserve raw HTML in body, use cleaned text for body_masked preview
                 from utils.html_utils import clean_html
-                raw_body = email_data.get("body", "")
-                cleaned_body = clean_html(raw_body)
+                raw_body_html = email_data.get("body", "")
+                cleaned_body_text = clean_html(raw_body_html)
                 
-                email_record["body"] = cleaned_body
-                email_record["body_masked"] = cleaned_body[:2000] # Still keep preview for UI list
+                email_record["body"] = raw_body_html
+                email_record["body_masked"] = cleaned_body_text[:2000] # Plain text preview for sidebar
                 if settings.demo_mode:
                     from tinydb import Query
                     from services.local_db import _get_db as get_tinydb

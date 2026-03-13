@@ -8,6 +8,7 @@ import {
 import { createApiClient, casesApi } from '../api/casesApi';
 import type { Case, Email, Document as CaseDoc } from '../types';
 import { CaseThreadList, formatRelativeTime } from '../components/CaseThreadList';
+import { EmailChainPanel } from '../components/EmailChainPanel';
 import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
 import { PdfViewerModal } from '../components/PdfViewerModal';
 import { format } from 'date-fns';
@@ -253,12 +254,9 @@ export default function CommandCenterPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-8 max-w-3xl">
-                                    {selectedDetails.emails.length > 0 && selectedDetails.emails[0] && (
+                                    {selectedDetails.emails.length > 0 && (
                                         <div className="flex flex-col gap-6">
-                                            <div
-                                                className="p-5 rounded-2xl text-[14px] leading-relaxed font-medium bg-white border border-slate-200 text-slate-800 shadow-sm"
-                                                dangerouslySetInnerHTML={{ __html: (selectedDetails.emails[0].body || selectedDetails.emails[0].body_preview || (selectedDetails.emails[0] as any).body_masked || '(No email content available)') }}
-                                            />
+                                            <EmailChainPanel emails={selectedDetails.emails} />
                                         </div>
                                     )}
 
