@@ -17,6 +17,7 @@ class CaseStatus(str, Enum):
     FAILED = "FAILED"
     BLOCKED_SAFETY = "BLOCKED_SAFETY"
     NEEDS_REVIEW_SAFETY = "NEEDS_REVIEW_SAFETY"
+    UPDATED = "UPDATED"
 
 
 class ContentSafetyResult(BaseModel):

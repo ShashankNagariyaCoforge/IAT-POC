@@ -10,6 +10,7 @@ const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = 
     FAILED: { label: 'Failed', className: 'bg-red-50 text-red-700 border border-red-200' },
     BLOCKED_SAFETY: { label: 'Blocked', className: 'bg-red-100 text-red-800 border border-red-300 font-bold' },
     NEEDS_REVIEW_SAFETY: { label: 'Needs Review', className: 'bg-yellow-50 text-yellow-700 border border-yellow-300' },
+    UPDATED: { label: 'New Activity', className: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
 };
 
 interface StatusBadgeProps {

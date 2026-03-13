@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     Search, AlertTriangle, ChevronUp, ChevronDown, LogOut, RefreshCw, X,
-    CheckCircle2, Clock, Zap, AlertCircle, ExternalLink
+    CheckCircle2, Clock, Zap, AlertCircle, ExternalLink, Activity
 } from 'lucide-react';
 import { createApiClient, casesApi, ListCasesParams } from '../api/casesApi';
 import type { Case, ClassificationCategory, CaseStatus } from '../types';
@@ -16,7 +16,7 @@ const CATEGORIES: ClassificationCategory[] = [
     'Complaint/Escalation', 'Regulatory/Legal', 'Documentation/Evidence', 'Spam/Irrelevant',
     'BOR',
 ];
-const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'PROCESSED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY'];
+const STATUSES: CaseStatus[] = ['RECEIVED', 'PROCESSING', 'CLASSIFIED', 'PENDING_REVIEW', 'PROCESSED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY', 'UPDATED'];
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 const POLL_INTERVAL_MS = parseInt(import.meta.env.VITE_DASHBOARD_POLL_INTERVAL_MS || '30000', 10);
@@ -425,15 +425,16 @@ export default function CaseListPage() {
                                                     <span style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                         padding: '6px 12px', borderRadius: '999px',
-                                                        background: c.status === 'PROCESSED' ? '#ecfdf5' : c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' ? '#eef2ff' : '#fffbeb',
-                                                        border: c.status === 'PROCESSED' ? '1px solid #d1fae5' : c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' ? '1px solid #e0e7ff' : '1px solid #fef3c7',
-                                                        color: c.status === 'PROCESSED' ? '#047857' : c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' ? '#4338ca' : '#b45309',
+                                                        background: c.status === 'PROCESSED' ? '#ecfdf5' : c.status === 'UPDATED' ? '#eef2ff' : c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' ? '#e0f2fe' : '#fffbeb',
+                                                        border: c.status === 'PROCESSED' ? '1px solid #d1fae5' : c.status === 'UPDATED' ? '1px solid #e0e7ff' : c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' ? '1px solid #bae6fd' : '1px solid #fef3c7',
+                                                        color: c.status === 'PROCESSED' ? '#047857' : c.status === 'UPDATED' ? '#4338ca' : c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' ? '#0369a1' : '#b45309',
                                                         fontSize: '10px', fontWeight: 900,
                                                         textTransform: 'uppercase', letterSpacing: '-0.05em', whiteSpace: 'nowrap',
                                                     }}>
                                                         {c.status === 'PROCESSED' && <Zap size={10} />}
+                                                        {c.status === 'UPDATED' && <Activity size={10} />}
                                                         {(c.status === 'PENDING_REVIEW' || c.status === 'NEEDS_REVIEW_SAFETY' || c.requires_human_review) && <AlertCircle size={10} />}
-                                                        {c.status.replace('_', ' ')}
+                                                        {c.status === 'UPDATED' ? 'NEW ACTIVITY' : c.status.replace('_', ' ')}
                                                     </span>
                                                 </td>
 

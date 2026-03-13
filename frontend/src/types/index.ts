@@ -11,7 +11,8 @@ export type CaseStatus =
     | 'PROCESSED'
     | 'FAILED'
     | 'BLOCKED_SAFETY'
-    | 'NEEDS_REVIEW_SAFETY';
+    | 'NEEDS_REVIEW_SAFETY'
+    | 'UPDATED';
 
 export interface ContentSafetyResult {
     hate_severity: number;
