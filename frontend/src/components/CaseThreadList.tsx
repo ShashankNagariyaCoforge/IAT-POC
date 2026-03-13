@@ -43,6 +43,7 @@ export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props
             case 'PROCESSING': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
             case 'PROCESSED':
             case 'CLASSIFIED': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+            case 'UPDATED': return 'bg-blue-100 text-blue-700 border-blue-200';
             case 'BLOCKED_SAFETY':
             case 'NEEDS_REVIEW_SAFETY':
             case 'PENDING_REVIEW': return 'bg-red-100 text-red-700 border-red-200';
@@ -98,7 +99,7 @@ export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-1">
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${getStatusColor(c.status)}`}>
-                                            {c.status.replace(/_/g, ' ')}
+                                            {c.status === 'UPDATED' ? 'NEW ACTIVITY' : c.status.replace(/_/g, ' ')}
                                         </span>
                                         <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap">
                                             {formatRelativeTime(c.updated_at)}

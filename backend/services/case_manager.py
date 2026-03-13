@@ -134,7 +134,14 @@ class CaseManager:
         case = await self._cosmos.get_case(case_id)
         if case:
             new_count = case.get("email_count", 1) + 1
-            status = CaseStatus(case.get("status", CaseStatus.RECEIVED.value))
+            status_val = case.get("status", CaseStatus.RECEIVED.value)
+            status = CaseStatus(status_val)
+            
+            # If the case was already PROCESSED, mark it as UPDATED to alert the user
+            if status == CaseStatus.PROCESSED:
+                status = CaseStatus.UPDATED
+                logger.info(f"[CaseManager] Case {case_id} marked as UPDATED due to new email.")
+
             await self._cosmos.update_case_status(
                 case_id, 
                 status, 
