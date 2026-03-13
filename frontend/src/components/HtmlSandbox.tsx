@@ -1,8 +1,8 @@
 import { useRef, useEffect } from 'react';
 
 interface HtmlSandboxProps {
-    html: string;
-    className?: string;
+  html: string;
+  className?: string;
 }
 
 /**
@@ -10,49 +10,49 @@ interface HtmlSandboxProps {
  * Uses srcdoc to isolate styles and prevent script execution.
  */
 export function HtmlSandbox({ html, className = "" }: HtmlSandboxProps) {
-    const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-    useEffect(() => {
-        const iframe = iframeRef.current;
-        if (!iframe) return;
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-        // Function to adjust height based on content
-        const updateHeight = () => {
-            if (iframe.contentWindow && iframe.contentDocument) {
-                const body = iframe.contentDocument.body;
-                const htmlElement = iframe.contentDocument.documentElement;
-                const height = Math.max(
-                    body.scrollHeight,
-                    body.offsetHeight,
-                    htmlElement.clientHeight,
-                    htmlElement.scrollHeight,
-                    htmlElement.offsetHeight
-                );
-                iframe.style.height = `${height}px`;
-            }
-        };
+    // Function to adjust height based on content
+    const updateHeight = () => {
+      if (iframe.contentWindow && iframe.contentDocument) {
+        const body = iframe.contentDocument.body;
+        const htmlElement = iframe.contentDocument.documentElement;
+        const height = Math.max(
+          body.scrollHeight,
+          body.offsetHeight,
+          htmlElement.clientHeight,
+          htmlElement.scrollHeight,
+          htmlElement.offsetHeight
+        );
+        iframe.style.height = `${height}px`;
+      }
+    };
 
-        // Initial height update
-        updateHeight();
+    // Initial height update
+    updateHeight();
 
-        // Secondary update after images/styles load
-        iframe.onload = updateHeight;
+    // Secondary update after images/styles load
+    iframe.onload = updateHeight;
 
-        // Observer for dynamic content changes
-        const observer = new MutationObserver(updateHeight);
-        if (iframe.contentDocument) {
-            observer.observe(iframe.contentDocument.body, {
-                childList: true,
-                subtree: true,
-                attributes: true
-            });
-        }
+    // Observer for dynamic content changes
+    const observer = new MutationObserver(updateHeight);
+    if (iframe.contentDocument) {
+      observer.observe(iframe.contentDocument.body, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      });
+    }
 
-        return () => observer.disconnect();
-    }, [html]);
+    return () => observer.disconnect();
+  }, [html]);
 
-    // Modern Outlook/HTML email normalization styles
-    const normalizedHtml = `
+  // Modern Outlook/HTML email normalization styles
+  const normalizedHtml = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -61,10 +61,11 @@ export function HtmlSandbox({ html, className = "" }: HtmlSandboxProps) {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             font-size: 14px;
             line-height: 1.6;
-            color: #1e293b;
+            color: #334155;
             margin: 0;
-            padding: 0;
+            padding: 4px;
             word-wrap: break-word;
+            white-space: pre-wrap; /* Ensure plain text line breaks are respected */
           }
           img {
             max-width: 100%;
@@ -93,14 +94,14 @@ export function HtmlSandbox({ html, className = "" }: HtmlSandboxProps) {
     </html>
   `;
 
-    return (
-        <iframe
-            ref={iframeRef}
-            title="Email Content"
-            srcDoc={normalizedHtml}
-            className={`w-full border-none overflow-hidden ${className}`}
-            sandbox="allow-popups allow-popups-to-escape-sandbox"
-            loading="lazy"
-        />
-    );
+  return (
+    <iframe
+      ref={iframeRef}
+      title="Email Content"
+      srcDoc={normalizedHtml}
+      className={`w-full border-none overflow-hidden ${className}`}
+      sandbox="allow-popups allow-popups-to-escape-sandbox"
+      loading="lazy"
+    />
+  );
 }

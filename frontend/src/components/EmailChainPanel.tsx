@@ -15,12 +15,21 @@ export function EmailChainPanel({ emails }: EmailChainPanelProps) {
     );
 
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    const [lastCaseId, setLastCaseId] = useState<string | null>(null);
+
+    // Only auto-expand the newest email when we switch to a DIFFERENT case
+    const currentCaseId = emails.length > 0 ? emails[0].case_id : null;
 
     useEffect(() => {
-        if (sortedEmails.length > 0 && expanded.size === 0) {
-            setExpanded(new Set([sortedEmails[0].email_id]));
+        if (currentCaseId !== lastCaseId) {
+            if (sortedEmails.length > 0) {
+                setExpanded(new Set([sortedEmails[0].email_id]));
+            } else {
+                setExpanded(new Set());
+            }
+            setLastCaseId(currentCaseId);
         }
-    }, [sortedEmails]);
+    }, [currentCaseId, lastCaseId, sortedEmails]);
 
     const toggle = (id: string) =>
         setExpanded(prev => {
@@ -28,6 +37,27 @@ export function EmailChainPanel({ emails }: EmailChainPanelProps) {
             next.has(id) ? next.delete(id) : next.add(id);
             return next;
         });
+
+    /**
+     * Attempts to strip "Original Message" history from email content.
+     */
+    const cleanThreadContent = (html: string) => {
+        if (!html) return '';
+        const separators = [
+            /<div[^>]*class=["'](?:gmail_quote|outlook_signature|append_to_reply)["'][^>]*>/i,
+            /<hr[^>]*>\s*<b>From:<\/b>/i,
+            /-----Original Message-----/i,
+            /________________________________/i,
+            /\nFrom: /i,
+            /On\s.*\swrote:/i
+        ];
+        let cleaned = html;
+        for (const sep of separators) {
+            const match = cleaned.split(sep);
+            if (match.length > 1) cleaned = match[0];
+        }
+        return cleaned.trim();
+    };
 
     if (emails.length === 0) {
         return (
@@ -95,7 +125,7 @@ export function EmailChainPanel({ emails }: EmailChainPanelProps) {
                         {/* Body */}
                         {isOpen && (
                             <div className="px-5 pb-6 border-t border-slate-100 pt-6">
-                                <HtmlSandbox html={email.body} className="min-h-[100px]" />
+                                <HtmlSandbox html={cleanThreadContent(email.body)} className="min-h-[100px]" />
                             </div>
                         )}
                     </div>
