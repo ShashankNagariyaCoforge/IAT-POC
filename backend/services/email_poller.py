@@ -120,6 +120,7 @@ async def run_email_sync_pipeline() -> dict:
                 combined_text = email_data.get("body", "") + " \n\n "
                 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".csv", ".png", ".jpg", ".jpeg", ".gif"}
                 
+                attachment_count = 0
                 for att_path in attachment_paths:
                     att_filename = att_path.split("/")[-1]
                     ext = "." + att_filename.rsplit(".", 1)[-1].lower() if "." in att_filename else ""
@@ -134,19 +135,25 @@ async def run_email_sync_pipeline() -> dict:
                     if ext in {".png", ".jpg", ".jpeg", ".gif"} and len(att_bytes) < 10240:
                         logger.info(f"[Poller] Skipping small image (likely signature icon): {att_filename} ({len(att_bytes)} bytes)")
                         continue
-
+                    
+                    attachment_count += 1
                     parse_result = await parser.parse(att_filename, att_bytes)
                     combined_text += f"\n\n--- Attachment: {att_filename} ---\n{parse_result.raw_text}"
 
                     doc_record = {
                         "document_id": str(uuid.uuid4()),
+                        "email_id": email_record["email_id"],
                         "case_id": case_id,
                         "filename": att_filename,
+                        "file_name": att_filename, # Compatibility
                         "blob_path": att_path,
                         "extracted_text": parse_result.raw_text,
                         "processing_status": "DONE",
+                        "created_at": datetime.utcnow().isoformat(),
                     }
                     await db_service.create_document(doc_record)
+
+                email_record["attachment_count"] = attachment_count
 
                 # Preserve raw HTML in body, use cleaned text for body_masked preview
                 from utils.html_utils import clean_html

@@ -256,7 +256,15 @@ export default function CommandCenterPage() {
                                 <div className="space-y-8 max-w-3xl">
                                     {selectedDetails.emails.length > 0 && (
                                         <div className="flex flex-col gap-6">
-                                            <EmailChainPanel emails={selectedDetails.emails} />
+                                            <EmailChainPanel
+                                                emails={selectedDetails.emails}
+                                                documents={selectedDetails.documents}
+                                                onDocumentClick={(doc) => {
+                                                    const url = `/api/cases/${selectedCase.case_id}/documents/${doc.document_id}/pdf`;
+                                                    setPdfUrl(url);
+                                                    setPdfName(doc.file_name);
+                                                }}
+                                            />
                                         </div>
                                     )}
 

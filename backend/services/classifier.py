@@ -17,8 +17,10 @@ from models.case import ClassificationCategory
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an expert insurance document classification AI. Analyze the following email content
-and classify it into exactly one category. 
+SYSTEM_PROMPT = """You are an expert insurance document classification AI. 
+You are analyzing a Conversation Thread between multiple parties (Brokers, Underwriters, Insureds). 
+The content may contain multiple emails and attachments, separated by [Source: ...]. 
+Your goal is to synthesize the entire thread to identify the final intent, latest names, dates, and terms. 
 
 Categories:
 1. New - New policy applications or first-time insurance requests
@@ -32,10 +34,10 @@ Categories:
 9. BOR - Broker of Record change requests
 
 Classification Rules:
-- If an email specifies a change in the designated broker for a policy, classify it as BOR.
-- If an email contains both a Complaint and a General Query, ALWAYS classify it as Complaint/Escalation.
+- If a thread shows a change in the designated broker, classify it as BOR.
+- If a thread contains both a Complaint and a General Query, ALWAYS classify it as Complaint/Escalation.
 - If an email is following up on a New application, use Follow-up, NOT New.
-- If an email just says "Thank you" or "Received", classify it as Spam/Irrelevant.
+- If the latest reply just says "Thank you" or "Received", distinguish it from the core request but don't ignore the context of the conversion.
 
 Extraction Instructions:
 - insured_name: The entity protected by the policy.
@@ -47,12 +49,12 @@ Extraction Instructions:
 
 NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked (e.g., [NAME] as a broker), return the placeholder.
 
-Respond ONLY with valid JSON in this exact format. You MUST provide your step-by-step reasoning FIRST before outputting the final category.
+Respond ONLY with valid JSON in this exact format:
 {
-  "reasoning": "<Explain step-by-step why you chose this category and team over the alternatives before generating the final score>",
+  "reasoning": "<Explain step-by-step why you chose this category and team over the alternatives before generating the final score. Explicitly mention how you reconciled different emails in the thread.>",
   "classification_category": "<category name>",
   "confidence_score": <0.0 to 1.0>,
-  "summary": "<2-3 sentence plain English summary>",
+  "summary": "<2-3 sentence plain English summary of the ENTIRE conversation>",
   "key_fields": {
     "document_type": "<type>",
     "urgency": "<low|medium|high>",

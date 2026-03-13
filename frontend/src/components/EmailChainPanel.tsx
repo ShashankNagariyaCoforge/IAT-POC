@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ChevronDown, ChevronUp, Paperclip, Mail, User } from 'lucide-react';
-import type { Email } from '../types';
+import type { Email, Document } from '../types';
 import { HtmlSandbox } from './HtmlSandbox';
 
 interface EmailChainPanelProps {
     emails: Email[];
+    documents?: Document[];
+    onDocumentClick?: (doc: Document) => void;
 }
 
-export function EmailChainPanel({ emails }: EmailChainPanelProps) {
+export function EmailChainPanel({ emails, documents = [], onDocumentClick }: EmailChainPanelProps) {
     // Newest emails first, then reverse for display so first one is expanded
     const sortedEmails = [...emails].sort((a, b) =>
         new Date(b.received_at).getTime() - new Date(a.received_at).getTime()
@@ -126,6 +128,28 @@ export function EmailChainPanel({ emails }: EmailChainPanelProps) {
                         {isOpen && (
                             <div className="px-5 pb-6 border-t border-slate-100 pt-6">
                                 <HtmlSandbox html={cleanThreadContent(email.body)} className="min-h-[100px]" />
+
+                                {documents.filter(d => d.email_id === email.email_id).length > 0 && (
+                                    <div className="mt-8 pt-6 border-t border-slate-100">
+                                        <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <Paperclip size={12} /> Attachments Received ({documents.filter(d => d.email_id === email.email_id).length})
+                                        </h5>
+                                        <div className="flex flex-wrap gap-2">
+                                            {documents.filter(d => d.email_id === email.email_id).map((doc, dIdx) => (
+                                                <button
+                                                    key={dIdx}
+                                                    onClick={() => onDocumentClick?.(doc)}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-white hover:text-indigo-700 transition-all text-sm font-semibold text-slate-600"
+                                                >
+                                                    <div className="w-6 h-6 bg-red-50 text-red-500 rounded flex items-center justify-center text-[8px] font-black">
+                                                        PDF
+                                                    </div>
+                                                    {doc.file_name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

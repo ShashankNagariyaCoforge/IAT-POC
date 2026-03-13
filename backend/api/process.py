@@ -57,11 +57,33 @@ async def process_single_case(case_id: str):
             raise HTTPException(status_code=400, detail="No content found for this case to process.")
 
         # 2. Build combined text (Raw)
+        def clean_conversation_context(text: str) -> str:
+            """Strips 'Original Message' and common thread separators to avoid redundancy."""
+            if not text: return ""
+            separators = [
+                "-----Original Message-----",
+                "________________________________",
+                "From:",
+                "On ",  # On [Date], [Name] wrote:
+            ]
+            cleaned = text
+            for sep in separators:
+                if sep in cleaned:
+                    cleaned = cleaned.split(sep)[0]
+            return cleaned.strip()
+
         text_parts = []
-        for em in emails:
-             # Use full 'body' if available (newly synced emails), fallback to body_masked (old ones)
+        # Sort chronologically (oldest first for a natural thread flow in GPT)
+        sorted_emails = sorted(emails, key=lambda x: x.get('received_at', ''))
+        
+        for em in sorted_emails:
              body_text = em.get('body') or em.get('body_masked', '')
-             text_parts.append(f"[Source: Email from {em.get('sender')}]\n{body_text}")
+             if not em.get('body'): # If it's old plain text, clean it
+                 from utils.html_utils import clean_html
+                 body_text = clean_html(body_text)
+             
+             cleaned_body = clean_conversation_context(body_text)
+             text_parts.append(f"[Source: Email from {em.get('sender')}]\n{cleaned_body}")
         
         for doc in documents:
             if doc.get("extracted_text"):

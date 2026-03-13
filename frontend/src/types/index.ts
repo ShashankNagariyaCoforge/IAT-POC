@@ -71,6 +71,7 @@ export interface Email {
 
 export interface Document {
     document_id: string;
+    email_id: string;
     file_name: string;
     file_type: string;
     ocr_applied: boolean;
