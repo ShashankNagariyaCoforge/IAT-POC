@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     # Azure Cosmos DB
     azure_cosmos_endpoint: Optional[str] = None
+    azure_cosmos_connection_string: Optional[str] = None
     cosmos_database_name: str = "iatinsurance-db"
 
     # Azure Blob Storage
