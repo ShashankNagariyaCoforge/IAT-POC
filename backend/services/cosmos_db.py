@@ -339,6 +339,39 @@ class CosmosDBService:
         )]
         return items[0]["case_id"] if items else None
 
+    async def find_recent_case_by_subject_and_sender(
+        self, 
+        subject: str, 
+        sender: str, 
+        minutes: int = 10
+    ) -> Optional[str]:
+        """Aggressive fallback: match by Subject + Sender within a small time window."""
+        from datetime import timedelta
+        container = await self._get_container(CONTAINER_CASES)
+        
+        # Calculate the threshold time
+        threshold_time = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat()
+        
+        query = """
+            SELECT c.case_id 
+            FROM c 
+            WHERE c.subject = @subject 
+              AND c.sender = @sender 
+              AND c.updated_at >= @threshold
+            ORDER BY c.updated_at DESC
+        """
+        params = [
+            {"name": "@subject", "value": subject},
+            {"name": "@sender", "value": sender},
+            {"name": "@threshold", "value": threshold_time}
+        ]
+        
+        items = [item async for item in container.query_items(
+            query=query,
+            parameters=params,
+        )]
+        return items[0]["case_id"] if items else None
+
     # ===== DOCUMENTS =====
 
     async def create_document(self, doc: Dict) -> None:
