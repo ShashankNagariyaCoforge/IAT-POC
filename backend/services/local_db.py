@@ -209,6 +209,32 @@ class LocalDBService:
             return results[0]["case_id"]
         return None
 
+    async def find_recent_case_by_subject_and_sender(
+        self, 
+        subject: str, 
+        sender: str, 
+        minutes: int = 10
+    ) -> Optional[str]:
+        """Aggressive fallback: match by Subject + Sender within a small time window."""
+        from datetime import timedelta
+        db = _get_db()
+        C = Query()
+        
+        threshold = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat()
+        
+        # TinyDB doesn't support complex date comparisons in a simple query easily,
+        # but we can do a search with a custom test function or filter after search.
+        results = db.table("cases").search(
+            (C.subject == subject) & 
+            (C.sender == sender) & 
+            (C.updated_at >= threshold)
+        )
+        
+        if results:
+            results.sort(key=lambda c: c.get("updated_at") or "", reverse=True)
+            return results[0]["case_id"]
+        return None
+
     # ===== DOCUMENTS =====
 
     async def create_document(self, doc: Dict) -> None:

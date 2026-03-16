@@ -87,17 +87,29 @@ class CaseManager:
                 await self._increment_email_count(case_id)
                 return case_id
 
-        # ── 3. Subject line fallback ───────────────────────────────────────────
+        # ── 3. Subject line fallback (with prefix) ─────────────────────────────
         clean_subject = _strip_reply_prefix(subject)
         if clean_subject and (subject != clean_subject):
             # Only use this fallback if there WAS a RE:/FW: prefix
             existing_case_id = await self._cosmos.find_case_by_subject(clean_subject)
             if existing_case_id:
-                logger.info(f"[CaseManager] Chained via subject fallback → case {existing_case_id}")
+                logger.info(f"[CaseManager] Chained via subject fallback (RE/FW) → case {existing_case_id}")
                 await self._increment_email_count(existing_case_id)
                 return existing_case_id
 
-        # ── 4. No match → create a new case ───────────────────────────────────
+        # ── 4. Aggressive Fallback: Subject + Sender + 10min Window ───────────
+        # This catches "new" emails that are actually follow-ups but missing prefixes/headers
+        aggressive_case_id = await self._cosmos.find_recent_case_by_subject_and_sender(
+            subject=subject,
+            sender=sender,
+            minutes=10
+        )
+        if aggressive_case_id:
+            logger.info(f"[CaseManager] Chained via aggressive fallback (10min window) → case {aggressive_case_id}")
+            await self._increment_email_count(aggressive_case_id)
+            return aggressive_case_id
+
+        # ── 5. No match → create a new case ───────────────────────────────────
         case_id = await self._create_new_case(subject=clean_subject or subject, sender=sender)
         return case_id
 
