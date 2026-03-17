@@ -31,21 +31,33 @@ class CosmosDBService:
     """Async Cosmos DB client for all IAT Insurance data operations."""
 
     def __init__(self):
-        if settings.azure_cosmos_connection_string:
-            self._client = CosmosClient.from_connection_string(
-                conn_str=settings.azure_cosmos_connection_string
-            )
-            self._credential = None
-            logger.info("CosmosDBService initialized via connection string.")
+        conn_str = settings.azure_cosmos_connection_string
+        if conn_str and conn_str.strip():
+            # Basic validation to ensure it's a connection string and not just a key
+            if "AccountEndpoint=" in conn_str:
+                self._client = CosmosClient.from_connection_string(conn_str=conn_str.strip())
+                self._credential = None
+                logger.info("CosmosDBService initialized via connection string.")
+            else:
+                logger.error("AZURE_COSMOS_CONNECTION_STRING is set but missing 'AccountEndpoint='. "
+                             "Check if you accidentally pasted the Primary Key instead of the Connection String.")
+                # Fallback to Managed Identity or raise better error? 
+                # For now, let's fall back so the app doesn't crash on boot if possible
+                self._initialize_managed_identity()
         else:
-            self._credential = DefaultAzureCredential()
-            self._client = CosmosClient(
-                url=settings.azure_cosmos_endpoint,
-                credential=self._credential,
-            )
-            logger.info("CosmosDBService initialized via Managed Identity.")
+            self._initialize_managed_identity()
+
         self._database_name = settings.cosmos_database_name
         self._db = None
+
+    def _initialize_managed_identity(self):
+        """Helper to init with DefaultAzureCredential."""
+        self._credential = DefaultAzureCredential()
+        self._client = CosmosClient(
+            url=settings.azure_cosmos_endpoint,
+            credential=self._credential,
+        )
+        logger.info("CosmosDBService initialized via Managed Identity.")
 
     async def _get_database(self):
         """Lazy-load the database reference."""
