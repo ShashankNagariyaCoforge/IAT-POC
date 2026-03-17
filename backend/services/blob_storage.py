@@ -169,6 +169,25 @@ class BlobStorageService:
         await blob_client.set_blob_metadata(metadata=existing_metadata)
         logger.info(f"Marked blob as processed: {container_name}/{blob_name}")
 
+    async def ensure_containers(self):
+        """Ensure all required containers exist."""
+        if not self._client:
+            return
+            
+        required_containers = [
+            settings.blob_container_raw_emails,
+            settings.blob_container_attachments,
+            settings.blob_container_extracted_text
+        ]
+        
+        for container_name in required_containers:
+            container_client = self._client.get_container_client(container_name)
+            if not await container_client.exists():
+                await container_client.create_container()
+                logger.info(f"Created blob container: {container_name}")
+            else:
+                logger.debug(f"Blob container already exists: {container_name}")
+
     def build_blob_name(self, case_id: str, filename: str, prefix: str = "") -> str:
         """
         Build a consistent blob name with case_id and timestamp.

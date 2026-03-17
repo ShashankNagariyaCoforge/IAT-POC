@@ -51,8 +51,15 @@ async def lifespan(app: FastAPI):
                 cosmos = CosmosDBService()
                 await cosmos.initialize_containers()
                 logger.info("Cosmos DB initialized.")
+                
+            # Initialize Blob Storage containers
+            from services.blob_storage import BlobStorageService
+            blob_svc = BlobStorageService()
+            await blob_svc.ensure_containers()
+            logger.info("Blob Storage containers verified/created.")
+            
         except Exception as e:
-            logger.warning(f"Cosmos DB initialization skipped: {e}")
+            logger.warning(f"Production service initialization failed: {e}")
 
         try:
             if not settings.graph_client_id or not settings.graph_tenant_id:
