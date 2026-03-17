@@ -56,6 +56,8 @@ async def process_single_case(case_id: str):
         emails = await db_service.get_emails_for_case(case_id)
         documents = await db_service.get_documents_for_case(case_id)
         
+        logger.info(f"[Process] Fetching case {case_id}: Found {len(emails)} emails and {len(documents)} documents.")
+
         if not emails and not documents:
             await db_service.update_case_status(case_id, CaseStatus.FAILED)
             raise HTTPException(status_code=400, detail="No content found for this case to process.")
@@ -95,6 +97,8 @@ async def process_single_case(case_id: str):
             blob_path = doc.get("blob_path")
             filename = doc.get("filename") or doc.get("file_name") # Handle key variance
             
+            logger.info(f"[Process] Processing doc: {filename} (ID: {doc_id}, Blob: {blob_path})")
+            
             # Fetch bytes from blob
             if blob_path:
                 try:
@@ -103,6 +107,7 @@ async def process_single_case(case_id: str):
                     path_parts = blob_path.split("/")
                     actual_blob_name = "/".join(path_parts[1:]) if path_parts[0] == container else blob_path
                     
+                    logger.info(f"[Process] Downloading from {container}/{actual_blob_name}")
                     doc_bytes = await blob_service.download_bytes(container, actual_blob_name)
                     
                     import mimetypes
@@ -121,8 +126,10 @@ async def process_single_case(case_id: str):
                     logger.warning(f"[Process] DI extraction failed for {filename}: {di_err}")
                     if doc.get("extracted_text"):
                         text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
-            elif doc.get("extracted_text"):
-                text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
+            else:
+                logger.warning(f"[Process] Skip DI: No blob_path for {filename}")
+                if doc.get("extracted_text"):
+                    text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
         
         combined_raw_text = "\n\n---\n\n".join(text_parts)
 
