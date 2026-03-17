@@ -42,15 +42,15 @@ async def lifespan(app: FastAPI):
     else:
         # ── Production: initialize Azure services ─────────────────────────
         try:
-            if not settings.azure_cosmos_endpoint:
+            if not settings.azure_cosmos_endpoint and not settings.mongodb_connection_string:
                 logger.warning(
-                    "AZURE_COSMOS_ENDPOINT is not configured — Cosmos DB will be unavailable. "
-                    "Set this in your .env file."
+                    "Cosmos DB is not configured (missing Endpoint or MongoDB Connection String). "
+                    "Set these in your .env file."
                 )
             else:
                 cosmos = CosmosDBService()
                 await cosmos.initialize_containers()
-                logger.info("Cosmos DB containers verified.")
+                logger.info("Cosmos DB initialized.")
         except Exception as e:
             logger.warning(f"Cosmos DB initialization skipped: {e}")
 

@@ -47,7 +47,11 @@ cryptography==44.0.1
 python-json-logger==3.2.1
 python-dotenv==1.0.1
 tenacity==9.0.0
-
+ 
+# MongoDB Support (Cosmos DB Mongo API)
+motor==3.6.1
+dnspython==2.7.0
+ 
 # Demo DB
 tinydb==4.8.2
 
