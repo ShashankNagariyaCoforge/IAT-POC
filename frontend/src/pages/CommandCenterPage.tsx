@@ -110,6 +110,7 @@ export default function CommandCenterPage() {
         setIsProcessing(true);
         try {
             await apiClient.post(`/cases/${selectedCaseId}/process`);
+            navigate(`/cases/${selectedCaseId}/review`);
             await fetchCases();
             if (fetchDetailsRef.current) fetchDetailsRef.current();
         } catch (error) {
@@ -239,10 +240,10 @@ export default function CommandCenterPage() {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => navigate(`/cases/${selectedCase.case_id}`)}
+                                    onClick={() => navigate(`/cases/${selectedCase.case_id}/review`)}
                                     className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-indigo-700 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition"
                                 >
-                                    View Agent Action Screen <ChevronRight size={16} />
+                                    Review Extracted Data <ChevronRight size={16} />
                                 </button>
                             )}
                         </div>

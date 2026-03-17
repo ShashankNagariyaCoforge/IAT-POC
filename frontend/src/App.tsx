@@ -8,6 +8,7 @@ import { msalConfig, loginRequest } from './auth/msalConfig';
 import CommandCenterPage from './pages/CommandCenterPage';
 import CaseActionScreen from './pages/CaseActionScreen';
 import CaseSnapshotPage from './pages/CaseSnapshotPage';
+import ExtractionReviewPage from './pages/ExtractionReviewPage';
 
 // Contexts
 import { PipelineProvider } from './contexts/PipelineContext';
@@ -209,6 +210,7 @@ function AuthenticatedApp({ onDevMode, useDevBypass }: { onDevMode: () => void, 
         <Routes>
           <Route path="/" element={<CommandCenterPage />} />
           <Route path="/cases/:caseId" element={<CaseActionScreen />} />
+          <Route path="/cases/:caseId/review" element={<ExtractionReviewPage />} />
           <Route path="/cases/:caseId/snapshot" element={<CaseSnapshotPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

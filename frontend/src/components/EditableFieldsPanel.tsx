@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, Loader2, CheckCircle2, AlertTriangle, Lock } from 'lucide-react';
+import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight } from 'lucide-react';
 
 export interface FieldItem {
     label: string;
@@ -26,9 +26,19 @@ interface Props {
     isReadOnly?: boolean;
     onSelectField?: (label: string) => void;
     onSelectGroup?: (labels: string[]) => void;
+    onFinalSubmit?: () => void;
+    finalSubmitLabel?: string;
 }
 
-export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false, onSelectField, onSelectGroup }: Props) {
+export function EditableFieldsPanel({
+    groupedFields,
+    onSave,
+    isReadOnly = false,
+    onSelectField,
+    onSelectGroup,
+    onFinalSubmit,
+    finalSubmitLabel
+}: Props) {
     const [editedFields, setEditedFields] = useState<Record<string, string>>({});
     const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
     const [showOriginal, setShowOriginal] = useState<string | null>(null);
@@ -53,6 +63,20 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false,
             await onSave(updates);
             setEditedFields({});
             setShowOriginal(null);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleFinalSubmit = async () => {
+        setIsSaving(true);
+        try {
+            if (hasEdits) {
+                const updates = Object.entries(editedFields).map(([k, v]) => ({ field_name: k, value: v }));
+                await onSave(updates);
+                setEditedFields({});
+            }
+            onFinalSubmit?.();
         } finally {
             setIsSaving(false);
         }
@@ -209,12 +233,26 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false,
             </div>
 
             {!isReadOnly && (
-                <div className="p-4 border-t border-slate-200 bg-slate-50/30 shrink-0 flex justify-end">
+                <div className="p-4 border-t border-slate-200 bg-slate-50/30 shrink-0 flex items-center justify-end gap-3">
+                    {onFinalSubmit && (
+                        <button
+                            onClick={handleFinalSubmit}
+                            disabled={isSaving}
+                            className={`px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all bg-slate-900 text-white hover:bg-slate-800 active:scale-95 shadow-md`}
+                        >
+                            {isSaving ? (
+                                <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                            ) : (
+                                <>{finalSubmitLabel || 'Finalize & Proceed'} <ArrowRight size={16} /></>
+                            )}
+                        </button>
+                    )}
+
                     <button
                         onClick={handleSave}
                         disabled={!hasEdits || isSaving}
                         className={`px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${!hasEdits
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                             : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md'
                             }`}
                     >
