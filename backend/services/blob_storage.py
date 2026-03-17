@@ -12,7 +12,7 @@ from typing import Optional
 
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobServiceClient
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+from azure.storage.blob import generate_blob_sas, BlobSasPermissions, ContentSettings
 
 from config import settings
 
@@ -56,7 +56,11 @@ class BlobStorageService:
         """
         container = self._client.get_container_client(container_name)
         blob_client = container.get_blob_client(blob_name)
-        await blob_client.upload_blob(data, overwrite=True, content_settings={"content_type": content_type})
+        await blob_client.upload_blob(
+            data, 
+            overwrite=True, 
+            content_settings=ContentSettings(content_type=content_type)
+        )
         logger.info(f"Uploaded blob: {container_name}/{blob_name} ({len(data)} bytes)")
         return f"{container_name}/{blob_name}"
 
