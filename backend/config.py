@@ -24,9 +24,13 @@ class Settings(BaseSettings):
     # Azure Key Vault
     azure_key_vault_url: Optional[str] = None
 
-    # Azure Cosmos DB
+    # Azure Cosmos DB (SQL/NoSQL API)
     azure_cosmos_endpoint: Optional[str] = None
     azure_cosmos_connection_string: Optional[str] = None
+    
+    # Azure Cosmos DB (MongoDB API)
+    mongodb_connection_string: Optional[str] = None
+    
     cosmos_database_name: str = "iatinsurance-db"
 
     # Azure Blob Storage
