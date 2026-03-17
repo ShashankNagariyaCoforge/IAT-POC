@@ -80,6 +80,16 @@ class CosmosDBService:
                 await db[COLLECTION_CASES].create_index([("case_id", ASCENDING)], unique=True)
                 await db[COLLECTION_CASES].create_index([("created_at", DESCENDING)])
                 await db[COLLECTION_CASES].create_index([("updated_at", DESCENDING)])
+                
+                # Compound indexes for common filter + sort patterns (REQUIRED by some Cosmos DB versions)
+                await db[COLLECTION_CASES].create_index([("subject", ASCENDING), ("created_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("subject", ASCENDING), ("updated_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("status", ASCENDING), ("created_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("status", ASCENDING), ("updated_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("classification_category", ASCENDING), ("created_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("classification_category", ASCENDING), ("updated_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("requires_human_review", ASCENDING), ("created_at", DESCENDING)])
+
                 await db[COLLECTION_EMAILS].create_index([("message_id", ASCENDING)])
                 await db[COLLECTION_EMAILS].create_index([("case_id", ASCENDING)])
                 await db[COLLECTION_EMAILS].create_index([("received_at", ASCENDING)])
