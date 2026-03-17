@@ -13,7 +13,7 @@ import { IngestionStatsCard } from '../components/IngestionStatsCard';
 import { InlinePdfViewer } from '../components/InlinePdfViewer';
 import { DocumentAnnotator } from '../components/DocumentAnnotator';
 import { PdfViewerModal } from '../components/PdfViewerModal';
-import { EditableFieldsPanel } from '../components/EditableFieldsPanel';
+import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
 import { format } from 'date-fns';
 
@@ -35,7 +35,7 @@ export default function CaseActionScreen() {
 
     const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
     const [activePdfName, setActivePdfName] = useState<string | null>(null);
-    const [selectedInstance, setSelectedInstance] = useState<ExtractionInstance | null>(null);
+    const [selectedInstances, setSelectedInstances] = useState<ExtractionInstance[]>([]);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
 
     const fetchAll = async () => {
@@ -96,13 +96,26 @@ export default function CaseActionScreen() {
 
     const handleFieldSelect = (label: string) => {
         if (!classification?.extraction_results) return;
-        // We match by label (which we title-cased in the backend)
         const result = classification.extraction_results.find(r => r.field.toLowerCase() === label.toLowerCase());
         if (result && result.instances.length > 0) {
-            // Pick best instance
-            const best = [...result.instances].sort((a, b) => b.confidence - a.confidence)[0];
-            setSelectedInstance(best);
-            // Hide normal PDF viewer to show annotator
+            setSelectedInstances(result.instances);
+            setActivePdfUrl(null);
+        }
+    };
+
+    const handleGroupSelect = (labels: string[]) => {
+        if (!classification?.extraction_results) return;
+        let allInstances: ExtractionInstance[] = [];
+
+        labels.forEach(label => {
+            const found = classification.extraction_results?.find(r => r.field.toLowerCase() === label.toLowerCase());
+            if (found) {
+                allInstances = [...allInstances, ...found.instances];
+            }
+        });
+
+        if (allInstances.length > 0) {
+            setSelectedInstances(allInstances);
             setActivePdfUrl(null);
         }
     };
@@ -123,7 +136,7 @@ export default function CaseActionScreen() {
     const hitlFields = (classification as any)?.hitl_fields || {};
     const kf = classification?.key_fields;
 
-    const groupedFields: Record<string, any[]> = {
+    const groupedFields: Record<string, PanelItem[]> = {
         'Submission Details': [
             { label: 'Subject', value: caseData.subject },
             { label: 'Sender', value: caseData.sender },
@@ -132,24 +145,43 @@ export default function CaseActionScreen() {
         'Classification Insights': [
             { label: 'Category', value: classification?.classification_category || 'N/A' },
             { label: 'Document Type', value: kf?.document_type || 'Unknown' },
-            { label: 'Urgency', value: kf?.urgency || 'Unknown', isCritical: kf?.urgency === 'high' },
         ],
         'Counterparty Details': [
-            { label: 'Insured', value: kf?.insured_name || 'N/A' },
-            { label: 'Broker', value: kf?.broker_name || 'N/A' },
-            { label: 'Obligor', value: kf?.obligor || 'N/A' },
+            { label: 'Insured', value: kf?.insured?.name || kf?.name || 'N/A' },
+            { label: 'Insured Address', value: kf?.insured?.address || 'N/A' },
+            { label: 'Agency', value: kf?.agent?.agencyName || 'N/A' },
+            { label: 'Agent', value: kf?.agent?.name || 'N/A' },
         ],
-        'Structural & Timeline': [
-            { label: 'Effective Date', value: kf?.effective_date || 'N/A' },
-            { label: 'Expiration Date', value: kf?.expiration_date || 'N/A' },
-            { label: 'Tenor', value: kf?.tenor || 'N/A' },
+        'Contact Info': [
+            { label: 'Agent Email', value: kf?.agent?.email || 'N/A' },
+            { label: 'Agent Phone', value: kf?.agent?.phone || 'N/A' },
+        ],
+        'Recurring Structures': [
+            {
+                type: 'table',
+                label: 'Coverages',
+                headers: ['Coverage', 'Limit', 'Deductible', 'Description'],
+                rows: kf?.coverages?.map(c => ({
+                    'Coverage': c.coverage || '',
+                    'Limit': c.limit || '',
+                    'Deductible': c.deductible || '',
+                    'Description': c.description || ''
+                })) || []
+            },
+            {
+                type: 'table',
+                label: 'Exposures',
+                headers: ['Exposure Type', 'Value', 'Description'],
+                rows: kf?.exposures?.map(e => ({
+                    'Exposure Type': e.exposureType || '',
+                    'Value': e.value || '',
+                    'Description': e.description || ''
+                })) || []
+            }
         ],
         'Financial Terms': [
-            { label: 'Limit of Liability', value: kf?.limit_of_liability || 'N/A' },
-            { label: 'Premium', value: kf?.premium_amount || 'N/A' },
-            { label: 'Currency', value: kf?.currency || 'N/A' },
             { label: 'Policy Reference', value: kf?.policy_reference || 'N/A' },
-            { label: 'Claim Type', value: kf?.claim_type || 'N/A' },
+            { label: 'Urgency', value: kf?.urgency || 'Unknown', isCritical: kf?.urgency === 'high' },
         ],
         'AI Summary': [
             { label: 'Executive Summary', value: classification?.summary || 'Processing...' },
@@ -157,10 +189,13 @@ export default function CaseActionScreen() {
     };
 
     // Merge HITL overrides
-    Object.values(groupedFields).flat().forEach(f => {
-        if (hitlFields[f.label]) {
-            f.original = f.value;
-            f.value = hitlFields[f.label];
+    Object.values(groupedFields).flat().forEach(item => {
+        if (item.type !== 'table') {
+            const f = item as FieldItem;
+            if (hitlFields[f.label]) {
+                f.original = f.value;
+                f.value = hitlFields[f.label];
+            }
         }
     });
 
@@ -241,16 +276,16 @@ export default function CaseActionScreen() {
                         </div>
 
                         {/* Inline PDF Viewer or Annotator */}
-                        <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstance) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
-                            {selectedInstance ? (
+                        <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstances.length > 0) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
+                            {selectedInstances.length > 0 ? (
                                 <DocumentAnnotator
                                     caseId={caseId!}
-                                    instance={selectedInstance}
-                                    onClose={() => setSelectedInstance(null)}
+                                    instances={selectedInstances}
+                                    onClose={() => setSelectedInstances([])}
                                     onFullscreen={() => {
-                                        const url = `/api/cases/${caseId}/documents/${selectedInstance.doc_id}/pdf`;
+                                        const url = `/api/cases/${caseId}/documents/${selectedInstances[0].doc_id}/pdf`;
                                         setActivePdfUrl(url);
-                                        const doc = docs.find(d => d.document_id === selectedInstance.doc_id);
+                                        const doc = docs.find(d => d.document_id === selectedInstances[0].doc_id);
                                         setActivePdfName(doc?.file_name || 'Document');
                                         setShowFullscreenPdf(true);
                                     }}
@@ -285,7 +320,7 @@ export default function CaseActionScreen() {
                                         <div
                                             key={i}
                                             onClick={() => {
-                                                setSelectedInstance(null); // Clear annotation when selecting a full doc
+                                                setSelectedInstances([]); // Clear annotation when selecting a full doc
                                                 setActivePdfUrl(url);
                                                 setActivePdfName(doc.file_name);
                                             }}
@@ -319,6 +354,7 @@ export default function CaseActionScreen() {
                         onSave={handleSaveFields}
                         isReadOnly={isApproved}
                         onSelectField={handleFieldSelect}
+                        onSelectGroup={handleGroupSelect}
                     />
 
                     {/* Decision Panel (only if processing is done) */}

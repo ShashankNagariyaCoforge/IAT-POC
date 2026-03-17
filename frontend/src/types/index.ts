@@ -81,23 +81,48 @@ export interface Document {
     extracted_text_preview: string | null;
 }
 
+export interface InsuredInfo {
+    name?: string;
+    address?: string;
+}
+
+export interface AgentInfo {
+    agencyName?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+}
+
+export interface CoverageInfo {
+    coverage?: string;
+    description?: string;
+    limit?: string;
+    deductible?: string;
+}
+
+export interface ExposureInfo {
+    exposureType?: string;
+    description?: string;
+    value?: string;
+}
+
+export interface DocumentInfo {
+    fileName?: string;
+    fileType?: string;
+    description?: string;
+}
+
 export interface KeyFields {
-    document_type: string | null;
-    urgency: 'low' | 'medium' | 'high' | null;
-    policy_reference: string | null;
-    claim_type: string | null;
-    // Entity Info
-    insured_name: string | null;
-    broker_name: string | null;
-    obligor: string | null;
-    // Policy Details
-    effective_date: string | null;
-    expiration_date: string | null;
-    tenor: string | null;
-    // Financials
-    limit_of_liability: string | null;
-    premium_amount: string | null;
-    currency: string | null;
+    name?: string;
+    insured?: InsuredInfo;
+    agent?: AgentInfo;
+    description?: string;
+    coverages: CoverageInfo[];
+    exposures: ExposureInfo[];
+    documents: DocumentInfo[];
+    document_type?: string;
+    urgency?: string;
+    policy_reference?: string;
 }
 
 export interface ExtractionInstance {
@@ -116,6 +141,21 @@ export interface ExtractionResult {
     instances: ExtractionInstance[];
 }
 
+export interface TableCell {
+    content: string;
+    colIndex: number;
+    polygon: number[] | null;
+    page: number;
+}
+
+export interface ExtractedTable {
+    id: string;
+    rowCount: number;
+    columnCount: number;
+    rows: TableCell[][];
+    doc_id: string;
+}
+
 export interface ClassificationResult {
     result_id: string;
     case_id: string;
@@ -126,6 +166,7 @@ export interface ClassificationResult {
     requires_human_review: boolean;
     classified_at: string;
     extraction_results?: ExtractionResult[];
+    extracted_tables?: ExtractedTable[];
     downstream_notification_sent: boolean;
     downstream_notification_at: string | null;
 }

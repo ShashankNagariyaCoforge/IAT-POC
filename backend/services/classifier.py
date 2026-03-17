@@ -40,35 +40,33 @@ Classification Rules:
 - If the latest reply just says "Thank you" or "Received", distinguish it from the core request but don't ignore the context of the conversion.
 
 Extraction Instructions:
-- insured_name: The entity protected by the policy.
-- broker_name: The intermediary managing the insurance placement.
-- obligor: The party responsible for making payments.
-- effective_date/expiration_date: Normalize to YYYY-MM-DD.
-- limit_of_liability/premium_amount: Include the numeric value and symbols.
-- currency: Use 3-letter ISO codes (USD, GBP, EUR, etc.).
+- name: The Insured Business Name.
+- insured: { "name": "...", "address": "..." }
+- agent: { "agencyName": "...", "name": "...", "email": "...", "phone": "..." }
+- description: A brief summary of the insurance submission.
+- coverages: An array of objects: { "coverage": "...", "description": "...", "limit": "...", "deductible": "..." }
+- exposures: An array of objects: { "exposureType": "...", "description": "...", "value": "..." }
+- documents: An array of objects indicating the attached documents found in the text.
 
-NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked (e.g., [NAME] as a broker), return the placeholder.
+NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked, return the placeholder.
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "reasoning": "<Explain step-by-step why you chose this category and team over the alternatives before generating the final score. Explicitly mention how you reconciled different emails in the thread.>",
+  "reasoning": "<Explain step-by-step why you chose this category.>",
   "classification_category": "<category name>",
   "confidence_score": <0.0 to 1.0>,
-  "summary": "<2-3 sentence plain English summary of the ENTIRE conversation>",
+  "summary": "<2-3 sentence summary>",
   "key_fields": {
-    "document_type": "<type>",
+    "name": "<Insured Business Name>",
+    "insured": { "name": "<val>", "address": "<val>" },
+    "agent": { "agencyName": "<val>", "name": "<val>", "email": "<val>", "phone": "<val>" },
+    "description": "<summary>",
+    "coverages": [ { "coverage": "<val>", "description": "<val>", "limit": "<val>", "deductible": "<val>" } ],
+    "exposures": [ { "exposureType": "<val>", "description": "<val>", "value": "<val>" } ],
+    "documents": [ { "fileName": "<val>", "fileType": "<val>", "description": "<val>" } ],
+    "document_type": "<legacy type>",
     "urgency": "<low|medium|high>",
-    "policy_reference": "<masked value or null>",
-    "claim_type": "<type or null>",
-    "insured_name": "<value or null>",
-    "broker_name": "<value or null>",
-    "obligor": "<value or null>",
-    "effective_date": "<YYYY-MM-DD or null>",
-    "expiration_date": "<YYYY-MM-DD or null>",
-    "tenor": "<value or null>",
-    "limit_of_liability": "<value or null>",
-    "premium_amount": "<value or null>",
-    "currency": "<ISO code or null>"
+    "policy_reference": "<val>"
   },
   "requires_human_review": <true if confidence < 0.75, else false>
 }"""

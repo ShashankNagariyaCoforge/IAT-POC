@@ -1,40 +1,89 @@
 {
     "fields": [
         {
-            "name": "Policy Reference",
+            "name": "Insured Business Name",
             "aliases": [
-                "policy number",
-                "policy #",
-                "policy ref"
-            ],
-            "description": "The unique identifier for the insurance policy"
-        },
-        {
-            "name": "Insured Name",
-            "aliases": [
-                "insured",
+                "insured name",
                 "name of insured",
-                "policyholder"
+                "insured",
+                "applicant name",
+                "business name"
             ],
-            "description": "The name of the person or entity insured"
+            "description": "The legal name of the business seeking insurance"
         },
         {
-            "name": "Date of Loss",
+            "name": "Insured Address",
             "aliases": [
-                "loss date",
-                "date of incident",
-                "occurrence date"
+                "insured address",
+                "applicant address",
+                "location address",
+                "mailing address"
             ],
-            "description": "The date when the reported loss or incident occurred"
+            "description": "The physical or mailing address of the insured entity"
         },
         {
-            "name": "Claim Number",
+            "name": "Agency Name",
             "aliases": [
-                "claim #",
-                "claim ref",
-                "file number"
+                "agency",
+                "producer name",
+                "broker name",
+                "name of agency"
             ],
-            "description": "The unique identifier assigned to the claim"
+            "description": "The name of the insurance agency or brokerage"
+        },
+        {
+            "name": "Agent Name",
+            "aliases": [
+                "producer",
+                "agent",
+                "broker",
+                "contact person"
+            ],
+            "description": "The full name of the insurance agent"
+        },
+        {
+            "name": "Agent Email",
+            "aliases": [
+                "agent email",
+                "producer email",
+                "email address"
+            ],
+            "description": "The contact email for the agent"
+        },
+        {
+            "name": "Agent Phone",
+            "aliases": [
+                "agent phone",
+                "producer phone",
+                "phone number"
+            ],
+            "description": "The contact phone number for the agent"
+        },
+        {
+            "name": "Coverage Type",
+            "aliases": [
+                "coverage",
+                "line of business",
+                "lob"
+            ],
+            "description": "The type of insurance coverage (e.g., General Liability, Property)"
+        },
+        {
+            "name": "Limit",
+            "aliases": [
+                "limit",
+                "coverage limit",
+                "amount of insurance"
+            ],
+            "description": "The coverage limit amount"
+        },
+        {
+            "name": "Deductible",
+            "aliases": [
+                "deductible",
+                "retention"
+            ],
+            "description": "The deductible amount"
         }
     ]
 }

@@ -1,35 +1,53 @@
 """Pydantic v2 models for Classification results."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
 from models.case import ClassificationCategory
 
 
+class InsuredInfo(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+
+class AgentInfo(BaseModel):
+    agencyName: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+class CoverageInfo(BaseModel):
+    coverage: Optional[str] = None
+    description: Optional[str] = None
+    limit: Optional[str] = None
+    deductible: Optional[str] = None
+
+class ExposureInfo(BaseModel):
+    exposureType: Optional[str] = None
+    description: Optional[str] = None
+    value: Optional[str] = None
+
+class DocumentInfo(BaseModel):
+    fileName: Optional[str] = None
+    fileType: Optional[str] = None
+    description: Optional[str] = None
+
 class KeyFields(BaseModel):
     """Structured key fields extracted by GPT-4o-mini."""
-    # Existing fields
+    name: Optional[str] = Field(None, description="Insured Business Name")
+    insured: Optional[InsuredInfo] = None
+    agent: Optional[AgentInfo] = None
+    description: Optional[str] = None
+    coverages: List[CoverageInfo] = Field(default_factory=list)
+    exposures: List[ExposureInfo] = Field(default_factory=list)
+    documents: List[DocumentInfo] = Field(default_factory=list)
+    
+    # Legacy fields (keeping for compatibility with existing UI if needed)
     document_type: Optional[str] = None
-    urgency: Optional[str] = None  # low | medium | high
+    urgency: Optional[str] = None
     policy_reference: Optional[str] = None
-    claim_type: Optional[str] = None
-
-    # Entity Info
-    insured_name: Optional[str] = None
-    broker_name: Optional[str] = None
-    obligor: Optional[str] = None
-
-    # Policy Details
-    effective_date: Optional[str] = None  # YYYY-MM-DD
-    expiration_date: Optional[str] = None  # YYYY-MM-DD
-    tenor: Optional[str] = None
-
-    # Financials
-    limit_of_liability: Optional[str] = None
-    premium_amount: Optional[str] = None
-    currency: Optional[str] = None
 
 
 class ClassificationResult(BaseModel):

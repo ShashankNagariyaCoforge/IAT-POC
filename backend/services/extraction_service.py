@@ -93,3 +93,44 @@ class ExtractionService:
                     })
         
         return matches
+    def extract_tables(self, analyze_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extracts structured table data including cell polygons for multi-field grouping.
+        """
+        tables = []
+        raw_tables = analyze_result.get("tables", [])
+        
+        for table_idx, table in enumerate(raw_tables):
+            rows = {}
+            for cell in table.get("cells", []):
+                r_idx = cell.get("rowIndex")
+                if r_idx not in rows:
+                    rows[r_idx] = []
+                
+                # Get polygon for the cell
+                polygon = None
+                regions = cell.get("boundingRegions", [])
+                if regions:
+                    polygon = regions[0].get("polygon")
+                    page = regions[0].get("pageNumber")
+                
+                rows[r_idx].append({
+                    "content": cell.get("content"),
+                    "colIndex": cell.get("columnIndex"),
+                    "polygon": polygon,
+                    "page": page
+                })
+            
+            # Convert rows dict to sorted list
+            sorted_rows = []
+            for r in sorted(rows.keys()):
+                sorted_rows.append(sorted(rows[r], key=lambda x: x["colIndex"]))
+                
+            tables.append({
+                "id": f"table_{table_idx}",
+                "rowCount": table.get("rowCount"),
+                "columnCount": table.get("columnCount"),
+                "rows": sorted_rows
+            })
+            
+        return tables

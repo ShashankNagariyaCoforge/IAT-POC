@@ -212,27 +212,47 @@ async def process_single_case(case_id: str):
         classification["masked_text_blob_path"] = masked_blob_path
         classification["pii_report_blob_path"] = report_blob_path
 
-        # 6.5 Match Key Fields to Locations (Extraction Results)
+        # 6.5 Match Key Fields to Locations (Recursive Extraction)
         extraction_results = []
-        key_fields_dict = classification.get("key_fields", {})
+        doc_tables = [] # List of extracted tables across all docs
         
-        for field_key, field_value in key_fields_dict.items():
-            if not field_value: continue
-            
-            instances = []
-            for doc_id, layout in doc_layout_results.items():
-                matches = extraction_svc.find_field_in_lines(layout, str(field_value))
-                for m in matches:
-                    m["doc_id"] = doc_id
-                    instances.append(m)
-            
-            if instances:
-                extraction_results.append({
-                    "field": field_key.replace("_", " ").title(),
-                    "instances": instances
-                })
+        for doc_id, layout in doc_layout_results.items():
+            # Capture table structure for the frontend
+            tables = extraction_svc.extract_tables(layout)
+            for t in tables:
+                t["doc_id"] = doc_id
+                doc_tables.append(t)
+
+        def recursive_extract(data: Any, prefix: str = ""):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    new_prefix = f"{prefix} {k}" if prefix else k
+                    recursive_extract(v, new_prefix)
+            elif isinstance(data, list):
+                for i, item in enumerate(data):
+                    new_prefix = f"{prefix} [{i+1}]"
+                    recursive_extract(item, new_prefix)
+            elif data and str(data).lower() not in ["null", "none", "—"]:
+                # Leaf node: search for coordinates
+                field_label = prefix.replace("_", " ").title()
+                instances = []
+                for doc_id, layout in doc_layout_results.items():
+                    matches = extraction_svc.find_field_in_lines(layout, str(data))
+                    for m in matches:
+                        m["doc_id"] = doc_id
+                        instances.append(m)
+                
+                if instances:
+                    extraction_results.append({
+                        "field": field_label,
+                        "value": str(data),
+                        "instances": instances
+                    })
+
+        recursive_extract(classification.get("key_fields", {}))
         
         classification["extraction_results"] = extraction_results
+        classification["extracted_tables"] = doc_tables
         await db_service.save_classification_result(classification)
 
         # 7. Final Status Update

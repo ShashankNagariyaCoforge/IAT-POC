@@ -4,18 +4,21 @@ import { ExtractionInstance } from '../types';
 
 interface DocumentAnnotatorProps {
     caseId: string;
-    instance: ExtractionInstance;
+    instances: ExtractionInstance[];
     onClose: () => void;
     onFullscreen: () => void;
 }
 
 export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
     caseId,
-    instance,
+    instances,
     onClose,
     onFullscreen
 }) => {
-    const { doc_id, page, polygon, confidence, page_width, page_height } = instance;
+    if (instances.length === 0) return null;
+
+    // We assume all instances for a single highlighted row are on the same document/page
+    const { doc_id, page, page_width, page_height } = instances[0];
 
     // Determine color based on confidence
     const getColor = (conf: number) => {
@@ -24,16 +27,17 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
         return '#ef4444'; // red-500
     };
 
-    const color = getColor(confidence);
     const imageUrl = `/api/cases/${caseId}/documents/${doc_id}/pages/${page}/image`;
 
+    // Calculate overall confidence (min for safer reporting)
+    const minConfidence = Math.min(...instances.map(i => i.confidence));
+    const footerColor = getColor(minConfidence);
+
     // Convert polygon to SVG points string
-    // Polygon is [x1, y1, x2, y2, x3, y3, x4, y4]
-    const formatPoints = () => {
+    const formatPoints = (poly: number[]) => {
         const points = [];
-        for (let i = 0; i < polygon.length; i += 2) {
-            // Scale points based on SVG viewbox (0 to page_width/height)
-            points.push(`${polygon[i]},${polygon[i + 1]}`);
+        for (let i = 0; i < poly.length; i += 2) {
+            points.push(`${poly[i]},${poly[i + 1]}`);
         }
         return points.join(' ');
     };
@@ -68,7 +72,6 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
 
             {/* Viewer Content */}
             <div className="flex-1 relative overflow-auto bg-slate-950 flex items-center justify-center p-4 group">
-                {/* SVG Overlay Container */}
                 <div className="relative shadow-2xl">
                     <img
                         src={imageUrl}
@@ -77,43 +80,46 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
                         style={{ minWidth: '300px' }}
                     />
 
-                    {/* SVG Layer */}
                     <svg
                         viewBox={`0 0 ${page_width} ${page_height}`}
                         className="absolute inset-0 w-full h-full pointer-events-none"
                     >
-                        {/* Highlighted Bounding Box */}
-                        <polygon
-                            points={formatPoints()}
-                            fill={`${color}33`} // 20% opacity fill
-                            stroke={color}
-                            strokeWidth={2}
-                            className="animate-pulse"
-                        />
+                        {instances.map((inst, idx) => (
+                            <polygon
+                                key={idx}
+                                points={formatPoints(inst.polygon)}
+                                fill={`${getColor(inst.confidence)}33`}
+                                stroke={getColor(inst.confidence)}
+                                strokeWidth={2}
+                                className="animate-pulse"
+                            />
+                        ))}
                     </svg>
 
-                    {/* Confidence Indicator Tooltip */}
-                    <div
-                        className="absolute hidden group-hover:flex items-center gap-2 px-2 py-1 bg-black/80 backdrop-blur-md rounded-lg text-[10px] font-bold text-white shadow-xl border border-white/10"
-                        style={{
-                            left: `${(polygon[0] / page_width) * 100}%`,
-                            top: `${(polygon[1] / page_height) * 100}%`,
-                            transform: 'translateY(-120%)'
-                        }}
-                    >
-                        <AlertCircle size={10} style={{ color }} />
-                        <span>{(confidence * 100).toFixed(0)}% Confidence</span>
-                    </div>
+                    {/* Tooltip for first instance or group */}
+                    {instances.length > 0 && (
+                        <div
+                            className="absolute hidden group-hover:flex items-center gap-2 px-2 py-1 bg-black/80 backdrop-blur-md rounded-lg text-[10px] font-bold text-white shadow-xl border border-white/10"
+                            style={{
+                                left: `${(instances[0].polygon[0] / page_width) * 100}%`,
+                                top: `${(instances[0].polygon[1] / page_height) * 100}%`,
+                                transform: 'translateY(-120%)'
+                            }}
+                        >
+                            <AlertCircle size={10} style={{ color: footerColor }} />
+                            <span>{(minConfidence * 100).toFixed(0)}% Min Confidence</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Footer / Status */}
+            {/* Footer */}
             <div className="px-4 py-2 bg-slate-800 border-t border-slate-700 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></div>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: footerColor }}></div>
                         <span className="text-[10px] uppercase font-black text-slate-300 tracking-wider">
-                            {confidence > 0.85 ? 'High' : confidence > 0.5 ? 'Medium' : 'Low'} Accuracy
+                            {minConfidence > 0.85 ? 'High' : minConfidence > 0.5 ? 'Medium' : 'Low'} Accuracy
                         </span>
                     </div>
                 </div>

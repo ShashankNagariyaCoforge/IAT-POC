@@ -1,14 +1,34 @@
 import { useState } from 'react';
 import { History, Loader2, CheckCircle2, AlertTriangle, Lock } from 'lucide-react';
 
+export interface FieldItem {
+    label: string;
+    value: string;
+    original?: string;
+    confidence?: number;
+    isCritical?: boolean;
+    error?: string;
+    type?: 'field' | 'table_cell';
+}
+
+export interface TableItem {
+    type: 'table';
+    label: string;
+    headers: string[];
+    rows: Record<string, string>[];
+}
+
+export type PanelItem = FieldItem | TableItem;
+
 interface Props {
-    groupedFields: Record<string, { label: string; value: string; original?: string; confidence?: number; isCritical?: boolean; error?: string }[]>;
+    groupedFields: Record<string, PanelItem[]>;
     onSave: (fields: { field_name: string; value: string }[]) => Promise<void>;
     isReadOnly?: boolean;
     onSelectField?: (label: string) => void;
+    onSelectGroup?: (labels: string[]) => void;
 }
 
-export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false, onSelectField }: Props) {
+export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false, onSelectField, onSelectGroup }: Props) {
     const [editedFields, setEditedFields] = useState<Record<string, string>>({});
     const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
     const [showOriginal, setShowOriginal] = useState<string | null>(null);
@@ -70,8 +90,46 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false,
                             </div>
 
                             {expandedCats[category] && (
-                                <div className="p-4 space-y-3">
-                                    {fields.map(f => {
+                                <div className="p-4 space-y-4">
+                                    {fields.map((item, idx) => {
+                                        if (item.type === 'table') {
+                                            return (
+                                                <div key={idx} className="space-y-2">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                                        {item.label}
+                                                    </label>
+                                                    <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                                        <table className="w-full text-left text-xs">
+                                                            <thead className="bg-slate-100 border-b border-slate-200">
+                                                                <tr>
+                                                                    {item.headers.map(h => (
+                                                                        <th key={h} className="px-3 py-2 font-black text-slate-600 uppercase tracking-tighter">{h}</th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white">
+                                                                {item.rows.map((row, rIdx) => (
+                                                                    <tr
+                                                                        key={rIdx}
+                                                                        className="border-b border-slate-100 hover:bg-indigo-50/50 cursor-pointer transition-colors"
+                                                                        onClick={() => {
+                                                                            const labels = Object.entries(row).map(([k]) => `${item.label} [${rIdx + 1}]: ${k}`);
+                                                                            onSelectGroup?.(labels);
+                                                                        }}
+                                                                    >
+                                                                        {item.headers.map(h => (
+                                                                            <td key={h} className="px-3 py-2 text-slate-700 font-semibold">{row[h] || row[h.toLowerCase()] || row[h.replace(/ /g, '_').toLowerCase()] || '—'}</td>
+                                                                        ))}
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        const f = item as FieldItem;
                                         const currentVal = editedFields[f.label] !== undefined ? editedFields[f.label] : f.value;
                                         const isEdited = editedFields[f.label] !== undefined || (f.original && f.original !== f.value);
                                         const isFocus = showOriginal === f.label;
@@ -102,13 +160,13 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false,
                                                     ) : null}
                                                 </div>
 
-                                                {f.label.toLowerCase().includes('summary') ? (
+                                                {f.label.toLowerCase().includes('summary') || f.label.toLowerCase().includes('description') ? (
                                                     <textarea
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
                                                         onClick={(e) => e.stopPropagation()}
                                                         readOnly={isReadOnly}
-                                                        rows={3}
+                                                        rows={2}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
                                                             f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
                                                                 isEdited ? 'bg-amber-50/50 border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-700 font-semibold' :
