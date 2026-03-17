@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+import re
 import uuid
 import os
 from datetime import datetime
@@ -227,7 +228,10 @@ async def process_single_case(case_id: str):
         def recursive_extract(data: Any, prefix: str = ""):
             if isinstance(data, dict):
                 for k, v in data.items():
-                    new_prefix = f"{prefix} {k}" if prefix else k
+                    # Clean the key for display (e.g. agencyName -> Agency Name)
+                    # Add space before capitals for CamelCase, then replace _ with space
+                    clean_k = re.sub(r'([a-z])([A-Z])', r'\1 \2', k).replace("_", " ").title()
+                    new_prefix = f"{prefix}: {clean_k}" if prefix else clean_k
                     recursive_extract(v, new_prefix)
             elif isinstance(data, list):
                 for i, item in enumerate(data):
@@ -235,7 +239,7 @@ async def process_single_case(case_id: str):
                     recursive_extract(item, new_prefix)
             elif data and str(data).lower() not in ["null", "none", "—"]:
                 # Leaf node: search for coordinates
-                field_label = prefix.replace("_", " ").title()
+                field_label = prefix
                 instances = []
                 for doc_id, layout in doc_layout_results.items():
                     matches = extraction_svc.find_field_in_lines(layout, str(data))

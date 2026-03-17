@@ -147,14 +147,14 @@ export default function CaseActionScreen() {
             { label: 'Document Type', value: kf?.document_type || 'Unknown' },
         ],
         'Counterparty Details': [
-            { label: 'Insured', value: kf?.insured?.name || kf?.name || 'N/A' },
-            { label: 'Insured Address', value: kf?.insured?.address || 'N/A' },
-            { label: 'Agency', value: kf?.agent?.agencyName || 'N/A' },
-            { label: 'Agent', value: kf?.agent?.name || 'N/A' },
+            { label: 'Insured: Name', value: kf?.insured?.name || kf?.name || 'N/A' },
+            { label: 'Insured: Address', value: kf?.insured?.address || 'N/A' },
+            { label: 'Agent: Agency Name', value: kf?.agent?.agencyName || 'N/A' },
+            { label: 'Agent: Name', value: kf?.agent?.name || 'N/A' },
         ],
         'Contact Info': [
-            { label: 'Agent Email', value: kf?.agent?.email || 'N/A' },
-            { label: 'Agent Phone', value: kf?.agent?.phone || 'N/A' },
+            { label: 'Agent: Email', value: kf?.agent?.email || 'N/A' },
+            { label: 'Agent: Phone', value: kf?.agent?.phone || 'N/A' },
         ],
         'Recurring Structures': [
             {
