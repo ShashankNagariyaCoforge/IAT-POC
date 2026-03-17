@@ -102,13 +102,17 @@ async def process_single_case(case_id: str):
             # Fetch bytes from blob
             if blob_path:
                 try:
-                    container = settings.blob_container_attachments
-                    # Split container from path if it's there
-                    path_parts = blob_path.split("/")
-                    actual_blob_name = "/".join(path_parts[1:]) if path_parts[0] == container else blob_path
+                    # If blob_path is "container/blob_name", we need to split them correctly
+                    if "/" in blob_path:
+                        parts = blob_path.split("/", 1)
+                        target_container = parts[0]
+                        target_blob = parts[1]
+                    else:
+                        target_container = settings.blob_container_attachments
+                        target_blob = blob_path
                     
-                    logger.info(f"[Process] Downloading from {container}/{actual_blob_name}")
-                    doc_bytes = await blob_service.download_bytes(container, actual_blob_name)
+                    logger.info(f"[Process] Downloading document {filename} from container '{target_container}', blob '{target_blob}'")
+                    doc_bytes = await blob_service.download_bytes(target_container, target_blob)
                     
                     import mimetypes
                     content_type, _ = mimetypes.guess_type(filename)
