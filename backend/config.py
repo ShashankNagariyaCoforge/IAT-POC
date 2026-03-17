@@ -49,6 +49,7 @@ class Settings(BaseSettings):
 
     # Azure Document Intelligence (OCR - ACI)
     doc_intelligence_endpoint: Optional[str] = None
+    doc_intelligence_key: Optional[str] = None
 
     # Azure Content Safety
     azure_content_safety_endpoint: Optional[str] = None

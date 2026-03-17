@@ -13,7 +13,7 @@ class ExtractionService:
 
     def __init__(self):
         self._endpoint = settings.doc_intelligence_endpoint.rstrip("/")
-        # Using the same endpoint as OCR service but targeting prebuilt-layout for polygons
+        self._api_key = settings.doc_intelligence_key
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def analyze_document(self, content: bytes, content_type: str) -> Dict[str, Any]:
@@ -23,16 +23,21 @@ class ExtractionService:
         """
         try:
             logger.info(f"Analyzing document with Azure DI ({len(content)} bytes, type: {content_type})")
+            
+            headers = {
+                "Content-Type": content_type,
+                "Accept": "application/json",
+            }
+            if self._api_key:
+                headers["Ocp-Apim-Subscription-Key"] = self._api_key
+
             async with httpx.AsyncClient(timeout=120) as client:
                 # Submit for analysis
                 # Using prebuilt-layout to get text, lines, and selection marks with polygons
                 submit_resp = await client.post(
                     f"{self._endpoint}/formrecognizer/documentModels/prebuilt-layout:analyze",
                     content=content,
-                    headers={
-                        "Content-Type": content_type,
-                        "Accept": "application/json",
-                    },
+                    headers=headers,
                     params={"api-version": "2023-07-31"},
                 )
                 submit_resp.raise_for_status()

@@ -19,6 +19,7 @@ class OCRService:
 
     def __init__(self):
         self._endpoint = settings.doc_intelligence_endpoint.rstrip("/")
+        self._api_key = settings.doc_intelligence_key
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def extract_text(self, content: bytes, content_type: str = "application/pdf") -> str:
@@ -37,15 +38,19 @@ class OCRService:
         """
         try:
             logger.info(f"Sending document to OCR service ({len(content)} bytes, type: {content_type})")
+            headers = {
+                "Content-Type": content_type,
+                "Accept": "application/json",
+            }
+            if self._api_key:
+                headers["Ocp-Apim-Subscription-Key"] = self._api_key
+
             async with httpx.AsyncClient(timeout=120) as client:
                 # Submit the document for analysis
                 submit_resp = await client.post(
                     f"{self._endpoint}/formrecognizer/documentModels/prebuilt-read:analyze",
                     content=content,
-                    headers={
-                        "Content-Type": content_type,
-                        "Accept": "application/json",
-                    },
+                    headers=headers,
                     params={"api-version": "2023-07-31"},
                 )
                 submit_resp.raise_for_status()
