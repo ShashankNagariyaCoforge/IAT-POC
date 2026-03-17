@@ -49,7 +49,8 @@ class ExtractionService:
                 # Poll for completion
                 for _ in range(30):
                     await asyncio.sleep(2)
-                    result_resp = await client.get(operation_url)
+                    # Azure requires the key on the polling GET request as well
+                    result_resp = await client.get(operation_url, headers=headers)
                     result_resp.raise_for_status()
                     result = result_resp.json()
 
