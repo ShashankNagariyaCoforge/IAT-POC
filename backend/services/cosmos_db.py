@@ -76,10 +76,13 @@ class CosmosDBService:
                 await db.command("ping")
                 logger.info(f"Connected to Cosmos DB MongoDB: {self._database_name}")
                 
-                # Optionally create indexes here for performance
+                # Optionally create indexes here for performance and to support sorting
                 await db[COLLECTION_CASES].create_index([("case_id", ASCENDING)], unique=True)
+                await db[COLLECTION_CASES].create_index([("created_at", DESCENDING)])
+                await db[COLLECTION_CASES].create_index([("updated_at", DESCENDING)])
                 await db[COLLECTION_EMAILS].create_index([("message_id", ASCENDING)])
                 await db[COLLECTION_EMAILS].create_index([("case_id", ASCENDING)])
+                await db[COLLECTION_EMAILS].create_index([("received_at", ASCENDING)])
                 await db[COLLECTION_DOCUMENTS].create_index([("document_id", ASCENDING)], unique=True)
                 await db[COLLECTION_CLASSIFICATION].create_index([("case_id", ASCENDING)])
                 
