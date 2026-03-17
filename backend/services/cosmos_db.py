@@ -93,8 +93,11 @@ class CosmosDBService:
                 await db[COLLECTION_EMAILS].create_index([("message_id", ASCENDING)])
                 await db[COLLECTION_EMAILS].create_index([("case_id", ASCENDING)])
                 await db[COLLECTION_EMAILS].create_index([("received_at", ASCENDING)])
+                await db[COLLECTION_EMAILS].create_index([("case_id", ASCENDING), ("received_at", ASCENDING)])
                 await db[COLLECTION_DOCUMENTS].create_index([("document_id", ASCENDING)], unique=True)
                 await db[COLLECTION_CLASSIFICATION].create_index([("case_id", ASCENDING)])
+                await db[COLLECTION_CLASSIFICATION].create_index([("classified_at", DESCENDING)])
+                await db[COLLECTION_CLASSIFICATION].create_index([("case_id", ASCENDING), ("classified_at", DESCENDING)])
                 
             except Exception as e:
                 logger.error(f"Failed to connect to MongoDB API: {e}")
