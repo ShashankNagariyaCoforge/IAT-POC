@@ -266,13 +266,21 @@ class CosmosDBService:
 
     # ===== EMAILS =====
 
-    async def create_email(self, email_doc: Dict) -> None:
-        """Save an email to MongoDB."""
+    async def upsert_email(self, email_doc: Dict) -> None:
+        """Save or update an email in MongoDB."""
         db = self._get_db()
-        # Use email_id as _id
-        email_doc["_id"] = email_doc.get("email_id")
-        await db[COLLECTION_EMAILS].insert_one(email_doc)
-        logger.info(f"Saved email {email_doc.get('email_id')} to MongoDB.")
+        email_id = email_doc.get("email_id")
+        if not email_id:
+             logger.error("Attempted to upsert_email without email_id")
+             return
+        
+        email_doc["_id"] = email_id
+        await db[COLLECTION_EMAILS].replace_one({"_id": email_id}, email_doc, upsert=True)
+        logger.info(f"Upserted email {email_id} to MongoDB.")
+
+    # Compatibility alias
+    async def create_email(self, email_doc: Dict) -> None:
+        await self.upsert_email(email_doc)
 
     async def get_emails_for_case(self, case_id: str) -> List[Dict]:
         """Fetch all emails belonging to a case."""
@@ -313,10 +321,17 @@ class CosmosDBService:
 
     # ===== DOCUMENTS =====
 
-    async def create_document(self, doc: Dict) -> None:
+    async def upsert_document(self, doc: Dict) -> None:
+        """Save or update a document in MongoDB."""
         db = self._get_db()
-        doc["_id"] = doc.get("document_id")
-        await db[COLLECTION_DOCUMENTS].insert_one(doc)
+        doc_id = doc.get("document_id")
+        doc["_id"] = doc_id
+        await db[COLLECTION_DOCUMENTS].replace_one({"_id": doc_id}, doc, upsert=True)
+        logger.info(f"Upserted document {doc_id} to MongoDB.")
+
+    # Compatibility alias
+    async def create_document(self, doc: Dict) -> None:
+        await self.upsert_document(doc)
 
     async def get_documents_for_case(self, case_id: str) -> List[Dict]:
         db = self._get_db()
