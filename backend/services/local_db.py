@@ -182,11 +182,16 @@ class LocalDBService:
 
     # ===== EMAILS =====
 
-    async def create_email(self, email_doc: Dict) -> None:
+    async def upsert_email(self, email_doc: Dict) -> None:
         db = _get_db()
-        db.table("emails").insert(dict(email_doc))
+        E = Query()
+        db.table("emails").upsert(dict(email_doc), E.email_id == email_doc["email_id"])
         db.storage.flush()
-        logger.info(f"[LocalDB] Saved email {email_doc.get('email_id')}")
+        logger.info(f"[LocalDB] Upserted email {email_doc.get('email_id')}")
+
+    # Compatibility alias
+    async def create_email(self, email_doc: Dict) -> None:
+        await self.upsert_email(email_doc)
 
     async def get_emails_for_case(self, case_id: str) -> List[Dict]:
         db = _get_db()
@@ -237,21 +242,19 @@ class LocalDBService:
 
     # ===== DOCUMENTS =====
 
-    async def create_document(self, doc: Dict) -> None:
-        db = _get_db()
-        db.table("documents").insert(dict(doc))
-        db.storage.flush()
-
-    async def get_documents_for_case(self, case_id: str) -> List[Dict]:
-        db = _get_db()
-        D = Query()
-        return db.table("documents").search(D.case_id == case_id)
-
-    async def update_document(self, doc: Dict) -> None:
+    async def upsert_document(self, doc: Dict) -> None:
         db = _get_db()
         D = Query()
         db.table("documents").upsert(dict(doc), D.document_id == doc["document_id"])
         db.storage.flush()
+        logger.info(f"[LocalDB] Upserted document {doc.get('document_id')}")
+
+    # Compatibility alias
+    async def create_document(self, doc: Dict) -> None:
+        await self.upsert_document(doc)
+
+    async def update_document(self, doc: Dict) -> None:
+        await self.upsert_document(doc)
 
     # ===== CLASSIFICATION RESULTS =====
 

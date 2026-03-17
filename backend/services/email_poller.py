@@ -162,16 +162,9 @@ async def run_email_sync_pipeline() -> dict:
                 
                 email_record["body"] = raw_body_html
                 email_record["body_masked"] = cleaned_body_text[:2000] # Plain text preview for sidebar
-                if settings.demo_mode:
-                    from tinydb import Query
-                    from services.local_db import _get_db as get_tinydb
-                    db = get_tinydb()
-                    E = Query()
-                    db.table("emails").upsert(email_record, E.email_id == email_record["email_id"])
-                    db.storage.flush()
-                else:
-                    container_client = await db_service._get_container("emails")
-                    await container_client.upsert_item(email_record)
+                
+                # Final save of the enriched email record
+                await db_service.upsert_email(email_record)
 
                 # Skip Safety and AI Classification during background polling.
                 # Just mark the blob as processed and log success.
