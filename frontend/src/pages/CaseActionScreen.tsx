@@ -95,11 +95,20 @@ export default function CaseActionScreen() {
     };
 
     const handleFieldSelect = (label: string) => {
-        if (!classification?.extraction_results) return;
+        console.log('[DEBUG] Field selected:', label);
+        if (!classification?.extraction_results) {
+            console.warn('[DEBUG] No extraction results found in classification object');
+            return;
+        }
+
         const result = classification.extraction_results.find(r => r.field.toLowerCase() === label.toLowerCase());
         if (result && result.instances.length > 0) {
+            console.log(`[DEBUG] Found ${result.instances.length} instances for:`, label);
             setSelectedInstances(result.instances);
             setActivePdfUrl(null);
+        } else {
+            console.warn('[DEBUG] No matches found for label:', label);
+            console.log('[DEBUG] Available fields:', classification.extraction_results.map(r => r.field));
         }
     };
 
