@@ -67,23 +67,33 @@ class ExtractionService:
     def find_field_in_lines(self, analyze_result: Dict[str, Any], search_value: str) -> List[Dict[str, Any]]:
         """
         Searches for a specific value in the DI lines and returns its polygons.
-        This is a fuzzy search since the value might be slightly different or contain masks.
+        Uses normalization to handle minor OCR/formatting differences.
         """
         if not search_value or search_value.lower() == "null" or search_value == "—":
             return []
 
-        search_value_clean = search_value.lower().strip()
+        import re
+        def normalize(text: str) -> str:
+            # Remove punctuation, collapse whitespace, and lowercase
+            t = re.sub(r'[^\w\s]', '', text)
+            return " ".join(t.lower().split())
+
+        search_value_norm = normalize(search_value)
+        if not search_value_norm:
+            return []
+
         matches = []
-        
         pages = analyze_result.get("pages", [])
+        
         for page_idx, page in enumerate(pages):
             for line in page.get("lines", []):
-                line_content = line.get("content", "").lower()
+                line_content = line.get("content", "")
+                line_norm = normalize(line_content)
                 
-                # Simple exact or partial match for now
-                if search_value_clean in line_content:
+                # Check for inclusion or overlap
+                if search_value_norm in line_norm or line_norm in search_value_norm:
                     matches.append({
-                        "text": line.get("content"),
+                        "text": line_content,
                         "page": page_idx + 1,
                         "polygon": line.get("polygon"), # [x1, y1, x2, y2, x3, y3, x4, y4]
                         "confidence": line.get("spans", [{}])[0].get("confidence", 0.9),

@@ -263,6 +263,8 @@ async def process_single_case(case_id: str):
                 # Remove duplicates and empty strings
                 search_values = list(set([v for v in search_values if v and v.strip()]))
                 
+                logger.info(f"[Extraction] Searching for field '{field_label}' with values: {search_values}")
+                
                 for val in search_values:
                     for doc_id, layout in doc_layout_results.items():
                         matches = extraction_svc.find_field_in_lines(layout, val)
@@ -271,16 +273,21 @@ async def process_single_case(case_id: str):
                             instances.append(m)
                 
                 if instances:
+                    logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}'")
                     extraction_results.append({
                         "field": field_label,
                         "value": str(data),
                         "instances": instances
                     })
+                else:
+                    logger.warning(f"[Extraction] No matches found for '{field_label}' in any document.")
 
+        logger.info(f"[Extraction] Starting recursive extraction on {len(doc_layout_results)} document layouts.")
         recursive_extract(classification.get("key_fields", {}))
         
         classification["extraction_results"] = extraction_results
         classification["extracted_tables"] = doc_tables
+        logger.info(f"[Extraction] Final extraction results count: {len(extraction_results)}")
         await db_service.save_classification_result(classification)
 
         # 7. Final Status Update
