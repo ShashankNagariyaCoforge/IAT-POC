@@ -102,17 +102,38 @@ async def process_single_case(case_id: str):
             # Fetch bytes from blob
             if blob_path:
                 try:
-                    # If blob_path is "container/blob_name", we need to split them correctly
-                    if "/" in blob_path:
-                        parts = blob_path.split("/", 1)
-                        target_container = parts[0]
-                        target_blob = parts[1]
-                    else:
-                        target_container = settings.blob_container_attachments
-                        target_blob = blob_path
+                    # Multi-container search strategy
+                    containers_to_try = [
+                        settings.blob_container_raw_emails,
+                        settings.blob_container_attachments
+                    ]
                     
-                    logger.info(f"[Process] Downloading document {filename} from container '{target_container}', blob '{target_blob}'")
-                    doc_bytes = await blob_service.download_bytes(target_container, target_blob)
+                    doc_bytes = None
+                    last_err = None
+                    used_container = None
+                    
+                    for container in containers_to_try:
+                        try:
+                            logger.info(f"[Process] Trying container '{container}' for blob '{blob_path}'")
+                            doc_bytes = await blob_service.download_bytes(container, blob_path)
+                            used_container = container
+                            break
+                        except Exception as e:
+                            last_err = e
+                            continue
+                            
+                    if not doc_bytes:
+                        # Final "Smart" fallback if the path actually IS "container/blob"
+                        if "/" in blob_path:
+                            parts = blob_path.split("/", 1)
+                            c, b = parts[0], parts[1]
+                            logger.info(f"[Process] Final fallback: Trying container '{c}', blob '{b}'")
+                            doc_bytes = await blob_service.download_bytes(c, b)
+                            used_container = c
+                        else:
+                            raise last_err or Exception(f"Blob {blob_path} not found in any container.")
+
+                    logger.info(f"[Process] Successfully downloaded {filename} from container '{used_container}'")
                     
                     import mimetypes
                     content_type, _ = mimetypes.guess_type(filename)
