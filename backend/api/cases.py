@@ -13,6 +13,8 @@ from typing import Optional, Union
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
+import fitz
+import io
 from pydantic import BaseModel
 from typing import List, Any, Dict
 
@@ -196,6 +198,38 @@ async def get_case_document_pdf(case_id: str, document_id: str):
     except Exception as e:
         logger.error(f"Failed to download PDF {blob_path}: {e}")
         raise HTTPException(status_code=500, detail="Failed to download PDF from storage")
+
+
+@router.get("/cases/{case_id}/documents/{document_id}/pages/{page_number}/image")
+async def get_case_document_page_image(case_id: str, document_id: str, page_number: int):
+    """
+    Renders a specific page of a PDF document as a PNG image.
+    This is used for high-fidelity SVG annotation overlays.
+    """
+    try:
+        # Re-use existing logic to get PDF bytes
+        resp = await get_case_document_pdf(case_id, document_id)
+        if not isinstance(resp, Response):
+             raise HTTPException(status_code=500, detail="Could not retrieve PDF bytes")
+        
+        pdf_bytes = resp.body
+        
+        # Render page using PyMuPDF (fitz)
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        if page_number < 1 or page_number > len(doc):
+            raise HTTPException(status_code=400, detail=f"Invalid page number {page_number}. Total pages: {len(doc)}")
+            
+        page = doc[page_number - 1]
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2)) # 2x scale for quality
+        img_bytes = pix.tobytes("png")
+        doc.close()
+        
+        return Response(content=img_bytes, media_type="image/png")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to render page image: {e}")
+        raise HTTPException(status_code=500, detail="Error rendering document page")
 
 
 @router.get("/cases/{case_id}/classification")

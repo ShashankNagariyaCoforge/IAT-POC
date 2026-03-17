@@ -6,11 +6,12 @@ import {
     FileText, Eye, RefreshCw, Loader2, Download
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
-import type { Case, Document as CaseDoc, ClassificationResult } from '../types';
+import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance } from '../types';
 import { usePipeline } from '../contexts/PipelineContext';
 import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
 import { IngestionStatsCard } from '../components/IngestionStatsCard';
 import { InlinePdfViewer } from '../components/InlinePdfViewer';
+import { DocumentAnnotator } from '../components/DocumentAnnotator';
 import { PdfViewerModal } from '../components/PdfViewerModal';
 import { EditableFieldsPanel } from '../components/EditableFieldsPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
@@ -34,6 +35,7 @@ export default function CaseActionScreen() {
 
     const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
     const [activePdfName, setActivePdfName] = useState<string | null>(null);
+    const [selectedInstance, setSelectedInstance] = useState<ExtractionInstance | null>(null);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
 
     const fetchAll = async () => {
@@ -90,6 +92,19 @@ export default function CaseActionScreen() {
             body: JSON.stringify({ status: newStatus }),
         });
         await fetchAll(); // Reload everything
+    };
+
+    const handleFieldSelect = (label: string) => {
+        if (!classification?.extraction_results) return;
+        // We match by label (which we title-cased in the backend)
+        const result = classification.extraction_results.find(r => r.field.toLowerCase() === label.toLowerCase());
+        if (result && result.instances.length > 0) {
+            // Pick best instance
+            const best = [...result.instances].sort((a, b) => b.confidence - a.confidence)[0];
+            setSelectedInstance(best);
+            // Hide normal PDF viewer to show annotator
+            setActivePdfUrl(null);
+        }
     };
 
     if (loading || !caseData) {
@@ -225,9 +240,22 @@ export default function CaseActionScreen() {
                             />
                         </div>
 
-                        {/* Inline PDF Viewer */}
-                        <div className={`transition-all duration-500 ${activePdfUrl ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
-                            {activePdfUrl && (
+                        {/* Inline PDF Viewer or Annotator */}
+                        <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstance) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
+                            {selectedInstance ? (
+                                <DocumentAnnotator
+                                    caseId={caseId!}
+                                    instance={selectedInstance}
+                                    onClose={() => setSelectedInstance(null)}
+                                    onFullscreen={() => {
+                                        const url = `/api/cases/${caseId}/documents/${selectedInstance.doc_id}/pdf`;
+                                        setActivePdfUrl(url);
+                                        const doc = docs.find(d => d.document_id === selectedInstance.doc_id);
+                                        setActivePdfName(doc?.file_name || 'Document');
+                                        setShowFullscreenPdf(true);
+                                    }}
+                                />
+                            ) : activePdfUrl && (
                                 <InlinePdfViewer
                                     url={activePdfUrl}
                                     name={activePdfName!}
@@ -256,7 +284,11 @@ export default function CaseActionScreen() {
                                     return (
                                         <div
                                             key={i}
-                                            onClick={() => { setActivePdfUrl(url); setActivePdfName(doc.file_name); }}
+                                            onClick={() => {
+                                                setSelectedInstance(null); // Clear annotation when selecting a full doc
+                                                setActivePdfUrl(url);
+                                                setActivePdfName(doc.file_name);
+                                            }}
                                             className={`relative p-3 rounded-xl border text-left transition cursor-pointer group flex flex-col gap-2 ${isSelected
                                                 ? 'border-indigo-400 bg-indigo-50/60 shadow-md ring-2 ring-indigo-100'
                                                 : 'border-slate-200 bg-white shadow-sm hover:border-indigo-300 hover:shadow-md'
@@ -286,6 +318,7 @@ export default function CaseActionScreen() {
                         groupedFields={groupedFields}
                         onSave={handleSaveFields}
                         isReadOnly={isApproved}
+                        onSelectField={handleFieldSelect}
                     />
 
                     {/* Decision Panel (only if processing is done) */}

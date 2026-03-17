@@ -5,9 +5,10 @@ interface Props {
     groupedFields: Record<string, { label: string; value: string; original?: string; confidence?: number; isCritical?: boolean; error?: string }[]>;
     onSave: (fields: { field_name: string; value: string }[]) => Promise<void>;
     isReadOnly?: boolean;
+    onSelectField?: (label: string) => void;
 }
 
-export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false }: Props) {
+export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false, onSelectField }: Props) {
     const [editedFields, setEditedFields] = useState<Record<string, string>>({});
     const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
     const [showOriginal, setShowOriginal] = useState<string | null>(null);
@@ -76,9 +77,13 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false 
                                         const isFocus = showOriginal === f.label;
 
                                         return (
-                                            <div key={f.label} className="space-y-1.5">
+                                            <div
+                                                key={f.label}
+                                                className={`space-y-1.5 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white border border-transparent ${onSelectField ? 'hover:border-indigo-200 hover:shadow-sm' : ''}`}
+                                                onClick={() => onSelectField?.(f.label)}
+                                            >
                                                 <div className="flex items-center justify-between">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer">
                                                         {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
                                                     </label>
                                                     {isEdited ? (
@@ -86,7 +91,7 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false 
                                                             {f.original && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setShowOriginal(isFocus ? null : f.label)}
+                                                                    onClick={(e) => { e.stopPropagation(); setShowOriginal(isFocus ? null : f.label); }}
                                                                     className="text-amber-600 hover:bg-amber-100 p-0.5 rounded transition"
                                                                 >
                                                                     <History size={11} />
@@ -101,6 +106,7 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false 
                                                     <textarea
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
+                                                        onClick={(e) => e.stopPropagation()}
                                                         readOnly={isReadOnly}
                                                         rows={3}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
@@ -114,6 +120,7 @@ export function EditableFieldsPanel({ groupedFields, onSave, isReadOnly = false 
                                                         type="text"
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
+                                                        onClick={(e) => e.stopPropagation()}
                                                         readOnly={isReadOnly}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
                                                             f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :

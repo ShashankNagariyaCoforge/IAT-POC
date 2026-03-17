@@ -44,6 +44,7 @@ class ClassificationResult(BaseModel):
     requires_human_review: bool
     classified_at: datetime = Field(default_factory=datetime.utcnow)
     masked_text_blob_path: Optional[str] = None  # blob path of masked text used for classification
+    extraction_results: Optional[list] = None  # Unified list of mapped polygons and sources
     downstream_notification_sent: bool = False
     downstream_notification_at: Optional[datetime] = None
 

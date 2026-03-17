@@ -1,0 +1,40 @@
+{
+    "fields": [
+        {
+            "name": "Policy Reference",
+            "aliases": [
+                "policy number",
+                "policy #",
+                "policy ref"
+            ],
+            "description": "The unique identifier for the insurance policy"
+        },
+        {
+            "name": "Insured Name",
+            "aliases": [
+                "insured",
+                "name of insured",
+                "policyholder"
+            ],
+            "description": "The name of the person or entity insured"
+        },
+        {
+            "name": "Date of Loss",
+            "aliases": [
+                "loss date",
+                "date of incident",
+                "occurrence date"
+            ],
+            "description": "The date when the reported loss or incident occurred"
+        },
+        {
+            "name": "Claim Number",
+            "aliases": [
+                "claim #",
+                "claim ref",
+                "file number"
+            ],
+            "description": "The unique identifier assigned to the claim"
+        }
+    ]
+}

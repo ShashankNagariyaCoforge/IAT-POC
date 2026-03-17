@@ -10,6 +10,7 @@ from services.classifier import Classifier
 from services.content_safety import ContentSafetyService
 from services.pii_masker import PIIMasker
 from services.blob_storage import BlobStorageService
+from services.extraction_service import ExtractionService
 from utils.pii_report import format_pii_report_html
 from models.case import CaseStatus
 
@@ -47,6 +48,7 @@ async def process_single_case(case_id: str):
         safety_svc = ContentSafetyService()
         masker = PIIMasker()
         blob_service = BlobStorageService()
+        extraction_svc = ExtractionService()
 
         # 1. Fetch all content for merging
         emails = await db_service.get_emails_for_case(case_id)
@@ -85,9 +87,40 @@ async def process_single_case(case_id: str):
              cleaned_body = clean_conversation_context(body_text)
              text_parts.append(f"[Source: Email from {em.get('sender')}]\n{cleaned_body}")
         
+        doc_layout_results = {} # doc_id -> analyze_result
         for doc in documents:
-            if doc.get("extracted_text"):
-                text_parts.append(f"[Source: Attachment {doc.get('filename')}]\n{doc.get('extracted_text')}")
+            doc_id = doc.get("document_id")
+            blob_path = doc.get("blob_path")
+            filename = doc.get("filename") or doc.get("file_name") # Handle key variance
+            
+            # Fetch bytes from blob
+            if blob_path:
+                try:
+                    container = settings.blob_container_attachments
+                    # Split container from path if it's there
+                    path_parts = blob_path.split("/")
+                    actual_blob_name = "/".join(path_parts[1:]) if path_parts[0] == container else blob_path
+                    
+                    doc_bytes = await blob_service.download_bytes(container, actual_blob_name)
+                    
+                    import mimetypes
+                    content_type, _ = mimetypes.guess_type(filename)
+                    content_type = content_type or "application/octet-stream"
+                    
+                    logger.info(f"[Process] Running DI extraction on {filename} ({doc_id})")
+                    layout_result = await extraction_svc.analyze_document(doc_bytes, content_type)
+                    doc_layout_results[doc_id] = layout_result
+                    
+                    # Update text parts with DI text if missing
+                    extracted_text = layout_result.get("content", "")
+                    if extracted_text:
+                        text_parts.append(f"[Source: Attachment {filename}]\n{extracted_text}")
+                except Exception as di_err:
+                    logger.warning(f"[Process] DI extraction failed for {filename}: {di_err}")
+                    if doc.get("extracted_text"):
+                        text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
+            elif doc.get("extracted_text"):
+                text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
         
         combined_raw_text = "\n\n---\n\n".join(text_parts)
 
@@ -178,7 +211,28 @@ async def process_single_case(case_id: str):
         classification["classified_at"] = datetime.utcnow().isoformat()
         classification["masked_text_blob_path"] = masked_blob_path
         classification["pii_report_blob_path"] = report_blob_path
+
+        # 6.5 Match Key Fields to Locations (Extraction Results)
+        extraction_results = []
+        key_fields_dict = classification.get("key_fields", {})
         
+        for field_key, field_value in key_fields_dict.items():
+            if not field_value: continue
+            
+            instances = []
+            for doc_id, layout in doc_layout_results.items():
+                matches = extraction_svc.find_field_in_lines(layout, str(field_value))
+                for m in matches:
+                    m["doc_id"] = doc_id
+                    instances.append(m)
+            
+            if instances:
+                extraction_results.append({
+                    "field": field_key.replace("_", " ").title(),
+                    "instances": instances
+                })
+        
+        classification["extraction_results"] = extraction_results
         await db_service.save_classification_result(classification)
 
         # 7. Final Status Update

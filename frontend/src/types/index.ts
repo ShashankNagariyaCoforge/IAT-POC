@@ -100,6 +100,22 @@ export interface KeyFields {
     currency: string | null;
 }
 
+export interface ExtractionInstance {
+    value: string;
+    confidence: number;
+    doc_id: string;
+    page: number;
+    polygon: number[]; // [x1, y1, x2, y2, x3, y3, x4, y4]
+    page_width: number;
+    page_height: number;
+    unit: string;
+}
+
+export interface ExtractionResult {
+    field: string;
+    instances: ExtractionInstance[];
+}
+
 export interface ClassificationResult {
     result_id: string;
     case_id: string;
@@ -109,6 +125,7 @@ export interface ClassificationResult {
     key_fields: KeyFields;
     requires_human_review: boolean;
     classified_at: string;
+    extraction_results?: ExtractionResult[];
     downstream_notification_sent: boolean;
     downstream_notification_at: string | null;
 }
