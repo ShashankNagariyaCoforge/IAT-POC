@@ -84,15 +84,27 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
                         viewBox={`0 0 ${page_width} ${page_height}`}
                         className="absolute inset-0 w-full h-full pointer-events-none"
                     >
+                        <defs>
+                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="3" result="blur" />
+                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+                        </defs>
                         {instances.map((inst, idx) => (
-                            <polygon
-                                key={idx}
-                                points={formatPoints(inst.polygon)}
-                                fill={`${getColor(inst.confidence)}33`}
-                                stroke={getColor(inst.confidence)}
-                                strokeWidth={2}
-                                className="animate-pulse"
-                            />
+                            <g key={idx} filter="url(#glow)">
+                                <polygon
+                                    points={formatPoints(inst.polygon)}
+                                    fill="transparent"
+                                    stroke={getColor(inst.confidence)}
+                                    strokeWidth={3}
+                                    className="animate-pulse"
+                                />
+                                <polygon
+                                    points={formatPoints(inst.polygon)}
+                                    fill={`${getColor(inst.confidence)}15`}
+                                    className="opacity-50"
+                                />
+                            </g>
                         ))}
                     </svg>
 

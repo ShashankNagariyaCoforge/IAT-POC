@@ -305,7 +305,12 @@ async def process_single_case(case_id: str):
                             instances.append(m)
                 
                 if instances:
-                    logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}'")
+                    # Enforce "Winner Takes All" for single fields to avoid noise
+                    if "[" not in prefix:
+                        # Take the best match (already sorted by extraction_svc)
+                        instances = [instances[0]]
+                    
+                    logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}' (Top Match Only)")
                     extraction_results.append({
                         "field": field_label,
                         "value": str(data),

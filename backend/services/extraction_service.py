@@ -83,6 +83,9 @@ class ExtractionService:
         if not search_value_norm:
             return []
 
+        # For very short strings (like "0"), be much more strict
+        is_short = len(search_value_norm) < 3
+
         matches = []
         pages = analyze_result.get("pages", [])
         
@@ -91,18 +94,33 @@ class ExtractionService:
                 line_content = line.get("content", "")
                 line_norm = normalize(line_content)
                 
-                # Check for inclusion or overlap
-                if search_value_norm in line_norm or line_norm in search_value_norm:
+                if not line_norm:
+                    continue
+
+                similarity = 0.0
+                if search_value_norm == line_norm:
+                    similarity = 1.0
+                elif not is_short and (search_value_norm in line_norm or line_norm in search_value_norm):
+                    # Partial match score based on overlap length
+                    common = min(len(search_value_norm), len(line_norm))
+                    total = max(len(search_value_norm), len(line_norm))
+                    similarity = common / total
+                
+                # Minimum threshold to avoid noise
+                if similarity > 0.3:
                     matches.append({
                         "text": line_content,
                         "page": page_idx + 1,
                         "polygon": line.get("polygon"), # [x1, y1, x2, y2, x3, y3, x4, y4]
                         "confidence": line.get("spans", [{}])[0].get("confidence", 0.9),
+                        "similarity": similarity,
                         "page_width": page.get("width"),
                         "page_height": page.get("height"),
                         "unit": page.get("unit")
                     })
         
+        # Sort by similarity and confidence
+        matches.sort(key=lambda x: (x["similarity"], x["confidence"]), reverse=True)
         return matches
     def extract_tables(self, analyze_result: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
