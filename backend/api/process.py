@@ -214,6 +214,19 @@ async def process_single_case(case_id: str):
         classification["masked_text_blob_path"] = masked_blob_path
         classification["pii_report_blob_path"] = report_blob_path
 
+        # 6.4 Pre-decrypt PII mappings for spatial matching
+        placeholder_to_originals = {}
+        for m in pii_mappings:
+            mv = m["masked_value"]
+            if mv not in placeholder_to_originals:
+                placeholder_to_originals[mv] = set()
+            try:
+                # Internal decryption helper
+                orig = masker._decrypt(m["original_value_encrypted"])
+                placeholder_to_originals[mv].add(orig)
+            except Exception:
+                pass
+
         # 6.5 Match Key Fields to Locations (Recursive Extraction)
         extraction_results = []
         doc_tables = [] # List of extracted tables across all docs
@@ -240,12 +253,22 @@ async def process_single_case(case_id: str):
             elif data and str(data).lower() not in ["null", "none", "—"]:
                 # Leaf node: search for coordinates
                 field_label = prefix
+                
+                # If the value is a placeholder, try to search for the original text
+                search_values = [str(data)]
+                if str(data) in placeholder_to_originals:
+                    search_values.extend(list(placeholder_to_originals[str(data)]))
+                
                 instances = []
-                for doc_id, layout in doc_layout_results.items():
-                    matches = extraction_svc.find_field_in_lines(layout, str(data))
-                    for m in matches:
-                        m["doc_id"] = doc_id
-                        instances.append(m)
+                # Remove duplicates and empty strings
+                search_values = list(set([v for v in search_values if v and v.strip()]))
+                
+                for val in search_values:
+                    for doc_id, layout in doc_layout_results.items():
+                        matches = extraction_svc.find_field_in_lines(layout, val)
+                        for m in matches:
+                            m["doc_id"] = doc_id
+                            instances.append(m)
                 
                 if instances:
                     extraction_results.append({

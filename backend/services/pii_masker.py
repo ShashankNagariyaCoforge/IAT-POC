@@ -61,17 +61,17 @@ ALL_ENTITIES = BUILTIN_ENTITIES + CUSTOM_ENTITIES
 
 # ── Placeholder labels ─────────────────────────────────────────────────────────
 PLACEHOLDER_MAP = {
-    "PERSON":           "****",
-    "EMAIL_ADDRESS":    "****",
-    "PHONE_NUMBER":     "****",
-    "US_SSN":           "****",
-    "DATE_TIME":        "****",
-    "LOCATION":         "****",
-    "EMPLOYEE_ID":      "****",
-    "JOB_TITLE":        "****",
-    "SALARY":           "****",
-    "INTERNAL_ID":      "****",
-    "HEALTH_PLAN_ID":   "****",
+    "PERSON":           "[NAME]",
+    "EMAIL_ADDRESS":    "[EMAIL]",
+    "PHONE_NUMBER":     "[PHONE]",
+    "US_SSN":           "[SSN]",
+    "DATE_TIME":        "[DATE]",
+    "LOCATION":         "[ADDRESS]",
+    "EMPLOYEE_ID":      "[EMPLOYEE_ID]",
+    "JOB_TITLE":        "[JOB_TITLE]",
+    "SALARY":           "[SALARY]",
+    "INTERNAL_ID":      "[INTERNAL_ID]",
+    "HEALTH_PLAN_ID":   "[HEALTH_PLAN_ID]",
 }
 
 
