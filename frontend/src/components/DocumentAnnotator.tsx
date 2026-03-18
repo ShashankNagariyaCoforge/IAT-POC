@@ -91,18 +91,14 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
                             </filter>
                         </defs>
                         {instances.map((inst, idx) => (
-                            <g key={idx} filter="url(#glow)">
+                            <g key={idx}>
                                 <polygon
                                     points={formatPoints(inst.polygon)}
                                     fill="transparent"
                                     stroke={getColor(inst.confidence)}
                                     strokeWidth={3}
                                     className="animate-pulse"
-                                />
-                                <polygon
-                                    points={formatPoints(inst.polygon)}
-                                    fill={`${getColor(inst.confidence)}15`}
-                                    className="opacity-50"
+                                    strokeLinejoin="round"
                                 />
                             </g>
                         ))}
