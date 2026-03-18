@@ -200,6 +200,35 @@ async def get_case_document_pdf(case_id: str, document_id: str):
         raise HTTPException(status_code=500, detail="Failed to download PDF from storage")
 
 
+@router.get("/cases/{case_id}/documents/{document_id}/annotated")
+async def get_case_document_annotated_pdf(case_id: str, document_id: str):
+    """
+    Get the pre-rendered annotated PDF for a specific document.
+    """
+    cosmos = _get_cosmos()
+    classification = await cosmos.get_classification_for_case(case_id)
+    if not classification:
+        raise HTTPException(status_code=404, detail="Classification not found")
+        
+    annotated_docs = classification.get("annotated_docs", {})
+    blob_path = annotated_docs.get(document_id)
+    
+    if not blob_path:
+        # Fallback to original PDF if annotated version doesn't exist yet
+        return await get_case_document_pdf(case_id, document_id)
+
+    try:
+        from services.blob_storage import BlobStorageService
+        blob = BlobStorageService()
+        container = settings.blob_container_attachments
+        pdf_bytes = await blob.download_bytes(container, blob_path)
+        return Response(content=pdf_bytes, media_type="application/pdf")
+    except Exception as e:
+        logger.error(f"Failed to download annotated PDF {blob_path}: {e}")
+        # Final fallback
+        return await get_case_document_pdf(case_id, document_id)
+
+
 @router.get("/cases/{case_id}/documents/{document_id}/pages/{page_number}/image")
 async def get_case_document_page_image(case_id: str, document_id: str, page_number: int):
     """

@@ -3,27 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     ChevronLeft,
-    FileText, Loader2, ShieldCheck, Info
+    FileText, Loader2, ShieldCheck,
+    Eye, ExternalLink
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
-import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance } from '../types';
-import { DocumentAnnotator } from '../components/DocumentAnnotator';
-import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
+import type { Case, Document as CaseDoc, ClassificationResult } from '../types';
+import { EditableFieldsPanel, PanelItem } from '../components/EditableFieldsPanel';
 
-const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
 export default function ExtractionReviewPage() {
     const { caseId } = useParams<{ caseId: string }>();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const apiClient = useMemo(() => (DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance)), [instance]);
+    const apiClient = useMemo(() => createApiClient(instance), [instance]);
 
     const [caseData, setCaseData] = useState<Case | null>(null);
     const [docs, setDocs] = useState<CaseDoc[]>([]);
     const [classification, setClassification] = useState<ClassificationResult | null>(null);
     const [loading, setLoading] = useState(true);
-
-    const [selectedInstances, setSelectedInstances] = useState<ExtractionInstance[]>([]);
     const [activeDocId, setActiveDocId] = useState<string | null>(null);
 
     const fetchAll = async () => {
@@ -42,7 +39,6 @@ export default function ExtractionReviewPage() {
             setDocs(normalizedDocs);
             setClassification(cls.classification);
 
-            // Auto-select first doc for context if nothing is highlighted
             if (normalizedDocs.length > 0 && !activeDocId) {
                 setActiveDocId(normalizedDocs[0].document_id);
             }
@@ -55,53 +51,6 @@ export default function ExtractionReviewPage() {
         fetchAll();
     }, [caseId]);
 
-    const handleFieldSelect = (label: string) => {
-        if (!classification?.extraction_results) return;
-
-        // Common mapping between UI labels and backend field names
-        const lookupKeys = [label.toLowerCase()];
-        const labelLower = label.toLowerCase();
-        if (labelLower === 'insured: name') lookupKeys.push('name');
-        if (labelLower === 'address') lookupKeys.push('insured: address');
-        if (labelLower === 'agency') lookupKeys.push('agent: agency name');
-        if (labelLower === 'agent: email') lookupKeys.push('email address', 'agent: email');
-        if (labelLower === 'agent: phone') lookupKeys.push('primary phone', 'agent: phone');
-
-        const result = classification.extraction_results.find(r => lookupKeys.includes(r.field.toLowerCase()));
-        if (result && result.instances.length > 0) {
-            setSelectedInstances(result.instances);
-            setActiveDocId(result.instances[0].doc_id);
-        } else {
-            console.warn('No extraction coordinates for any keys:', lookupKeys);
-            setSelectedInstances([]);
-        }
-    };
-
-    const handleGroupSelect = (labels: string[]) => {
-        if (!classification?.extraction_results) return;
-        let allInstances: ExtractionInstance[] = [];
-
-        labels.forEach(label => {
-            const lookupKeys = [label.toLowerCase()];
-            const labelLower = label.toLowerCase();
-            if (labelLower === 'insured: name') lookupKeys.push('name');
-            if (labelLower === 'address') lookupKeys.push('insured: address');
-            if (labelLower === 'agency') lookupKeys.push('agent: agencyname');
-            if (labelLower === 'agent: email') lookupKeys.push('email address');
-            if (labelLower === 'agent: phone') lookupKeys.push('primary phone');
-
-            const found = classification?.extraction_results?.find(r => lookupKeys.includes(r.field.toLowerCase()));
-            if (found) {
-                allInstances = [...allInstances, ...found.instances];
-            }
-        });
-
-        if (allInstances.length > 0) {
-            setSelectedInstances(allInstances);
-            setActiveDocId(allInstances[0].doc_id);
-        }
-    };
-
     if (loading || !caseData) {
         return (
             <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400">
@@ -110,51 +59,36 @@ export default function ExtractionReviewPage() {
         );
     }
 
-    // Build field groups
     const hitlFields = (classification as any)?.hitl_fields || {};
     const kf = classification?.key_fields;
 
-    const getFieldConfidence = (label: string): number | null => {
-        const lookupKeys = [label.toLowerCase()];
-        const labelLower = label.toLowerCase();
-        if (labelLower === 'insured: name') lookupKeys.push('name');
-        if (labelLower === 'address') lookupKeys.push('insured: address');
-        if (labelLower === 'agency') lookupKeys.push('agent: agency name');
-        if (labelLower === 'agent: email') lookupKeys.push('email address', 'agent: email');
-        if (labelLower === 'agent: phone') lookupKeys.push('primary phone', 'agent: phone');
-
-        const res = classification?.extraction_results?.find(r => lookupKeys.includes(r.field.toLowerCase()));
-        if (!res || res.instances.length === 0) return null;
-        return Math.min(...res.instances.map(i => i.confidence));
-    };
-
     const groupedFields: Record<string, PanelItem[]> = {
         'Submission Identity': [
-            { label: 'Insured: Name', value: kf?.insured?.name || kf?.name || 'N/A', confidence: getFieldConfidence('Insured: Name') || undefined },
-            { label: 'Applicant Name', value: kf?.applicant_name || 'N/A', confidence: getFieldConfidence('Applicant Name') || undefined },
-            { label: 'Address', value: kf?.address || kf?.insured?.address || 'N/A', confidence: getFieldConfidence('Address') || undefined },
-            { label: 'Entity Type', value: kf?.entity_type || 'N/A', confidence: getFieldConfidence('Entity Type') || undefined },
-            { label: 'Policy Reference', value: kf?.policy_reference || 'N/A', confidence: getFieldConfidence('Policy Reference') || undefined },
+            { label: 'Insured: Name', value: kf?.insured?.name || kf?.name || 'N/A' },
+            { label: 'Applicant Name', value: kf?.applicant_name || 'N/A' },
+            { label: 'Address', value: kf?.address || kf?.insured?.address || 'N/A' },
+            { label: 'Entity Type', value: kf?.entity_type || 'N/A' },
+            { label: 'Policy Reference', value: kf?.policy_reference || 'N/A' },
         ],
         'Producer Details': [
-            { label: 'Agency', value: kf?.agency || kf?.agent?.agencyName || 'N/A', confidence: getFieldConfidence('Agency') || undefined },
-            { label: 'Licensed Producer', value: kf?.licensed_producer || 'N/A', confidence: getFieldConfidence('Licensed Producer') || undefined },
-            { label: 'Agent: Name', value: kf?.agent?.name || 'N/A', confidence: getFieldConfidence('Agent: Name') || undefined },
-            { label: 'Agent: Email', value: kf?.email_address || kf?.agent?.email || 'N/A', id: 'Agent: Email' }, // Fixed confidence lookup
-            { label: 'Agent: Phone', value: kf?.primary_phone || kf?.agent?.phone || 'N/A', id: 'Agent: Phone' },
+            { label: 'Agency', value: kf?.agency || kf?.agent?.agencyName || 'N/A' },
+            { label: 'Licensed Producer', value: kf?.licensed_producer || 'N/A' },
+            { label: 'Agent: Name', value: kf?.agent?.name || 'N/A' },
+            { label: 'Agent: Email', value: kf?.email_address || kf?.agent?.email || 'N/A' },
+            { label: 'Agent: Phone', value: kf?.primary_phone || kf?.agent?.phone || 'N/A' },
         ],
         'Policy Details': [
-            { label: 'Segment', value: kf?.segment || 'N/A', confidence: getFieldConfidence('Segment') || undefined },
-            { label: 'Submission Type', value: kf?.submission_type || 'N/A', confidence: getFieldConfidence('Submission Type') || undefined },
-            { label: 'Effective Date', value: kf?.effective_date || 'N/A', confidence: getFieldConfidence('Effective Date') || undefined },
-            { label: 'IAT Product', value: kf?.iat_product || 'N/A', confidence: getFieldConfidence('IAT Product') || undefined },
-            { label: 'UW / AM', value: kf?.uw_am || 'N/A', confidence: getFieldConfidence('UW / AM') || undefined },
-            { label: 'Primary Rating State', value: kf?.primary_rating_state || 'N/A', confidence: getFieldConfidence('Primary Rating State') || undefined },
+            { label: 'Segment', value: kf?.segment || 'N/A' },
+            { label: 'Submission Type', value: kf?.submission_type || 'N/A' },
+            { label: 'Effective Date', value: kf?.effective_date || 'N/A' },
+            { label: 'IAT Product', value: kf?.iat_product || 'N/A' },
+            { label: 'UW / AM', value: kf?.uw_am || 'N/A' },
+            { label: 'Primary Rating State', value: kf?.primary_rating_state || 'N/A' },
         ],
         'Risk & Industry': [
-            { label: 'NAICS Code', value: kf?.naics_code || 'N/A', confidence: getFieldConfidence('NAICS Code') || undefined },
-            { label: 'SIC Code', value: kf?.sic_code || 'N/A', confidence: getFieldConfidence('SIC Code') || undefined },
-            { label: 'Business Description', value: kf?.business_description || 'N/A', confidence: getFieldConfidence('Business Description') || undefined },
+            { label: 'NAICS Code', value: kf?.naics_code || 'N/A' },
+            { label: 'SIC Code', value: kf?.sic_code || 'N/A' },
+            { label: 'Business Description', value: kf?.business_description || 'N/A' },
         ],
         'Risk & Coverages': [
             {
@@ -187,7 +121,7 @@ export default function ExtractionReviewPage() {
     // Apply HITL overrides
     Object.values(groupedFields).flat().forEach(item => {
         if (item.type !== 'table') {
-            const f = item as FieldItem;
+            const f = item as any;
             if (hitlFields[f.label]) {
                 f.original = f.value;
                 f.value = hitlFields[f.label];
@@ -195,10 +129,13 @@ export default function ExtractionReviewPage() {
         }
     });
 
+
+    const annotatedPdfUrl = activeDocId ? `/api/cases/${caseId}/documents/${activeDocId}/annotated` : '';
+
     return (
-        <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
+        <div className="h-screen bg-slate-50 flex flex-col overflow-hidden font-sans">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between z-10">
+            <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between z-10 shadow-sm">
                 <div className="flex items-center gap-4">
                     <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
                         <ChevronLeft size={20} />
@@ -207,47 +144,75 @@ export default function ExtractionReviewPage() {
                         <div className="flex items-center gap-2">
                             <img src="/assets/iat-logo.png" alt="IAT" className="h-5" />
                             <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Extraction Review</span>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Extraction Review</span>
                         </div>
-                        <h1 className="text-md font-bold text-slate-800 leading-tight">Verification Mode: {caseData.subject}</h1>
+                        <h1 className="text-md font-bold text-slate-800 leading-tight">Case: {caseData.subject}</h1>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-[11px] font-bold border border-indigo-100 uppercase tracking-tight">
                         <ShieldCheck size={14} />
-                        Human-in-the-Loop Active
+                        Human Verification Mode
                     </div>
                 </div>
             </header>
 
             {/* Main Split Layout */}
             <main className="flex-1 flex overflow-hidden">
-                {/* LEFT: Full Height PDF Annotator (The "Document" side) */}
+                {/* LEFT: Pre-rendered Document Viewer */}
                 <div className="flex-[6] bg-slate-900 border-r border-slate-800 relative flex flex-col">
-                    <div className="absolute inset-0 overflow-auto custom-scrollbar p-6">
-                        {selectedInstances.length > 0 ? (
-                            <DocumentAnnotator
-                                caseId={caseId!}
-                                instances={selectedInstances}
-                                onClose={() => setSelectedInstances([])}
-                                onFullscreen={() => { }} // Disabled or implicit in this view
-                            />
-                        ) : activeDocId ? (
-                            <div className="h-full flex flex-col gap-4">
-                                <div className="flex items-center justify-between text-slate-400 px-2">
-                                    <div className="flex items-center gap-2 text-xs font-bold">
-                                        <FileText size={14} />
-                                        <span>Viewing: {docs.find(d => d.document_id === activeDocId)?.file_name}</span>
+                    {/* Document Selector Tabs */}
+                    <div className="flex items-center gap-1 p-3 bg-slate-900/50 backdrop-blur-md border-b border-white/5">
+                        {docs.map(doc => (
+                            <button
+                                key={doc.document_id}
+                                onClick={() => setActiveDocId(doc.document_id)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeDocId === doc.document_id
+                                    ? 'bg-white text-slate-900 shadow-lg'
+                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                <FileText size={14} />
+                                <span className="max-w-[150px] truncate">{doc.file_name}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex-1 relative bg-slate-950 overflow-hidden flex flex-col">
+                        {activeDocId ? (
+                            <div className="h-full w-full flex flex-col">
+                                <div className="p-2 flex items-center justify-between bg-black/20 text-[10px] text-slate-500 font-bold uppercase tracking-widest border-b border-white/5">
+                                    <div className="flex items-center gap-2">
+                                        <Eye size={12} className="text-indigo-400" />
+                                        <span>High-Fidelity Annotated Preview</span>
                                     </div>
-                                    <span className="text-[10px] font-mono opacity-50">Click a field on the right to auto-zoom</span>
+                                    <a
+                                        href={annotatedPdfUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 hover:text-white transition-colors"
+                                    >
+                                        <ExternalLink size={12} />
+                                        Open Full View
+                                    </a>
                                 </div>
-                                <div className="flex-1 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
-                                    <img
-                                        src={`/api/cases/${caseId}/documents/${activeDocId}/pages/1/image`}
-                                        alt="Document Preview"
-                                        className="max-w-[90%] max-h-full object-contain shadow-2xl"
-                                    />
+                                <div className="flex-1 h-full w-full">
+                                    <object
+                                        data={`${annotatedPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                                        type="application/pdf"
+                                        className="w-full h-full border-none"
+                                    >
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
+                                            <p className="text-sm">Native PDF viewing not supported in your browser.</p>
+                                            <a
+                                                href={annotatedPdfUrl}
+                                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                                            >
+                                                Download Annotated PDF
+                                            </a>
+                                        </div>
+                                    </object>
                                 </div>
                             </div>
                         ) : (
@@ -259,19 +224,21 @@ export default function ExtractionReviewPage() {
                     </div>
                 </div>
 
-                {/* RIGHT: Scrollable Fields Panel (The "Extractable Fields" side) */}
-                <div className="flex-[4] bg-white flex flex-col border-l border-slate-200 shadow-[-10px_0_30px_rgba(0,0,0,0.02)]">
-                    <div className="p-6 border-b border-slate-100 bg-slate-50/30">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Info size={14} className="text-slate-400" />
-                            <h2 className="text-sm font-black text-slate-400 uppercase tracking-tighter">Instructions</h2>
+                {/* RIGHT: Scrollable Fields Panel */}
+                <div className="flex-[4] bg-white flex flex-col border-l border-slate-200 shadow-[-10px_0_30px_rgba(0,0,0,0.03)]">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1 px-2 bg-amber-100 text-amber-700 rounded text-[10px] font-black uppercase tracking-tighter shadow-sm border border-amber-200">
+                                Pre-Rendered
+                            </div>
+                            <h2 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Verification Guide</h2>
                         </div>
-                        <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                            Verify the extracted values against the original document. Click any field to highlight its source. Correct any errors before continuing.
+                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                            All extracted fields and confidence scores are highlighted on the document. Verify these values on the left and correct any inaccuracies in the fields below.
                         </p>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gradient-to-b from-white to-slate-50/30">
                         <EditableFieldsPanel
                             groupedFields={groupedFields}
                             onSave={async (updates) => {
@@ -280,13 +247,12 @@ export default function ExtractionReviewPage() {
                                     fields: updates,
                                     updated_by: 'underwriter_review'
                                 });
-                                // Local refresh not strictly needed if we are navigating, but good for robust UI
                                 const cls = await casesApi.getCaseClassification(apiClient, caseId);
                                 setClassification(cls.classification);
                             }}
                             isReadOnly={false}
-                            onSelectField={handleFieldSelect}
-                            onSelectGroup={handleGroupSelect}
+                            onSelectField={() => { }} // Simplified: No interaction needed
+                            onSelectGroup={() => { }} // Simplified: No interaction needed
                             onFinalSubmit={() => navigate(`/cases/${caseId}`)}
                             finalSubmitLabel="Approve & Proceed"
                         />

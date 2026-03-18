@@ -293,7 +293,7 @@ export default function CaseDetailPage() {
                             {activePanel === 'summary' && caseData && <CaseSummaryPanel caseData={caseData} timeline={timeline} />}
                             {activePanel === 'emails' && <EmailChainPanel emails={emails} />}
                             {activePanel === 'documents' && <DocumentsPanel documents={documents} />}
-                            {activePanel === 'classification' && <ClassificationPanel classification={classification} />}
+                            {activePanel === 'classification' && <ClassificationPanel caseId={caseId} classification={classification} />}
                         </div>
                     </div>
 

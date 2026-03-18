@@ -187,6 +187,7 @@ export interface ClassificationResult {
     classified_at: string;
     extraction_results?: ExtractionResult[];
     extracted_tables?: ExtractedTable[];
+    annotated_docs?: Record<string, string>;
     downstream_notification_sent: boolean;
     downstream_notification_at: string | null;
 }

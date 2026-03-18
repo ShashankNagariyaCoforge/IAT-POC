@@ -13,6 +13,7 @@ from services.content_safety import ContentSafetyService
 from services.pii_masker import PIIMasker
 from services.blob_storage import BlobStorageService
 from services.extraction_service import ExtractionService
+from services.renderer import DocumentRenderer
 from utils.pii_report import format_pii_report_html
 from models.case import CaseStatus
 
@@ -92,6 +93,7 @@ async def process_single_case(case_id: str):
              text_parts.append(f"[Source: Email from {em.get('sender')}]\n{cleaned_body}")
         
         doc_layout_results = {} # doc_id -> analyze_result
+        doc_bytes_map = {} # doc_id -> doc_bytes
         for doc in documents:
             doc_id = doc.get("document_id")
             blob_path = doc.get("blob_path")
@@ -142,6 +144,7 @@ async def process_single_case(case_id: str):
                     logger.info(f"[Process] Running DI extraction on {filename} ({doc_id})")
                     layout_result = await extraction_svc.analyze_document(doc_bytes, content_type)
                     doc_layout_results[doc_id] = layout_result
+                    doc_bytes_map[doc_id] = doc_bytes
                     
                     # Update text parts with DI text if missing
                     extracted_text = layout_result.get("content", "")
@@ -339,6 +342,40 @@ async def process_single_case(case_id: str):
         
         classification["extraction_results"] = extraction_results
         classification["extracted_tables"] = doc_tables
+        
+        # 6.6 Generate Annotated PDFs
+        annotated_docs = {}
+        renderer = DocumentRenderer()
+        for doc_id, layout in doc_layout_results.items():
+            try:
+                orig_bytes = doc_bytes_map.get(doc_id)
+                if not orig_bytes: continue
+                
+                # Find filename for this doc_id
+                doc_entry = next((d for d in documents if d.get("document_id") == doc_id), {})
+                filename = doc_entry.get("filename") or doc_entry.get("file_name") or f"{doc_id}.pdf"
+                
+                logger.info(f"[Process] Rendering annotated PDF for {filename} ({doc_id})")
+                
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    annotated_bytes = renderer.render_image_to_annotated(orig_bytes, layout.get("pages", [{}])[0], extraction_results)
+                else:
+                    # PDF or Scanned PDF
+                    annotated_bytes = renderer.render_pdf_to_annotated(filename, layout, extraction_results)
+                
+                annotated_blob_path = f"annotated/{case_id}/{doc_id}_annotated.pdf"
+                await blob_service.upload_bytes(
+                    settings.blob_container_attachments,
+                    annotated_blob_path,
+                    annotated_bytes,
+                    content_type="application/pdf"
+                )
+                annotated_docs[doc_id] = annotated_blob_path
+                logger.info(f"[Process] Successfully uploaded annotated PDF: {annotated_blob_path}")
+            except Exception as render_err:
+                logger.error(f"[Process] Rendering failed for doc {doc_id}: {render_err}", exc_info=True)
+
+        classification["annotated_docs"] = annotated_docs
         logger.info(f"[Extraction] Final extraction results count: {len(extraction_results)}")
         await db_service.save_classification_result(classification)
 

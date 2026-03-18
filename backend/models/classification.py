@@ -81,6 +81,7 @@ class ClassificationResult(BaseModel):
     classified_at: datetime = Field(default_factory=datetime.utcnow)
     masked_text_blob_path: Optional[str] = None  # blob path of masked text used for classification
     extraction_results: Optional[list] = None  # Unified list of mapped polygons and sources
+    annotated_docs: Optional[Dict[str, str]] = None  # Mapping of doc_id -> annotated_blob_path
     downstream_notification_sent: bool = False
     downstream_notification_at: Optional[datetime] = None
 
@@ -101,6 +102,7 @@ class ClassificationResponse(BaseModel):
     routing_recommendation: str
     requires_human_review: bool
     classified_at: datetime
+    annotated_docs: Optional[Dict[str, str]] = None
     downstream_notification_sent: bool
     downstream_notification_at: Optional[datetime] = None
 

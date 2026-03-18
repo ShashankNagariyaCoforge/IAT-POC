@@ -1,23 +1,24 @@
 
 import { format } from 'date-fns';
-import { CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, FileText, Eye, ExternalLink } from 'lucide-react';
 import { ConfidenceMeter } from './ConfidenceMeter';
 import { CategoryBadge } from './CategoryBadge';
 import type { ClassificationResult } from '../types';
 
 interface ClassificationPanelProps {
+    caseId: string;
     classification: ClassificationResult | null;
 }
 
 const card: React.CSSProperties = {
     background: '#ffffff', border: '1px solid #D1D9E0', borderRadius: '8px', padding: '20px',
 };
-const label: React.CSSProperties = {
+const labelStyle: React.CSSProperties = {
     color: '#8fa1b0', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px',
 };
-const value: React.CSSProperties = { color: '#00263E', fontSize: '14px' };
+const valueStyle: React.CSSProperties = { color: '#00263E', fontSize: '14px' };
 
-export function ClassificationPanel({ classification }: ClassificationPanelProps) {
+export function ClassificationPanel({ caseId, classification }: ClassificationPanelProps) {
     if (!classification) {
         return (
             <div style={{ ...card, padding: '48px', textAlign: 'center', color: '#8fa1b0' }}>
@@ -32,97 +33,179 @@ export function ClassificationPanel({ classification }: ClassificationPanelProps
         low: '#22c55e',
     }[classification.key_fields?.urgency ?? 'low'] ?? '#8fa1b0';
 
+    // Get the first annotated doc ID if any
+    const annotatedDocIds = Object.keys(classification.annotated_docs || {});
+    const primaryDocId = annotatedDocIds.length > 0 ? annotatedDocIds[0] : null;
+    const annotatedPdfUrl = primaryDocId ? `/api/cases/${caseId}/documents/${primaryDocId}/annotated` : null;
+
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            {/* Main classification */}
-            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                    <p style={label}>Classification</p>
-                    <CategoryBadge category={classification.classification_category} />
-                </div>
-                <div>
-                    <p style={label}>Confidence Score</p>
-                    <div style={{ maxWidth: '240px' }}>
-                        <ConfidenceMeter score={classification.confidence_score} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                {/* Main classification */}
+                <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                        <p style={labelStyle}>Classification</p>
+                        <CategoryBadge category={classification.classification_category} />
                     </div>
-                    <p style={{ color: '#8fa1b0', fontSize: '11px', marginTop: '4px' }}>
-                        Threshold: 75% — {classification.requires_human_review
-                            ? 'Below threshold, human review recommended'
-                            : 'Above threshold'}
-                    </p>
-                </div>
-                {classification.requires_human_review && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px' }}>
-                        <AlertTriangle className="w-4 h-4" style={{ color: '#f59e0b', flexShrink: 0 }} />
-                        <span style={{ color: '#92400e', fontSize: '13px' }}>Human review required</span>
+                    <div>
+                        <p style={labelStyle}>Confidence Score</p>
+                        <div style={{ maxWidth: '240px' }}>
+                            <ConfidenceMeter score={classification.confidence_score} />
+                        </div>
+                        <p style={{ color: '#8fa1b0', fontSize: '11px', marginTop: '4px' }}>
+                            Threshold: 75% — {classification.requires_human_review
+                                ? 'Below threshold, human review recommended'
+                                : 'Above threshold'}
+                        </p>
                     </div>
-                )}
-                <div>
-                    <p style={label}>Summary</p>
-                    <p style={{ ...value, lineHeight: 1.6 }}>{classification.summary}</p>
+                    {classification.requires_human_review && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px' }}>
+                            <AlertTriangle className="w-4 h-4" style={{ color: '#f59e0b', flexShrink: 0 }} />
+                            <span style={{ color: '#92400e', fontSize: '13px' }}>Human review required</span>
+                        </div>
+                    )}
+                    <div>
+                        <p style={labelStyle}>Summary</p>
+                        <p style={{ ...valueStyle, lineHeight: 1.6 }}>{classification.summary}</p>
+                    </div>
+                </div>
+
+                {/* Right column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Key fields */}
+                    <div style={card}>
+                        <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 16px 0' }}>Extracted Key Fields</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            {[
+                                { label: 'Document Type', value: classification.key_fields?.document_type || '—', color: '#00263E' },
+                                { label: 'Urgency', value: classification.key_fields?.urgency || '—', color: urgencyColor },
+                                { label: 'Policy Reference', value: classification.key_fields?.policy_reference || '—', color: '#00263E' },
+                                { label: 'Claim Type', value: classification.key_fields?.claim_type || '—', color: '#00263E' },
+                            ].map(field => (
+                                <div key={field.label}>
+                                    <p style={labelStyle}>{field.label}</p>
+                                    <p style={{ ...valueStyle, color: field.color, fontWeight: 500 }}>{field.value}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Downstream notification */}
+                    <div style={card}>
+                        <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 12px 0' }}>Downstream Notification</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {classification.downstream_notification_sent ? (
+                                <>
+                                    <CheckCircle2 className="w-5 h-5" style={{ color: '#22c55e', flexShrink: 0 }} />
+                                    <div>
+                                        <p style={{ color: '#15803d', fontSize: '13px', fontWeight: 500, margin: 0 }}>Notification sent</p>
+                                        {classification.downstream_notification_at && (
+                                            <p style={{ color: '#8fa1b0', fontSize: '11px', margin: '2px 0 0 0' }}>
+                                                {format(new Date(classification.downstream_notification_at), 'dd MMM yyyy HH:mm:ss')}
+                                            </p>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <Clock className="w-5 h-5" style={{ color: '#8fa1b0', flexShrink: 0 }} />
+                                    <p style={{ color: '#8fa1b0', fontSize: '13px', margin: 0 }}>Notification pending</p>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Meta */}
+                    <div style={card}>
+                        <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 12px 0' }}>Classification Metadata</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#8fa1b0', fontSize: '12px' }}>Result ID</span>
+                                <span style={{ color: '#00263E', fontSize: '12px', fontFamily: 'monospace' }}>{classification.result_id.slice(0, 8)}…</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Right column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Key fields */}
-                <div style={card}>
-                    <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 16px 0' }}>Extracted Key Fields</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        {[
-                            { label: 'Document Type', value: classification.key_fields?.document_type || '—', color: '#00263E' },
-                            { label: 'Urgency', value: classification.key_fields?.urgency || '—', color: urgencyColor },
-                            { label: 'Policy Reference', value: classification.key_fields?.policy_reference || '—', color: '#00263E' },
-                            { label: 'Claim Type', value: classification.key_fields?.claim_type || '—', color: '#00263E' },
-                        ].map(field => (
-                            <div key={field.label}>
-                                <p style={label}>{field.label}</p>
-                                <p style={{ ...value, color: field.color, fontWeight: 500 }}>{field.value}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Downstream notification */}
-                <div style={card}>
-                    <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 12px 0' }}>Downstream Notification</h4>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {classification.downstream_notification_sent ? (
-                            <>
-                                <CheckCircle2 className="w-5 h-5" style={{ color: '#22c55e', flexShrink: 0 }} />
-                                <div>
-                                    <p style={{ color: '#15803d', fontSize: '13px', fontWeight: 500, margin: 0 }}>Notification sent</p>
-                                    {classification.downstream_notification_at && (
-                                        <p style={{ color: '#8fa1b0', fontSize: '11px', margin: '2px 0 0 0' }}>
-                                            {format(new Date(classification.downstream_notification_at), 'dd MMM yyyy HH:mm:ss')}
-                                        </p>
-                                    )}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <Clock className="w-5 h-5" style={{ color: '#8fa1b0', flexShrink: 0 }} />
-                                <p style={{ color: '#8fa1b0', fontSize: '13px', margin: 0 }}>Notification pending</p>
-                            </>
+            {/* Document Preview Section */}
+            <div style={{ ...card, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{
+                    padding: '12px 20px',
+                    borderBottom: '1px solid #D1D9E0',
+                    background: '#F8FAFC',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FileText size={16} style={{ color: '#4f46e5' }} />
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#00263E' }}>Annotated Document Preview</span>
+                        {primaryDocId && (
+                            <span style={{
+                                fontSize: '10px',
+                                background: '#E0E7FF',
+                                color: '#4338CA',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 600,
+                                marginLeft: '4px'
+                            }}>
+                                High Fidelity
+                            </span>
                         )}
                     </div>
+                    {annotatedPdfUrl && (
+                        <a
+                            href={annotatedPdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                fontSize: '12px',
+                                color: '#4f46e5',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                textDecoration: 'none'
+                            }}
+                        >
+                            <ExternalLink size={14} />
+                            Full View
+                        </a>
+                    )}
                 </div>
 
-                {/* Meta */}
-                <div style={card}>
-                    <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 12px 0' }}>Classification Metadata</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#8fa1b0', fontSize: '12px' }}>Result ID</span>
-                            <span style={{ color: '#00263E', fontSize: '12px', fontFamily: 'monospace' }}>{classification.result_id.slice(0, 8)}…</span>
+                <div style={{ height: '600px', background: '#F1F5F9', position: 'relative' }}>
+                    {annotatedPdfUrl ? (
+                        <object
+                            data={`${annotatedPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                            type="application/pdf"
+                            style={{ width: '100%', height: '100%' }}
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748B', gap: '12px' }}>
+                                <p style={{ fontSize: '14px' }}>PDF preview not supported by your browser.</p>
+                                <a
+                                    href={annotatedPdfUrl}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: '#4f46e5',
+                                        color: '#fff',
+                                        borderRadius: '8px',
+                                        fontWeight: 700,
+                                        textDecoration: 'none'
+                                    }}
+                                >
+                                    View Full Document
+                                </a>
+                            </div>
+                        </object>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94A3B8', gap: '12px' }}>
+                            <div style={{ opacity: 0.3 }}><FileText size={48} /></div>
+                            <p style={{ fontSize: '14px', fontWeight: 500 }}>No annotated document available for preview.</p>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#8fa1b0', fontSize: '12px' }}>Classified At</span>
-                            <span style={{ color: '#00263E', fontSize: '12px' }}>
-                                {format(new Date(classification.classified_at), 'dd MMM yyyy HH:mm:ss')}
-                            </span>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
