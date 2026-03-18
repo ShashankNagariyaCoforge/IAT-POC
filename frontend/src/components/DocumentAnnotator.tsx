@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Maximize2, X, AlertCircle } from 'lucide-react';
 import { ExtractionInstance } from '../types';
 
@@ -15,6 +15,42 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
     onClose,
     onFullscreen
 }) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const imageRef = useRef<HTMLImageElement>(null);
+
+    // Auto-scroll to the first instance
+    useEffect(() => {
+        if (instances.length > 0 && scrollContainerRef.current && imageRef.current) {
+            const inst = instances[0];
+            const { polygon, page_width, page_height } = inst;
+
+            // Get center of polygon
+            let sumX = 0, sumY = 0;
+            for (let i = 0; i < polygon.length; i += 2) {
+                sumX += polygon[i];
+                sumY += polygon[i + 1];
+            }
+            const avgX = sumX / (polygon.length / 2);
+            const avgY = sumY / (polygon.length / 2);
+
+            // Translate to pixel coordinates based on image scale
+            const img = imageRef.current;
+            const container = scrollContainerRef.current;
+
+            const scaleX = img.clientWidth / page_width;
+            const scaleY = img.clientHeight / page_height;
+
+            const scrollX = avgX * scaleX - container.clientWidth / 2;
+            const scrollY = avgY * scaleY - container.clientHeight / 2;
+
+            container.scrollTo({
+                left: Math.max(0, scrollX),
+                top: Math.max(0, scrollY),
+                behavior: 'smooth'
+            });
+        }
+    }, [instances]);
+
     if (instances.length === 0) return null;
 
     // We assume all instances for a single highlighted row are on the same document/page
@@ -91,9 +127,13 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
             </div>
 
             {/* Viewer Content */}
-            <div className="flex-1 relative overflow-auto bg-slate-950 flex items-center justify-center p-4 group">
+            <div
+                ref={scrollContainerRef}
+                className="flex-1 relative overflow-auto bg-slate-950 flex items-center justify-center p-4 group"
+            >
                 <div className="relative shadow-2xl">
                     <img
+                        ref={imageRef}
                         src={imageUrl}
                         alt={`Document Page ${page}`}
                         className="max-w-full h-auto block"

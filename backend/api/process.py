@@ -275,14 +275,24 @@ async def process_single_case(case_id: str):
                 for k, v in data.items():
                     # Clean the key for display (e.g. agencyName -> Agency Name)
                     # Add space before capitals for CamelCase, then replace _ with space
-                    clean_k = re.sub(r'([a-z])([A-Z])', r'\1 \2', k).replace("_", " ").title()
+                    SPECIAL_KEYS = {
+                        "naics_code": "NAICS Code",
+                        "sic_code": "SIC Code",
+                        "iat_product": "IAT Product",
+                        "uw_am": "UW / AM"
+                    }
+                    if k in SPECIAL_KEYS:
+                        clean_k = SPECIAL_KEYS[k]
+                    else:
+                        clean_k = re.sub(r'([a-z])([A-Z])', r'\1 \2', k).replace("_", " ").title()
+                    
                     new_prefix = f"{prefix}: {clean_k}" if prefix else clean_k
                     recursive_extract(v, new_prefix)
             elif isinstance(data, list):
                 for i, item in enumerate(data):
                     new_prefix = f"{prefix} [{i+1}]"
                     recursive_extract(item, new_prefix)
-            elif data and str(data).lower() not in ["null", "none", "—"]:
+            elif data and str(data).lower() not in ["null", "none", "—", "n/a", "not available", "not provided", "none"]:
                 # Leaf node: search for coordinates
                 field_label = prefix
                 
@@ -305,12 +315,15 @@ async def process_single_case(case_id: str):
                             instances.append(m)
                 
                 if instances:
+                    # Sort globally by similarity and confidence before picking top
+                    instances.sort(key=lambda x: (x.get("similarity", 0), x.get("confidence", 0)), reverse=True)
+                    
                     # Enforce "Winner Takes All" for single fields to avoid noise
-                    if "[" not in prefix:
-                        # Take the best match (already sorted by extraction_svc)
+                    if "[" not in field_label:
+                        # Take only the absolute best match found across all documents
                         instances = [instances[0]]
                     
-                    logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}' (Top Match Only)")
+                    logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}'")
                     extraction_results.append({
                         "field": field_label,
                         "value": str(data),

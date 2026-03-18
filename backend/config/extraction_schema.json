@@ -1,6 +1,7 @@
 {
     "fields": [
         {
+            "key": "name",
             "name": "Insured Business Name",
             "aliases": [
                 "insured name",
@@ -12,19 +13,31 @@
             "description": "The legal name of the business seeking insurance"
         },
         {
+            "key": "applicant_name",
+            "name": "Applicant Name",
+            "aliases": [
+                "applicant",
+                "insured name"
+            ],
+            "description": "The name of the applicant for insurance"
+        },
+        {
+            "key": "address",
             "name": "Insured Address",
             "aliases": [
                 "insured address",
                 "applicant address",
                 "location address",
-                "mailing address"
+                "mailing address",
+                "location"
             ],
             "description": "The physical or mailing address of the insured entity"
         },
         {
-            "name": "Agency Name",
+            "key": "agency",
+            "name": "Agency",
             "aliases": [
-                "agency",
+                "agency name",
                 "producer name",
                 "broker name",
                 "name of agency"
@@ -32,58 +45,163 @@
             "description": "The name of the insurance agency or brokerage"
         },
         {
-            "name": "Agent Name",
+            "key": "licensed_producer",
+            "name": "Licensed producer",
+            "aliases": [
+                "producer",
+                "licensed agent",
+                "agent name"
+            ],
+            "description": "The name of the licensed producer for the submission"
+        },
+        {
+            "key": "segment",
+            "name": "Segment",
+            "aliases": [
+                "business segment",
+                "market segment"
+            ],
+            "description": "The business segment of the risk"
+        },
+        {
+            "key": "submission_type",
+            "name": "Submission Type",
+            "aliases": [
+                "type of submission",
+                "new business",
+                "renewal"
+            ],
+            "description": "The type of submission (e.g., New, Renewal)"
+        },
+        {
+            "key": "effective_date",
+            "name": "Effective Date",
+            "aliases": [
+                "policy effective date",
+                "start date",
+                "date of coverage"
+            ],
+            "description": "The date the policy becomes effective"
+        },
+        {
+            "key": "business_description",
+            "name": "Business description",
+            "aliases": [
+                "business operations",
+                "nature of business",
+                "description of operations"
+            ],
+            "description": "A description of the insured's business activities"
+        },
+        {
+            "key": "primary_rating_state",
+            "name": "Primary Rating State",
+            "aliases": [
+                "rating state",
+                "primary state",
+                "state of occurrence"
+            ],
+            "description": "The primary state used for rating the risk"
+        },
+        {
+            "key": "iat_product",
+            "name": "IAT product",
+            "aliases": [
+                "iat program",
+                "product name",
+                "iat line"
+            ],
+            "description": "The specific IAT product or program for this risk"
+        },
+        {
+            "key": "uw_am",
+            "name": "UW/ AM",
+            "aliases": [
+                "underwriter",
+                "account manager",
+                "uw",
+                "am"
+            ],
+            "description": "The assigned Underwriter or Account Manager"
+        },
+        {
+            "key": "naics_code",
+            "name": "NAICS Code",
+            "aliases": [
+                "naics",
+                "industry code"
+            ],
+            "description": "North American Industry Classification System code"
+        },
+        {
+            "key": "sic_code",
+            "name": "SIC Code",
+            "aliases": [
+                "sic",
+                "standard industrial classification"
+            ],
+            "description": "Standard Industrial Classification code"
+        },
+        {
+            "key": "primary_phone",
+            "name": "Primary Phone",
+            "aliases": [
+                "phone",
+                "contact phone",
+                "telephone"
+            ],
+            "description": "Primary contact phone number"
+        },
+        {
+            "key": "email_address",
+            "name": "Email Address",
+            "aliases": [
+                "email",
+                "contact email",
+                "email address"
+            ],
+            "description": "Primary contact email address"
+        },
+        {
+            "key": "entity_type",
+            "name": "Entity Type",
+            "aliases": [
+                "legal entity",
+                "type of entity",
+                "business entity"
+            ],
+            "description": "The legal entity type (e.g., Corp, LLC, Individual)"
+        },
+        {
+            "key": "agent",
+            "name": "Agent Info",
             "aliases": [
                 "producer",
                 "agent",
                 "broker",
                 "contact person"
             ],
-            "description": "The full name of the insurance agent"
+            "description": "Nested object with agencyName, name, email, phone"
         },
         {
-            "name": "Agent Email",
-            "aliases": [
-                "agent email",
-                "producer email",
-                "email address"
-            ],
-            "description": "The contact email for the agent"
-        },
-        {
-            "name": "Agent Phone",
-            "aliases": [
-                "agent phone",
-                "producer phone",
-                "phone number"
-            ],
-            "description": "The contact phone number for the agent"
-        },
-        {
-            "name": "Coverage Type",
+            "key": "coverages",
+            "name": "Coverages",
             "aliases": [
                 "coverage",
                 "line of business",
                 "lob"
             ],
-            "description": "The type of insurance coverage (e.g., General Liability, Property)"
+            "description": "An array of objects: { coverage, description, limit, deductible }"
         },
         {
-            "name": "Limit",
+            "key": "exposures",
+            "name": "Exposures",
             "aliases": [
-                "limit",
-                "coverage limit",
-                "amount of insurance"
+                "exposures",
+                "exposureType",
+                "value"
             ],
-            "description": "The coverage limit amount"
-        },
-        {
-            "name": "Deductible",
-            "aliases": [
-                "deductible",
-                "retention"
-            ],
-            "description": "The deductible amount"
+            "description": "An array of objects: { exposureType, description, value }"
         }
     ]
 }

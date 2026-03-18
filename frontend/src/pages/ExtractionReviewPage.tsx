@@ -105,13 +105,30 @@ export default function ExtractionReviewPage() {
     const groupedFields: Record<string, PanelItem[]> = {
         'Submission Identity': [
             { label: 'Insured: Name', value: kf?.insured?.name || kf?.name || 'N/A', confidence: getFieldConfidence('Insured: Name') || undefined },
-            { label: 'Insured: Address', value: kf?.insured?.address || 'N/A', confidence: getFieldConfidence('Insured: Address') || undefined },
+            { label: 'Applicant Name', value: kf?.applicant_name || 'N/A', confidence: getFieldConfidence('Applicant Name') || undefined },
+            { label: 'Address', value: kf?.address || kf?.insured?.address || 'N/A', confidence: getFieldConfidence('Address') || undefined },
+            { label: 'Entity Type', value: kf?.entity_type || 'N/A', confidence: getFieldConfidence('Entity Type') || undefined },
             { label: 'Policy Reference', value: kf?.policy_reference || 'N/A', confidence: getFieldConfidence('Policy Reference') || undefined },
         ],
         'Producer Details': [
-            { label: 'Agent: Agency Name', value: kf?.agent?.agencyName || 'N/A', confidence: getFieldConfidence('Agent: Agency Name') || undefined },
+            { label: 'Agency', value: kf?.agency || kf?.agent?.agencyName || 'N/A', confidence: getFieldConfidence('Agency') || undefined },
+            { label: 'Licensed Producer', value: kf?.licensed_producer || 'N/A', confidence: getFieldConfidence('Licensed Producer') || undefined },
             { label: 'Agent: Name', value: kf?.agent?.name || 'N/A', confidence: getFieldConfidence('Agent: Name') || undefined },
-            { label: 'Agent: Email', value: kf?.agent?.email || 'N/A', confidence: getFieldConfidence('Agent: Email') || undefined },
+            { label: 'Agent: Email', value: kf?.email_address || kf?.agent?.email || 'N/A', confidence: getFieldConfidence('Email Address') || undefined },
+            { label: 'Agent: Phone', value: kf?.primary_phone || kf?.agent?.phone || 'N/A', confidence: getFieldConfidence('Primary Phone') || undefined },
+        ],
+        'Policy Details': [
+            { label: 'Segment', value: kf?.segment || 'N/A', confidence: getFieldConfidence('Segment') || undefined },
+            { label: 'Submission Type', value: kf?.submission_type || 'N/A', confidence: getFieldConfidence('Submission Type') || undefined },
+            { label: 'Effective Date', value: kf?.effective_date || 'N/A', confidence: getFieldConfidence('Effective Date') || undefined },
+            { label: 'IAT Product', value: kf?.iat_product || 'N/A', confidence: getFieldConfidence('IAT Product') || undefined },
+            { label: 'UW / AM', value: kf?.uw_am || 'N/A', confidence: getFieldConfidence('UW / AM') || undefined },
+            { label: 'Primary Rating State', value: kf?.primary_rating_state || 'N/A', confidence: getFieldConfidence('Primary Rating State') || undefined },
+        ],
+        'Risk & Industry': [
+            { label: 'NAICS Code', value: kf?.naics_code || 'N/A', confidence: getFieldConfidence('NAICS Code') || undefined },
+            { label: 'SIC Code', value: kf?.sic_code || 'N/A', confidence: getFieldConfidence('SIC Code') || undefined },
+            { label: 'Business Description', value: kf?.business_description || 'N/A', confidence: getFieldConfidence('Business Description') || undefined },
         ],
         'Risk & Coverages': [
             {

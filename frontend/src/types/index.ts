@@ -120,6 +120,26 @@ export interface KeyFields {
     coverages: CoverageInfo[];
     exposures: ExposureInfo[];
     documents: DocumentInfo[];
+
+    // New Fields
+    licensed_producer?: string;
+    segment?: string;
+    submission_type?: string;
+    applicant_name?: string;
+    effective_date?: string;
+    business_description?: string;
+    primary_rating_state?: string;
+    iat_product?: string;
+    uw_am?: string;
+    naics_code?: string;
+    sic_code?: string;
+    primary_phone?: string;
+    email_address?: string;
+    entity_type?: string;
+    agency?: string;
+    address?: string;
+
+    // Legacy fields
     document_type?: string;
     urgency?: string;
     policy_reference?: string;

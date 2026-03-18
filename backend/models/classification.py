@@ -44,6 +44,24 @@ class KeyFields(BaseModel):
     exposures: List[ExposureInfo] = Field(default_factory=list)
     documents: List[DocumentInfo] = Field(default_factory=list)
     
+    # New Fields
+    licensed_producer: Optional[str] = None
+    segment: Optional[str] = None
+    submission_type: Optional[str] = None
+    applicant_name: Optional[str] = None
+    effective_date: Optional[str] = None
+    business_description: Optional[str] = None
+    primary_rating_state: Optional[str] = None
+    iat_product: Optional[str] = None
+    uw_am: Optional[str] = None
+    naics_code: Optional[str] = None
+    sic_code: Optional[str] = None
+    primary_phone: Optional[str] = None
+    email_address: Optional[str] = None
+    entity_type: Optional[str] = None
+    agency: Optional[str] = None
+    address: Optional[str] = None
+
     # Legacy fields (keeping for compatibility with existing UI if needed)
     document_type: Optional[str] = None
     urgency: Optional[str] = None
