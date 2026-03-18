@@ -319,6 +319,7 @@ async def get_case_pipeline_status(case_id: str):
         {"id": "pii",          "name": "PII Agent",         "type": "Masking",   "detail": "Masking sensitive data", "score": 95},
         {"id": "safety",       "name": "Content Safety",    "type": "Safety",    "detail": "Running safety checks", "score": 97},
         {"id": "classifier",   "name": "Classification",    "type": "Inference", "detail": "AI classification", "score": 0},
+        {"id": "extraction",   "name": "Extraction Agent",  "type": "Vision",    "detail": "High-fidelity mapping", "score": 0},
     ]
 
     # Determine agent states based on case status
@@ -326,48 +327,51 @@ async def get_case_pipeline_status(case_id: str):
 
     if status == "RECEIVED":
         # Just arrived — orchestrator is spinning up
-        states = ["active", "pending", "pending", "pending", "pending"]
+        states = ["active", "pending", "pending", "pending", "pending", "pending"]
         current_agent_index = 0
 
     elif status == "PROCESSING":
         # Email + PII running
-        states = ["completed", "completed", "active", "pending", "pending"]
+        states = ["completed", "completed", "active", "pending", "pending", "pending"]
         current_agent_index = 2
 
     elif status == "BLOCKED_SAFETY":
         # Safety blocked — safety agent = failed, classifier = skipped
-        states = ["completed", "completed", "completed", "failed", "pending"]
+        states = ["completed", "completed", "completed", "failed", "pending", "pending"]
         current_agent_index = 3
         agents[3]["detail"] = "Blocked — content policy violation"
         agents[3]["score"] = 0
 
     elif status == "NEEDS_REVIEW_SAFETY":
         # Safety flagged but continued — safety = warning
-        states = ["completed", "completed", "completed", "warning", "completed"]
-        current_agent_index = 4
+        states = ["completed", "completed", "completed", "warning", "completed", "completed"]
+        current_agent_index = 5
         agents[3]["detail"] = "Flagged for review"
         agents[4]["score"] = 85
+        agents[5]["score"] = 85
 
     elif status == "FAILED":
         # Failed during email or PII step
-        states = ["completed", "failed", "pending", "pending", "pending"]
+        states = ["completed", "failed", "pending", "pending", "pending", "pending"]
         current_agent_index = 1
         agents[1]["detail"] = "Processing error"
 
     elif status in {"PROCESSED", "CLASSIFIED", "PENDING_REVIEW"}:
         # All done
-        states = ["completed", "completed", "completed", "completed", "completed"]
-        current_agent_index = 4
+        states = ["completed", "completed", "completed", "completed", "completed", "completed"]
+        current_agent_index = 5
         # Pull confidence score from classification if available
         classification = await cosmos.get_classification_for_case(case_id)
         if classification:
             score = classification.get("confidence_score", 0)
             agents[4]["score"] = int((score or 0) * 100) if (score or 0) <= 1 else int(score or 0)
             agents[4]["detail"] = f"Classified: {classification.get('classification_category', 'Unknown')}"
+            agents[5]["score"] = agents[4]["score"]
+            agents[5]["detail"] = f"Coordinates mapped for UI"
 
     else:
         # Fallback
-        states = ["active", "pending", "pending", "pending", "pending"]
+        states = ["active", "pending", "pending", "pending", "pending", "pending"]
         current_agent_index = 0
 
     for i, agent in enumerate(agents):

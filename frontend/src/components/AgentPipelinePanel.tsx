@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
     Network, Mail, Fingerprint, ShieldCheck, BrainCircuit,
-    CheckCircle2, XCircle, Loader2,
+    CheckCircle2, XCircle, Loader2, FileText
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import { useMsal } from '@azure/msal-react';
@@ -14,6 +14,7 @@ const AGENT_ICONS: Record<string, React.ReactNode> = {
     pii: <Fingerprint size={16} />,
     safety: <ShieldCheck size={16} />,
     classifier: <BrainCircuit size={16} />,
+    extraction: <FileText size={16} />,
 };
 
 function VerticalAgentCard({ agent, isActive, isLast }: { agent: AgentStatus; isActive: boolean; isLast: boolean }) {

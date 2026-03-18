@@ -37,6 +37,7 @@ export default function CommandCenterPage() {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [pdfName, setPdfName] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [reprocessKey, setReprocessKey] = useState(0);
 
     const fetchCases = useCallback(async () => {
         try {
@@ -123,6 +124,7 @@ export default function CommandCenterPage() {
     const handleResetAndReprocess = async () => {
         if (!selectedCaseId) return;
         setIsProcessing(true);
+        setReprocessKey(k => k + 1);
         try {
             await casesApi.resetCase(apiClient, selectedCaseId);
             await handleProcess();
@@ -325,6 +327,7 @@ export default function CommandCenterPage() {
 
                         <div className="shrink-0 mb-8">
                             <AgentPipelinePanel
+                                key={`${selectedCase.case_id}-${reprocessKey}`}
                                 caseId={selectedCase.case_id}
                                 compact
                             />
