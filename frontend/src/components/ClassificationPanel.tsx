@@ -1,6 +1,6 @@
-
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, Clock, AlertTriangle, FileText, Eye, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, FileText, Eye, ExternalLink, ChevronDown } from 'lucide-react';
 import { ConfidenceMeter } from './ConfidenceMeter';
 import { CategoryBadge } from './CategoryBadge';
 import type { ClassificationResult } from '../types';
@@ -19,6 +19,18 @@ const labelStyle: React.CSSProperties = {
 const valueStyle: React.CSSProperties = { color: '#00263E', fontSize: '14px' };
 
 export function ClassificationPanel({ caseId, classification }: ClassificationPanelProps) {
+    const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+
+    // Update selectedDocId when classification changes
+    useEffect(() => {
+        if (classification?.annotated_docs) {
+            const ids = Object.keys(classification.annotated_docs);
+            if (ids.length > 0 && !selectedDocId) {
+                setSelectedDocId(ids[0]);
+            }
+        }
+    }, [classification, selectedDocId]);
+
     if (!classification) {
         return (
             <div style={{ ...card, padding: '48px', textAlign: 'center', color: '#8fa1b0' }}>
@@ -33,10 +45,10 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
         low: '#22c55e',
     }[classification.key_fields?.urgency ?? 'low'] ?? '#8fa1b0';
 
-    // Get the first annotated doc ID if any
     const annotatedDocIds = Object.keys(classification.annotated_docs || {});
-    const primaryDocId = annotatedDocIds.length > 0 ? annotatedDocIds[0] : null;
-    const annotatedPdfUrl = primaryDocId ? `/api/cases/${caseId}/documents/${primaryDocId}/annotated` : null;
+    // Use the explicit selected doc or fall back to the first one available
+    const displayDocId = selectedDocId || (annotatedDocIds.length > 0 ? annotatedDocIds[0] : null);
+    const annotatedPdfUrl = displayDocId ? `/api/cases/${caseId}/documents/${displayDocId}/annotated` : null;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -138,10 +150,39 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                     alignItems: 'center',
                     justifyContent: 'space-between'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={16} style={{ color: '#4f46e5' }} />
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#00263E' }}>Annotated Document Preview</span>
-                        {primaryDocId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FileText size={16} style={{ color: '#4f46e5' }} />
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#00263E' }}>Annotated Document Preview</span>
+                        </div>
+
+                        {annotatedDocIds.length > 1 && (
+                            <div style={{ position: 'relative' }}>
+                                <select
+                                    value={displayDocId || ''}
+                                    onChange={(e) => setSelectedDocId(e.target.value)}
+                                    style={{
+                                        appearance: 'none',
+                                        background: '#fff',
+                                        border: '1px solid #D1D9E0',
+                                        borderRadius: '6px',
+                                        padding: '4px 28px 4px 12px',
+                                        fontSize: '12px',
+                                        color: '#00263E',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    {annotatedDocIds.map(id => (
+                                        <option key={id} value={id}>Doc ID: {id.slice(0, 8)}...</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748B' }} />
+                            </div>
+                        )}
+
+                        {displayDocId && (
                             <span style={{
                                 fontSize: '10px',
                                 background: '#E0E7FF',
@@ -149,7 +190,6 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                                 padding: '2px 6px',
                                 borderRadius: '4px',
                                 fontWeight: 600,
-                                marginLeft: '4px'
                             }}>
                                 High Fidelity
                             </span>
@@ -179,6 +219,7 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                 <div style={{ height: '600px', background: '#F1F5F9', position: 'relative' }}>
                     {annotatedPdfUrl ? (
                         <object
+                            key={displayDocId} // Force remount on doc change
                             data={`${annotatedPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
                             type="application/pdf"
                             style={{ width: '100%', height: '100%' }}

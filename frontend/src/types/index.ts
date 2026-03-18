@@ -143,6 +143,7 @@ export interface KeyFields {
     document_type?: string;
     urgency?: string;
     policy_reference?: string;
+    claim_type?: string;
 }
 
 export interface ExtractionInstance {

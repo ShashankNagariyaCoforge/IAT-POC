@@ -523,6 +523,50 @@ async def get_case_masked_report(case_id: str):
         logger.error(f"Failed to download report for {case_id}: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving masking report.")
 
+@router.get("/cases/{case_id}/documents/{document_id}/annotated")
+async def get_annotated_document(case_id: str, document_id: str):
+    """
+    Retrieves the pre-rendered annotated PDF for visual verification.
+    """
+    cosmos = _get_cosmos()
+    classification = await cosmos.get_classification_for_case(case_id)
+    if not classification or not classification.get("annotated_docs"):
+        raise HTTPException(status_code=404, detail="No annotated documents found for this case.")
+    
+    annotated_docs = classification["annotated_docs"]
+    blob_path = annotated_docs.get(document_id)
+    
+    if not blob_path:
+        # Fallback: maybe it's saved with a different key format or missing
+        raise HTTPException(status_code=404, detail=f"Annotated document {document_id} not found.")
+
+    try:
+        from fastapi import Response
+        import os
+        
+        if settings.demo_mode:
+            # For demo, the blob_path might be a local path or we might need to find it relative to demo_data
+            if not os.path.exists(blob_path):
+                # Local fallback logic if needed
+                raise HTTPException(status_code=404, detail="Local annotated file not found.")
+            with open(blob_path, "rb") as f:
+                content = f.read()
+        else:
+            # Read from Azure Blob
+            from services.blob_storage import BlobStorageService
+            blob_service = BlobStorageService()
+            # In process.py we upload to settings.blob_container_raw_emails ("iat_documents")
+            container = settings.blob_container_raw_emails
+            content = await blob_service.download_bytes(container, blob_path)
+
+        return Response(
+            content=content,
+            media_type="application/pdf"
+        )
+    except Exception as e:
+        logger.error(f"Failed to retrieve annotated doc {document_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving annotated document.")
+
 @router.post("/cases/{case_id}/reset")
 async def reset_case(case_id: str):
     """
