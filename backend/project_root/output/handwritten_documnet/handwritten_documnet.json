@@ -1,0 +1,17 @@
+{
+  "name": "MEGACONGLOMERATE INC.",
+  "insured": {
+    "name": "MEGACONGLOMERATE INC.",
+    "address": "123 MAIN STREET, ASTRA BUILDING, ANYTOWN, TAFF 00000"
+  },
+  "agent": {
+    "agencyName": "ABC INSURANCE CO",
+    "name": null,
+    "email": null,
+    "phone": null
+  },
+  "description": "Medicare questionnaire for beneficiary JOHN Q. PUBLIC regarding employer group health plan coverage through MEGACONGLOMERATE INC.",
+  "coverages": [],
+  "exposures": [],
+  "documents": []
+}
