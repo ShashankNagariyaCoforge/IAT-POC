@@ -33,11 +33,31 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
     const minConfidence = Math.min(...instances.map(i => i.confidence));
     const footerColor = getColor(minConfidence);
 
-    // Convert polygon to SVG points string
+    // Convert polygon to SVG points string with outward padding
     const formatPoints = (poly: number[]) => {
+        if (poly.length < 2) return '';
+
+        // Calculate the geometric center to expand outwards
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (let i = 0; i < poly.length; i += 2) {
+            minX = Math.min(minX, poly[i]);
+            minY = Math.min(minY, poly[i + 1]);
+            maxX = Math.max(maxX, poly[i]);
+            maxY = Math.max(maxY, poly[i + 1]);
+        }
+
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+
+        // Push vertices away from center by a fixed small delta (3 units)
         const points = [];
         for (let i = 0; i < poly.length; i += 2) {
-            points.push(`${poly[i]},${poly[i + 1]}`);
+            const dx = poly[i] - cx;
+            const dy = poly[i + 1] - cy;
+            const mag = Math.sqrt(dx * dx + dy * dy) || 1;
+            const px = poly[i] + (dx / mag) * 4; // 4 units of padding
+            const py = poly[i + 1] + (dy / mag) * 4;
+            points.push(`${px},${py}`);
         }
         return points.join(' ');
     };
@@ -84,21 +104,16 @@ export const DocumentAnnotator: React.FC<DocumentAnnotatorProps> = ({
                         viewBox={`0 0 ${page_width} ${page_height}`}
                         className="absolute inset-0 w-full h-full pointer-events-none"
                     >
-                        <defs>
-                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                            </filter>
-                        </defs>
                         {instances.map((inst, idx) => (
                             <g key={idx}>
                                 <polygon
                                     points={formatPoints(inst.polygon)}
-                                    fill="transparent"
+                                    fill="none"
                                     stroke={getColor(inst.confidence)}
-                                    strokeWidth={3}
+                                    strokeWidth="2"
+                                    vectorEffect="non-scaling-stroke"
+                                    strokeLinejoin="miter"
                                     className="animate-pulse"
-                                    strokeLinejoin="round"
                                 />
                             </g>
                         ))}
