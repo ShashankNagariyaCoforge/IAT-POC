@@ -86,6 +86,7 @@ class ExtractionService:
         # For very short strings (like "0"), be much more strict
         is_short = len(search_value_norm) < 3
 
+        import difflib
         matches = []
         pages = analyze_result.get("pages", [])
         
@@ -97,17 +98,21 @@ class ExtractionService:
                 if not line_norm:
                     continue
 
-                similarity = 0.0
+                # 1. Direct match (highest priority)
                 if search_value_norm == line_norm:
                     similarity = 1.0
-                elif not is_short and (search_value_norm in line_norm or line_norm in search_value_norm):
-                    # Partial match score based on overlap length
-                    common = min(len(search_value_norm), len(line_norm))
-                    total = max(len(search_value_norm), len(line_norm))
-                    similarity = common / total
+                # 2. Sequence similarity (handles typos/formatting)
+                else:
+                    similarity = difflib.SequenceMatcher(None, search_value_norm, line_norm).ratio()
+                    
+                    # 3. Substring match (if the line contains the value + more)
+                    if not is_short and search_value_norm in line_norm:
+                        # Substring similarity is at least the ratio of the search value's length
+                        sub_sim = len(search_value_norm) / len(line_norm)
+                        similarity = max(similarity, sub_sim)
                 
                 # Minimum threshold to avoid noise
-                if similarity > 0.3:
+                if (is_short and similarity > 0.8) or (not is_short and similarity > 0.5):
                     matches.append({
                         "text": line_content,
                         "page": page_idx + 1,

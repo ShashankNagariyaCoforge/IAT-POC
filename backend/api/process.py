@@ -276,6 +276,8 @@ async def process_single_case(case_id: str):
                     # Clean the key for display (e.g. agencyName -> Agency Name)
                     # Add space before capitals for CamelCase, then replace _ with space
                     SPECIAL_KEYS = {
+                        "name": "Insured: Name",
+                        "agency": "Agency",
                         "naics_code": "NAICS Code",
                         "sic_code": "SIC Code",
                         "iat_product": "IAT Product",

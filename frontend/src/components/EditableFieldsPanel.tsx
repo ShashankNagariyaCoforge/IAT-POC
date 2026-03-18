@@ -3,6 +3,7 @@ import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight } from 
 
 export interface FieldItem {
     label: string;
+    id?: string; // Optional: Unique ID or backend key for coordinate matching
     value: string;
     original?: string;
     confidence?: number;
@@ -162,7 +163,7 @@ export function EditableFieldsPanel({
                                             <div
                                                 key={f.label}
                                                 className={`space-y-1.5 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white border border-transparent ${onSelectField ? 'hover:border-indigo-200 hover:shadow-sm' : ''}`}
-                                                onClick={() => onSelectField?.(f.label)}
+                                                onClick={() => onSelectField?.(f.id || f.label)}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer">
@@ -188,7 +189,7 @@ export function EditableFieldsPanel({
                                                     <textarea
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                        onFocus={() => onSelectField?.(f.label)}
+                                                        onFocus={() => onSelectField?.(f.id || f.label)}
                                                         readOnly={isReadOnly}
                                                         rows={2}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
@@ -202,7 +203,7 @@ export function EditableFieldsPanel({
                                                         type="text"
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                        onFocus={() => onSelectField?.(f.label)}
+                                                        onFocus={() => onSelectField?.(f.id || f.label)}
                                                         readOnly={isReadOnly}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
                                                             f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :

@@ -58,12 +58,22 @@ export default function ExtractionReviewPage() {
     const handleFieldSelect = (label: string) => {
         if (!classification?.extraction_results) return;
 
-        const result = classification.extraction_results.find(r => r.field.toLowerCase() === label.toLowerCase());
+        // Common mapping between UI labels and backend field names
+        const lookupKeys = [label.toLowerCase()];
+        const labelLower = label.toLowerCase();
+        if (labelLower === 'insured: name') lookupKeys.push('name');
+        if (labelLower === 'address') lookupKeys.push('insured: address');
+        if (labelLower === 'agency') lookupKeys.push('agent: agency name');
+        if (labelLower === 'agent: email') lookupKeys.push('email address', 'agent: email');
+        if (labelLower === 'agent: phone') lookupKeys.push('primary phone', 'agent: phone');
+
+        const result = classification.extraction_results.find(r => lookupKeys.includes(r.field.toLowerCase()));
         if (result && result.instances.length > 0) {
             setSelectedInstances(result.instances);
             setActiveDocId(result.instances[0].doc_id);
         } else {
-            console.warn('No extraction coordinates for:', label);
+            console.warn('No extraction coordinates for any keys:', lookupKeys);
+            setSelectedInstances([]);
         }
     };
 
@@ -72,7 +82,15 @@ export default function ExtractionReviewPage() {
         let allInstances: ExtractionInstance[] = [];
 
         labels.forEach(label => {
-            const found = classification?.extraction_results?.find(r => r.field.toLowerCase() === label.toLowerCase());
+            const lookupKeys = [label.toLowerCase()];
+            const labelLower = label.toLowerCase();
+            if (labelLower === 'insured: name') lookupKeys.push('name');
+            if (labelLower === 'address') lookupKeys.push('insured: address');
+            if (labelLower === 'agency') lookupKeys.push('agent: agencyname');
+            if (labelLower === 'agent: email') lookupKeys.push('email address');
+            if (labelLower === 'agent: phone') lookupKeys.push('primary phone');
+
+            const found = classification?.extraction_results?.find(r => lookupKeys.includes(r.field.toLowerCase()));
             if (found) {
                 allInstances = [...allInstances, ...found.instances];
             }
@@ -96,8 +114,16 @@ export default function ExtractionReviewPage() {
     const hitlFields = (classification as any)?.hitl_fields || {};
     const kf = classification?.key_fields;
 
-    const getFieldConfidence = (label: string) => {
-        const res = classification?.extraction_results?.find(r => r.field.toLowerCase() === label.toLowerCase());
+    const getFieldConfidence = (label: string): number | null => {
+        const lookupKeys = [label.toLowerCase()];
+        const labelLower = label.toLowerCase();
+        if (labelLower === 'insured: name') lookupKeys.push('name');
+        if (labelLower === 'address') lookupKeys.push('insured: address');
+        if (labelLower === 'agency') lookupKeys.push('agent: agency name');
+        if (labelLower === 'agent: email') lookupKeys.push('email address', 'agent: email');
+        if (labelLower === 'agent: phone') lookupKeys.push('primary phone', 'agent: phone');
+
+        const res = classification?.extraction_results?.find(r => lookupKeys.includes(r.field.toLowerCase()));
         if (!res || res.instances.length === 0) return null;
         return Math.min(...res.instances.map(i => i.confidence));
     };
@@ -114,8 +140,8 @@ export default function ExtractionReviewPage() {
             { label: 'Agency', value: kf?.agency || kf?.agent?.agencyName || 'N/A', confidence: getFieldConfidence('Agency') || undefined },
             { label: 'Licensed Producer', value: kf?.licensed_producer || 'N/A', confidence: getFieldConfidence('Licensed Producer') || undefined },
             { label: 'Agent: Name', value: kf?.agent?.name || 'N/A', confidence: getFieldConfidence('Agent: Name') || undefined },
-            { label: 'Agent: Email', value: kf?.email_address || kf?.agent?.email || 'N/A', confidence: getFieldConfidence('Email Address') || undefined },
-            { label: 'Agent: Phone', value: kf?.primary_phone || kf?.agent?.phone || 'N/A', confidence: getFieldConfidence('Primary Phone') || undefined },
+            { label: 'Agent: Email', value: kf?.email_address || kf?.agent?.email || 'N/A', id: 'Agent: Email' }, // Fixed confidence lookup
+            { label: 'Agent: Phone', value: kf?.primary_phone || kf?.agent?.phone || 'N/A', id: 'Agent: Phone' },
         ],
         'Policy Details': [
             { label: 'Segment', value: kf?.segment || 'N/A', confidence: getFieldConfidence('Segment') || undefined },
