@@ -11,7 +11,7 @@ import { usePipeline } from '../contexts/PipelineContext';
 import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
 import { IngestionStatsCard } from '../components/IngestionStatsCard';
 import { InlinePdfViewer } from '../components/InlinePdfViewer';
-import { DocumentAnnotator } from '../components/DocumentAnnotator';
+
 import { PdfViewerModal } from '../components/PdfViewerModal';
 import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
@@ -54,9 +54,13 @@ export default function CaseActionScreen() {
             setDocs(normalizedDocs);
             setClassification(cls.classification);
 
-            // Auto-select first PDF if nothing is active
+            // Auto-select first PDF if nothing is active — prefer annotated version
             if (normalizedDocs.length > 0 && !activePdfUrl) {
-                const firstUrl = `/api/cases/${caseId}/documents/${normalizedDocs[0].document_id}/pdf`;
+                const firstDocId = normalizedDocs[0].document_id;
+                const annotatedDocs = cls.classification?.annotated_docs || {};
+                const firstUrl = annotatedDocs[firstDocId]
+                    ? `/api/cases/${caseId}/documents/${firstDocId}/annotated`
+                    : `/api/cases/${caseId}/documents/${firstDocId}/pdf`;
                 setActivePdfUrl(firstUrl);
                 setActivePdfName(normalizedDocs[0].file_name);
             }
@@ -284,22 +288,28 @@ export default function CaseActionScreen() {
                             />
                         </div>
 
-                        {/* Inline PDF Viewer or Annotator */}
+                        {/* Inline PDF Viewer (annotated or original) */}
                         <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstances.length > 0) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
-                            {selectedInstances.length > 0 ? (
-                                <DocumentAnnotator
-                                    caseId={caseId!}
-                                    instances={selectedInstances}
-                                    onClose={() => setSelectedInstances([])}
-                                    onFullscreen={() => {
-                                        const url = `/api/cases/${caseId}/documents/${selectedInstances[0].doc_id}/pdf`;
-                                        setActivePdfUrl(url);
-                                        const doc = docs.find(d => d.document_id === selectedInstances[0].doc_id);
-                                        setActivePdfName(doc?.file_name || 'Document');
-                                        setShowFullscreenPdf(true);
-                                    }}
-                                />
-                            ) : activePdfUrl && (
+                            {selectedInstances.length > 0 ? (() => {
+                                const annotatedDocs = classification?.annotated_docs || {};
+                                const docId = selectedInstances[0].doc_id;
+                                const fieldUrl = annotatedDocs[docId]
+                                    ? `/api/cases/${caseId}/documents/${docId}/annotated`
+                                    : `/api/cases/${caseId}/documents/${docId}/pdf`;
+                                const doc = docs.find(d => d.document_id === docId);
+                                return (
+                                    <InlinePdfViewer
+                                        url={fieldUrl}
+                                        name={doc?.file_name || 'Document'}
+                                        onClose={() => setSelectedInstances([])}
+                                        onFullscreen={() => {
+                                            setActivePdfUrl(fieldUrl);
+                                            setActivePdfName(doc?.file_name || 'Document');
+                                            setShowFullscreenPdf(true);
+                                        }}
+                                    />
+                                );
+                            })() : activePdfUrl && (
                                 <InlinePdfViewer
                                     url={activePdfUrl}
                                     name={activePdfName!}
@@ -323,7 +333,10 @@ export default function CaseActionScreen() {
                         <div className="p-4 bg-slate-50/30">
                             <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                                 {docs.map((doc, i) => {
-                                    const url = `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
+                                    const annotatedDocs = classification?.annotated_docs || {};
+                                    const url = annotatedDocs[doc.document_id]
+                                        ? `/api/cases/${caseId}/documents/${doc.document_id}/annotated`
+                                        : `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
                                     const isSelected = activePdfUrl === url;
                                     return (
                                         <div
