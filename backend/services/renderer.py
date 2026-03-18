@@ -25,6 +25,7 @@ class DocumentRenderer:
 
     def _draw_overlays(self, img: np.ndarray, page_data: Dict[str, Any], overlays: List[Dict[str, Any]]) -> np.ndarray:
         """Draws bounding boxes and labels on a single page image."""
+        print(f"DEBUG [Renderer._draw_overlays]: Drawing {len(overlays)} overlays on page (img={img.shape}, page_w={page_data.get('width')}, page_h={page_data.get('height')})")
         img_h, img_w = img.shape[:2]
         p_w = page_data.get("width")
         p_h = page_data.get("height")

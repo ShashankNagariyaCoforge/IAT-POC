@@ -371,14 +371,17 @@ async def process_single_case(case_id: str):
                     print(f"WARNING [Process]: Failed to generate annotated bytes for {filename}")
                     continue
 
-                annotated_blob_path = f"annotated/{case_id}/{doc_id}_annotated.pdf"
+                annotated_blob_name = f"annotated/{case_id}/{doc_id}_annotated.pdf"
+                upload_container = settings.blob_container_raw_emails
+                print(f"DEBUG [Process]: Uploading annotated PDF to container='{upload_container}', blob='{annotated_blob_name}'")
                 await blob_service.upload_bytes(
-                    annotated_blob_path,
+                    upload_container,
+                    annotated_blob_name,
                     annotated_bytes,
                     content_type="application/pdf"
                 )
-                annotated_docs[doc_id] = annotated_blob_path
-                print(f"SUCCESS [Process]: Uploaded annotated PDF to {annotated_blob_path}")
+                annotated_docs[doc_id] = annotated_blob_name
+                print(f"SUCCESS [Process]: Uploaded annotated PDF to {upload_container}/{annotated_blob_name}")
             except Exception as e:
                 print(f"ERROR [Process]: Failed to render doc {doc_id}: {e}")
                 logger.error(f"Failed to render doc {doc_id}: {e}", exc_info=True)
