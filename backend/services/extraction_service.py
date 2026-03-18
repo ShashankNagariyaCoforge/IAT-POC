@@ -67,66 +67,123 @@ class ExtractionService:
 
     def find_field_in_lines(self, analyze_result: Dict[str, Any], search_value: str) -> List[Dict[str, Any]]:
         """
-        Searches for a specific value in the DI lines and returns its polygons.
-        Uses normalization to handle minor OCR/formatting differences.
+        Searches for a specific value in the DI lines and words and returns its polygons.
+        Uses exact and fuzzy word-level sliding windows for highly accurate bounding boxes.
         """
         if not search_value or search_value.lower() == "null" or search_value == "—":
             return []
 
         import re
+        import difflib
+        
         def normalize(text: str) -> str:
-            # Remove punctuation, collapse whitespace, and lowercase
             t = re.sub(r'[^\w\s]', '', text)
             return " ".join(t.lower().split())
 
-        search_value_norm = normalize(search_value)
-        if not search_value_norm:
+        def union_polygon(polys: List[List[float]]) -> Optional[List[float]]:
+            xs, ys = [], []
+            for p in polys:
+                if not p or len(p) != 8:
+                    continue
+                xs.extend([p[0], p[2], p[4], p[6]])
+                ys.extend([p[1], p[3], p[5], p[7]])
+            if not xs or not ys:
+                return None
+            x_min, y_min = min(xs), min(ys)
+            x_max, y_max = max(xs), max(ys)
+            return [x_min, y_min, x_max, y_min, x_max, y_max, x_min, y_max]
+
+        target = normalize(search_value)
+        if not target:
             return []
 
-        # For very short strings (like "0"), be much more strict
-        is_short = len(search_value_norm) < 3
-
-        import difflib
+        is_short = len(target) < 4
         matches = []
         pages = analyze_result.get("pages", [])
         
         for page_idx, page in enumerate(pages):
-            for line in page.get("lines", []):
-                line_content = line.get("content", "")
-                line_norm = normalize(line_content)
+            page_w = page.get("width")
+            page_h = page.get("height")
+            unit = page.get("unit")
+            
+            words = page.get("words", [])
+            lines = page.get("lines", [])
+            
+            # 1. WORD-level sliding window (Highest Box Fidelity)
+            if words:
+                w_norm = [normalize(w.get("content", w.get("text", ""))) for w in words]
+                max_len = min(15, len(words))
                 
-                if not line_norm:
-                    continue
-
-                # 1. Direct match (highest priority)
-                if search_value_norm == line_norm:
-                    similarity = 1.0
-                # 2. Sequence similarity (handles typos/formatting)
-                else:
-                    similarity = difflib.SequenceMatcher(None, search_value_norm, line_norm).ratio()
+                for i in range(len(words)):
+                    if not w_norm[i]:
+                        continue
+                    concat = w_norm[i]
+                    polys = [words[i].get("polygon")]
                     
-                    # 3. Substring match (if the line contains the value + more)
-                    if not is_short and search_value_norm in line_norm:
-                        # Substring similarity is at least the ratio of the search value's length
-                        sub_sim = len(search_value_norm) / len(line_norm)
-                        similarity = max(similarity, sub_sim)
-                
-                # Minimum threshold to avoid noise
-                if (is_short and similarity > 0.8) or (not is_short and similarity > 0.5):
-                    matches.append({
-                        "text": line_content,
-                        "page": page_idx + 1,
-                        "polygon": line.get("polygon"), # [x1, y1, x2, y2, x3, y3, x4, y4]
-                        "confidence": line.get("spans", [{}])[0].get("confidence", 0.9),
-                        "similarity": similarity,
-                        "page_width": page.get("width"),
-                        "page_height": page.get("height"),
-                        "unit": page.get("unit")
-                    })
+                    # Single word match
+                    if target == concat:
+                        matches.append({
+                            "text": concat,
+                            "page": page_idx + 1,
+                            "polygon": union_polygon(polys),
+                            "confidence": words[i].get("confidence", 0.9),
+                            "similarity": 1.0,
+                            "source": "word",
+                            "page_width": page_w, "page_height": page_h, "unit": unit
+                        })
+                        continue
+                        
+                    # Sliding window
+                    for j in range(i + 1, min(i + max_len, len(words))):
+                        if w_norm[j]:
+                            concat += " " + w_norm[j]
+                            polys.append(words[j].get("polygon"))
+                            
+                            # Exact match or very high fuzzy match for longer strings
+                            similarity = difflib.SequenceMatcher(None, target, concat).ratio()
+                            if target == concat or (not is_short and similarity > 0.9):
+                                poly_union = union_polygon(polys)
+                                if poly_union:
+                                    matches.append({
+                                        "text": concat,
+                                        "page": page_idx + 1,
+                                        "polygon": poly_union,
+                                        "confidence": sum(w.get("confidence", 0.9) for w in words[i:j+1]) / (j-i+1),
+                                        "similarity": similarity,
+                                        "source": "word_window",
+                                        "page_width": page_w, "page_height": page_h, "unit": unit
+                                    })
+            
+            # 2. LINE-level fallback (if OCR spacing makes word windows fail)
+            if not matches and lines:
+                for line in lines:
+                    line_content = line.get("content", "")
+                    line_norm = normalize(line_content)
+                    if not line_norm:
+                        continue
+                        
+                    similarity = difflib.SequenceMatcher(None, target, line_norm).ratio()
+                    sub_sim = 0
+                    if not is_short and target in line_norm:
+                        sub_sim = len(target) / len(line_norm)
+                    
+                    similarity = max(similarity, sub_sim)
+                    
+                    if (is_short and similarity > 0.85) or (not is_short and similarity > 0.6):
+                        matches.append({
+                            "text": line_content,
+                            "page": page_idx + 1,
+                            "polygon": line.get("polygon"),
+                            "confidence": line.get("spans", [{}])[0].get("confidence", 0.9),
+                            "similarity": similarity,
+                            "source": "line",
+                            "page_width": page_w, "page_height": page_h, "unit": unit
+                        })
         
-        # Sort by similarity and confidence
+        # Sort by similarity and confidence to ensure "Winner Takes All" in process.py gets the best box
         matches.sort(key=lambda x: (x["similarity"], x["confidence"]), reverse=True)
         return matches
+
     def extract_tables(self, analyze_result: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Extracts structured table data including cell polygons for multi-field grouping.
