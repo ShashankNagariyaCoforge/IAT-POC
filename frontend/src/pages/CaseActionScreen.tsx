@@ -154,6 +154,7 @@ export default function CaseActionScreen() {
             { label: 'Subject', value: caseData.subject },
             { label: 'Sender', value: caseData.sender },
             { label: 'Received At', value: format(new Date(caseData.created_at), 'PPPp') },
+            { label: 'Submission Description', value: kf?.submission_description || 'N/A' },
         ],
         'Classification Insights': [
             { label: 'Category', value: classification?.classification_category || 'N/A' },
@@ -173,22 +174,22 @@ export default function CaseActionScreen() {
             {
                 type: 'table',
                 label: 'Coverages',
-                headers: ['Coverage', 'Limit', 'Deductible', 'Description'],
+                headers: ['Coverage', 'Limit', 'Deductible', 'Coverage Description'],
                 rows: kf?.coverages?.map(c => ({
                     'Coverage': c.coverage || '',
                     'Limit': c.limit || '',
                     'Deductible': c.deductible || '',
-                    'Description': c.description || ''
+                    'Coverage Description': c.coverageDescription || ''
                 })) || []
             },
             {
                 type: 'table',
                 label: 'Exposures',
-                headers: ['Exposure Type', 'Value', 'Description'],
+                headers: ['Exposure Type', 'Value', 'Exposure Description'],
                 rows: kf?.exposures?.map(e => ({
                     'Exposure Type': e.exposureType || '',
                     'Value': e.value || '',
-                    'Description': e.description || ''
+                    'Exposure Description': e.exposureDescription || ''
                 })) || []
             }
         ],

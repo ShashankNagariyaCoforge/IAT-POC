@@ -94,6 +94,15 @@
             "description": "A description of the insured's business activities"
         },
         {
+            "key": "submission_description",
+            "name": "Submission Description",
+            "aliases": [
+                "submission summary",
+                "description"
+            ],
+            "description": "High-level description of what the submission encompasses"
+        },
+        {
             "key": "primary_rating_state",
             "name": "Primary Rating State",
             "aliases": [
@@ -191,7 +200,7 @@
                 "line of business",
                 "lob"
             ],
-            "description": "An array of objects: { coverage, description, limit, deductible }"
+            "description": "An array of objects: { coverage, coverageDescription, limit, deductible }"
         },
         {
             "key": "exposures",
@@ -201,7 +210,7 @@
                 "exposureType",
                 "value"
             ],
-            "description": "An array of objects: { exposureType, description, value }"
+            "description": "An array of objects: { exposureType, exposureDescription, value }"
         }
     ]
 }

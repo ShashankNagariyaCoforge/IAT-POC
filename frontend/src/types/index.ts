@@ -95,28 +95,28 @@ export interface AgentInfo {
 
 export interface CoverageInfo {
     coverage?: string;
-    description?: string;
+    coverageDescription?: string;
     limit?: string;
     deductible?: string;
 }
 
 export interface ExposureInfo {
     exposureType?: string;
-    description?: string;
+    exposureDescription?: string;
     value?: string;
 }
 
 export interface DocumentInfo {
     fileName?: string;
     fileType?: string;
-    description?: string;
+    documentDescription?: string;
 }
 
 export interface KeyFields {
     name?: string;
     insured?: InsuredInfo;
     agent?: AgentInfo;
-    description?: string;
+    submission_description?: string;
     coverages: CoverageInfo[];
     exposures: ExposureInfo[];
     documents: DocumentInfo[];

@@ -20,26 +20,26 @@ class AgentInfo(BaseModel):
 
 class CoverageInfo(BaseModel):
     coverage: Optional[str] = None
-    description: Optional[str] = None
+    coverageDescription: Optional[str] = None
     limit: Optional[str] = None
     deductible: Optional[str] = None
 
 class ExposureInfo(BaseModel):
     exposureType: Optional[str] = None
-    description: Optional[str] = None
+    exposureDescription: Optional[str] = None
     value: Optional[str] = None
 
 class DocumentInfo(BaseModel):
     fileName: Optional[str] = None
     fileType: Optional[str] = None
-    description: Optional[str] = None
+    documentDescription: Optional[str] = None
 
 class KeyFields(BaseModel):
     """Structured key fields extracted by GPT-4o-mini."""
     name: Optional[str] = Field(None, description="Insured Business Name")
     insured: Optional[InsuredInfo] = None
     agent: Optional[AgentInfo] = None
-    description: Optional[str] = None
+    submission_description: Optional[str] = None
     coverages: List[CoverageInfo] = Field(default_factory=list)
     exposures: List[ExposureInfo] = Field(default_factory=list)
     documents: List[DocumentInfo] = Field(default_factory=list)

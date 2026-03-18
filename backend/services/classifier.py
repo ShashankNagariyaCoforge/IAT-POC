@@ -81,17 +81,17 @@ class Classifier:
         # Default complex fields
         instructions.append("- insured: { \"name\": \"...\", \"address\": \"...\" }")
         instructions.append("- agent: { \"agencyName\": \"...\", \"name\": \"...\", \"email\": \"...\", \"phone\": \"...\" }")
-        instructions.append("- coverages: An array of objects: { \"coverage\": \"...\", \"description\": \"...\", \"limit\": \"...\", \"deductible\": \"...\" }")
-        instructions.append("- exposures: An array of objects: { \"exposureType\": \"...\", \"description\": \"...\", \"value\": \"...\" }")
+        instructions.append("- coverages: An array of objects: { \"coverage\": \"...\", \"coverageDescription\": \"...\", \"limit\": \"...\", \"deductible\": \"...\" }")
+        instructions.append("- exposures: An array of objects: { \"exposureType\": \"...\", \"exposureDescription\": \"...\", \"value\": \"...\" }")
         instructions.append("- documents: An array of objects indicating the attached documents found in the text.")
 
         kf_lines.append('    "name": "<Insured Business Name>",')
         kf_lines.append('    "insured": { "name": "<val>", "address": "<val>" },')
         kf_lines.append('    "agent": { "agencyName": "<val>", "name": "<val>", "email": "<val>", "phone": "<val>" },')
-        kf_lines.append('    "description": "<summary>",')
-        kf_lines.append('    "coverages": [ { "coverage": "<val>", "description": "<val>", "limit": "<val>", "deductible": "<val>" } ],')
-        kf_lines.append('    "exposures": [ { "exposureType": "<val>", "description": "<val>", "value": "<val>" } ],')
-        kf_lines.append('    "documents": [ { "fileName": "<val>", "fileType": "<val>", "description": "<val>" } ],')
+        kf_lines.append('    "submission_description": "<summary>",')
+        kf_lines.append('    "coverages": [ { "coverage": "<val>", "coverageDescription": "<val>", "limit": "<val>", "deductible": "<val>" } ],')
+        kf_lines.append('    "exposures": [ { "exposureType": "<val>", "exposureDescription": "<val>", "value": "<val>" } ],')
+        kf_lines.append('    "documents": [ { "fileName": "<val>", "fileType": "<val>", "documentDescription": "<val>" } ],')
 
         # Dynamically add rest of fields from schema
         simple_fields = []
