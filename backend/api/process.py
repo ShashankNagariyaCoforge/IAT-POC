@@ -344,38 +344,49 @@ async def process_single_case(case_id: str):
         classification["extracted_tables"] = doc_tables
         
         # 6.6 Generate Annotated PDFs
+        print(f"DEBUG [Process]: Generating annotated PDFs for {len(doc_layout_results)} documents...")
         annotated_docs = {}
         renderer = DocumentRenderer()
         for doc_id, layout in doc_layout_results.items():
             try:
                 orig_bytes = doc_bytes_map.get(doc_id)
-                if not orig_bytes: continue
+                if not orig_bytes:
+                    print(f"WARNING [Process]: Missing original bytes for doc {doc_id}")
+                    continue
                 
                 # Find filename for this doc_id
                 doc_entry = next((d for d in documents if d.get("document_id") == doc_id), {})
                 filename = doc_entry.get("filename") or doc_entry.get("file_name") or f"{doc_id}.pdf"
                 
+                print(f"DEBUG [Process]: Rendering annotated PDF for {filename} ({doc_id})")
                 logger.info(f"[Process] Rendering annotated PDF for {filename} ({doc_id})")
                 
                 if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                     annotated_bytes = renderer.render_image_to_annotated(orig_bytes, layout.get("pages", [{}])[0], extraction_results)
                 else:
-                    # PDF or Scanned PDF
-                    annotated_bytes = renderer.render_pdf_to_annotated(filename, layout, extraction_results)
+                    # PDF or Scanned PDF - passing content bytes directly
+                    annotated_bytes = renderer.render_pdf_to_annotated(filename, layout, extraction_results, content=orig_bytes)
                 
+                if not annotated_bytes:
+                    print(f"WARNING [Process]: Failed to generate annotated bytes for {filename}")
+                    continue
+
                 annotated_blob_path = f"annotated/{case_id}/{doc_id}_annotated.pdf"
                 await blob_service.upload_bytes(
-                    settings.blob_container_attachments,
                     annotated_blob_path,
                     annotated_bytes,
                     content_type="application/pdf"
                 )
                 annotated_docs[doc_id] = annotated_blob_path
-                logger.info(f"[Process] Successfully uploaded annotated PDF: {annotated_blob_path}")
-            except Exception as render_err:
-                logger.error(f"[Process] Rendering failed for doc {doc_id}: {render_err}", exc_info=True)
+                print(f"SUCCESS [Process]: Uploaded annotated PDF to {annotated_blob_path}")
+            except Exception as e:
+                print(f"ERROR [Process]: Failed to render doc {doc_id}: {e}")
+                logger.error(f"Failed to render doc {doc_id}: {e}", exc_info=True)
 
         classification["annotated_docs"] = annotated_docs
+        print(f"DEBUG [Process]: Phase 6 complete. Found {len(annotated_docs)} annotated documents.")
+        
+        # 6.7 Save Classification Result with Annotated Paths
         logger.info(f"[Extraction] Final extraction results count: {len(extraction_results)}")
         await db_service.save_classification_result(classification)
 
@@ -395,9 +406,16 @@ async def process_single_case(case_id: str):
                 requires_human_review=True,
             )
             
+        print(f"SUCCESS [Process]: Total case {case_id} processed successfully.")
         return {"message": f"Successfully processed case {case_id}"}
         
     except Exception as e:
+        print(f"CRITICAL ERROR [Process]: Failed processing case {case_id}: {e}")
         logger.error(f"[Process] Failed processing case {case_id}: {e}", exc_info=True)
-        await db_service.update_case_status(case_id, CaseStatus.FAILED)
+        # Attempt to set status to FAILED in DB
+        try:
+            db_service = _get_cosmos()
+            await db_service.update_case_status(case_id, CaseStatus.FAILED)
+        except:
+            pass
         raise HTTPException(status_code=500, detail=str(e))

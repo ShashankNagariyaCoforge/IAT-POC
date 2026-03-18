@@ -65,17 +65,25 @@ class DocumentRenderer:
 
         return img
 
-    def render_pdf_to_annotated(self, pdf_path: str, analyze_result: Dict[str, Any], extraction_results: List[Dict[str, Any]]) -> bytes:
+    def render_pdf_to_annotated(self, pdf_path: str, analyze_result: Dict[str, Any], extraction_results: List[Dict[str, Any]], content: Optional[bytes] = None) -> bytes:
         """
         Processes a multi-page PDF/Scanned PDF and returns bytes of an annotated PDF.
         """
+        print(f"DEBUG [Renderer]: Starting PDF rendering for {pdf_path}")
         logger.info(f"Rendering annotated PDF for {pdf_path}")
-        doc = fitz.open(pdf_path)
+        
+        if content:
+            doc = fitz.open(stream=content, filetype="pdf")
+            print(f"DEBUG [Renderer]: Opened PDF from stream ({len(content)} bytes)")
+        else:
+            doc = fitz.open(pdf_path)
+            print(f"DEBUG [Renderer]: Opened PDF from path: {pdf_path}")
         
         # 1. Prepare per-page overlays
         pages_data = analyze_result.get("pages", [])
         overlays_per_page = [[] for _ in range(len(pages_data))]
         
+        mapped_count = 0
         for res in extraction_results:
             field_name = res.get("field", "Field")
             for inst in res.get("instances", []):
@@ -86,6 +94,9 @@ class DocumentRenderer:
                         "polygon": inst.get("polygon"),
                         "confidence": inst.get("confidence", 1.0)
                     })
+                    mapped_count += 1
+        
+        print(f"DEBUG [Renderer]: Collected {mapped_count} total overlays across {len(pages_data)} pages")
 
         # 2. Rasterize, Annotate, and Collect
         zoom = self.dpi / 72.0
@@ -93,6 +104,7 @@ class DocumentRenderer:
         
         annotated_images = []
         for i in range(len(doc)):
+            print(f"DEBUG [Renderer]: Rasterizing page {i+1}...")
             page = doc.load_page(i)
             pix = page.get_pixmap(matrix=mat, alpha=False)
             
@@ -103,10 +115,14 @@ class DocumentRenderer:
             # Draw overlays for this page
             page_data = pages_data[i] if i < len(pages_data) else {}
             page_overlays = overlays_per_page[i] if i < len(overlays_per_page) else []
+            if page_overlays:
+                print(f"DEBUG [Renderer]: Drawing {len(page_overlays)} overlays on page {i+1}")
+            
             annotated_img = self._draw_overlays(img_bgr, page_data, page_overlays)
             annotated_images.append(annotated_img)
 
         # 3. Write back to single PDF bytes
+        print(f"DEBUG [Renderer]: Combining {len(annotated_images)} annotated pages into final PDF...")
         import io
         output_buffer = io.BytesIO()
         c = canvas.Canvas(output_buffer)
