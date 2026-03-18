@@ -159,16 +159,28 @@ export default function CaseActionScreen() {
         'Classification Insights': [
             { label: 'Category', value: classification?.classification_category || 'N/A' },
             { label: 'Document Type', value: kf?.document_type || 'Unknown' },
+            { label: 'Submission Type', value: kf?.submission_type || 'N/A' },
+            { label: 'Segment', value: kf?.segment || 'N/A' },
+            { label: 'IAT Product', value: kf?.iat_product || 'N/A' },
+            { label: 'UW / AM', value: kf?.uw_am || 'N/A' },
         ],
         'Counterparty Details': [
             { label: 'Insured: Name', value: kf?.insured?.name || kf?.name || 'N/A' },
-            { label: 'Insured: Address', value: kf?.insured?.address || 'N/A' },
-            { label: 'Agent: Agency Name', value: kf?.agent?.agencyName || 'N/A' },
-            { label: 'Agent: Name', value: kf?.agent?.name || 'N/A' },
+            { label: 'Applicant Name', value: kf?.applicant_name || 'N/A' },
+            { label: 'Entity Type', value: kf?.entity_type || 'N/A' },
+            { label: 'Insured: Address', value: kf?.insured?.address || kf?.address || 'N/A' },
+            { label: 'Business Description', value: kf?.business_description || 'N/A' },
+            { label: 'Primary Rating State', value: kf?.primary_rating_state || 'N/A' },
+            { label: 'Agency', value: kf?.agent?.agencyName || kf?.agency || 'N/A' },
+            { label: 'Agent / Producer', value: kf?.agent?.name || kf?.licensed_producer || 'N/A' },
         ],
         'Contact Info': [
-            { label: 'Agent: Email', value: kf?.agent?.email || 'N/A' },
-            { label: 'Agent: Phone', value: kf?.agent?.phone || 'N/A' },
+            { label: 'Email', value: kf?.agent?.email || kf?.email_address || 'N/A' },
+            { label: 'Phone', value: kf?.agent?.phone || kf?.primary_phone || 'N/A' },
+        ],
+        'Industry Codes': [
+            { label: 'NAICS Code', value: kf?.naics_code || 'N/A' },
+            { label: 'SIC Code', value: kf?.sic_code || 'N/A' },
         ],
         'Recurring Structures': [
             {
@@ -195,6 +207,7 @@ export default function CaseActionScreen() {
         ],
         'Financial Terms': [
             { label: 'Policy Reference', value: kf?.policy_reference || 'N/A' },
+            { label: 'Effective Date', value: kf?.effective_date || 'N/A' },
             { label: 'Urgency', value: kf?.urgency || 'Unknown', isCritical: kf?.urgency === 'high' },
         ],
         'AI Summary': [

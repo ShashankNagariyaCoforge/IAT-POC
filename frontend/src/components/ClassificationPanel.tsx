@@ -90,9 +90,10 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                             {[
                                 { label: 'Document Type', value: classification.key_fields?.document_type || '—', color: '#00263E' },
+                                { label: 'Submission Type', value: classification.key_fields?.submission_type || '—', color: '#00263E' },
+                                { label: 'Segment', value: classification.key_fields?.segment || '—', color: '#00263E' },
                                 { label: 'Urgency', value: classification.key_fields?.urgency || '—', color: urgencyColor },
                                 { label: 'Policy Reference', value: classification.key_fields?.policy_reference || '—', color: '#00263E' },
-                                { label: 'Claim Type', value: classification.key_fields?.claim_type || '—', color: '#00263E' },
                             ].map(field => (
                                 <div key={field.label}>
                                     <p style={labelStyle}>{field.label}</p>
