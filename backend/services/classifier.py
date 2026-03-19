@@ -36,8 +36,7 @@ Classification Rules:
 
 Extraction Instructions:
 {extraction_instructions}
-
-NOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked, return the placeholder.
+{pii_masking_notice}
 
 Respond ONLY with valid JSON in this exact format:
 {{
@@ -74,7 +73,7 @@ class Classifier:
             logger.error(f"Failed to load extraction schema from {schema_path}: {e}")
             self._schema = {"fields": []}
 
-    def _generate_prompt(self) -> str:
+    def _generate_prompt(self, pii_masking_notice: str = "") -> str:
         instructions = []
         kf_lines = []
 
@@ -113,16 +112,18 @@ class Classifier:
 
         return BASE_SYSTEM_PROMPT.format(
             extraction_instructions="\n".join(instructions),
+            pii_masking_notice=pii_masking_notice,
             key_fields_json="\n".join(kf_lines)
         )
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def classify(self, masked_text: str) -> Dict:
+    async def classify(self, masked_text: str, is_masked: bool = True) -> Dict:
         """
-        Classify a PII-masked email/document using GPT-4o-mini.
+        Classify an email/document using GPT-4o-mini.
 
         Args:
-            masked_text: PII-masked text content of the email and its documents.
+            masked_text: Text content of the email and its documents (optionally masked).
+            is_masked: Whether PII has been masked in the input text.
 
         Returns:
             Parsed classification result dictionary.
@@ -134,7 +135,11 @@ class Classifier:
         logger.info(f"Sending {len(masked_text)} chars to GPT-4o-mini for classification.")
         try:
             # Generate the dynamic prompt from the current schema
-            system_prompt = self._generate_prompt()
+            pii_masking_notice = ""
+            if is_masked:
+                pii_masking_notice = "\nNOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked, return the placeholder."
+            
+            system_prompt = self._generate_prompt(pii_masking_notice)
             
             response = await self._client.chat.completions.create(
                 model=self._deployment,

@@ -29,7 +29,7 @@ def _get_cosmos():
 
 
 @router.post("/cases/{case_id}/process")
-async def process_single_case(case_id: str):
+async def process_single_case(case_id: str, skip_pii: bool = False):
     """
     Manually triggers the AI pipeline (Safety check + Classification) 
     for a specific case that is currently in 'RECEIVED' state.
@@ -161,13 +161,18 @@ async def process_single_case(case_id: str):
         
         combined_raw_text = "\n\n---\n\n".join(text_parts)
 
-        # 3. PII Masking (with chunking handled inside PIIMasker)
-        logger.info(f"[Process] Masking PII for case {case_id}")
-        masked_text, pii_mappings = await masker.mask_text(
-            combined_raw_text, 
-            case_id=case_id, 
-            document_id=case_id  # Use case_id as doc_id for the combined report
-        )
+        # 3. PII Masking (Optional)
+        if not skip_pii:
+            logger.info(f"[Process] Masking PII for case {case_id}")
+            masked_text, pii_mappings = await masker.mask_text(
+                combined_raw_text, 
+                case_id=case_id, 
+                document_id=case_id  # Use case_id as doc_id for the combined report
+            )
+        else:
+            logger.info(f"[Process] Skipping PII masking for case {case_id} as requested by UI.")
+            masked_text = combined_raw_text
+            pii_mappings = []
 
         # 4. Save PII mappings and HTML Report for download
         for mapping in pii_mappings:
@@ -199,20 +204,21 @@ async def process_single_case(case_id: str):
             report_blob_path = os.path.join(local_report_dir, f"{case_id}_pii_report.html")
             masked_blob_path = os.path.join(local_report_dir, f"{case_id}_masked.txt")
         else:
-            # Upload HTML report as a blob
-            await blob_service.upload_text(
-                settings.blob_container_extracted_text,
-                report_blob_name,
-                html_report,
-                content_type="text/html"
-            )
-
+            if not skip_pii:
+                # Upload HTML report as a blob
+                await blob_service.upload_text(
+                    settings.blob_container_extracted_text,
+                    report_blob_name,
+                    html_report,
+                    content_type="text/html"
+                )
+            
             await blob_service.upload_text(
                 settings.blob_container_extracted_text,
                 masked_blob_name,
                 masked_text
             )
-            report_blob_path = report_blob_name
+            report_blob_path = report_blob_name if not skip_pii else None
             masked_blob_path = masked_blob_name
 
         # 5. Content Safety (on masked text)
@@ -242,7 +248,7 @@ async def process_single_case(case_id: str):
                 safety_flagged_for_review = True
 
         # 6. AI Classification
-        classification = await classifier.classify(masked_text)
+        classification = await classifier.classify(masked_text, is_masked=(not skip_pii))
         classification["result_id"] = str(uuid.uuid4())
         classification["case_id"] = case_id
         classification["classified_at"] = datetime.utcnow().isoformat()

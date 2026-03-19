@@ -38,6 +38,7 @@ export default function CommandCenterPage() {
     const [pdfName, setPdfName] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [reprocessKey, setReprocessKey] = useState(0);
+    const [skipPii, setSkipPii] = useState(false);
 
     const fetchCases = useCallback(async () => {
         try {
@@ -110,7 +111,7 @@ export default function CommandCenterPage() {
         if (!selectedCaseId) return;
         setIsProcessing(true);
         try {
-            await apiClient.post(`/cases/${selectedCaseId}/process`);
+            await apiClient.post(`/cases/${selectedCaseId}/process?skip_pii=${skipPii}`);
             navigate(`/cases/${selectedCaseId}`);
             await fetchCases();
             if (fetchDetailsRef.current) fetchDetailsRef.current();
@@ -233,13 +234,27 @@ export default function CommandCenterPage() {
                             </div>
 
                             {selectedCase.status === 'RECEIVED' ? (
-                                <button
-                                    onClick={handleProcess}
-                                    disabled={isProcessing}
-                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md flex items-center gap-2 transition"
-                                >
-                                    {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Queuing...</> : <><Activity size={16} /> Process Case</>}
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl shadow-sm">
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={!skipPii}
+                                                onChange={() => setSkipPii(!skipPii)}
+                                            />
+                                            <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                                            <span className="ml-2 text-xs font-bold text-slate-600 uppercase tracking-tighter">Mask PII</span>
+                                        </label>
+                                    </div>
+                                    <button
+                                        onClick={handleProcess}
+                                        disabled={isProcessing}
+                                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md flex items-center gap-2 transition"
+                                    >
+                                        {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Queuing...</> : <><Activity size={16} /> Process Case</>}
+                                    </button>
+                                </div>
                             ) : (
                                 <button
                                     onClick={() => navigate(`/cases/${selectedCase.case_id}`)}
@@ -326,6 +341,19 @@ export default function CommandCenterPage() {
                         </div>
 
                         <div className="shrink-0 mb-8">
+                            <div className="mb-4 flex items-center justify-between px-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Data Privacy</span>
+                                <label className="relative inline-flex items-center cursor-pointer scale-90 origin-right">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={!skipPii}
+                                        onChange={() => setSkipPii(!skipPii)}
+                                    />
+                                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <span className="ml-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Mask PII</span>
+                                </label>
+                            </div>
                             <AgentPipelinePanel
                                 key={`${selectedCase.case_id}-${reprocessKey}`}
                                 caseId={selectedCase.case_id}
