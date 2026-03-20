@@ -120,33 +120,47 @@ class EnrichmentService:
             url for url in urls
             if not any(skip in url.lower() for skip in skip_patterns)
         ]
-        logger.info(f"[Enrichment] Extracted {len(filtered)} URLs from text (from {len(urls)} total)")
-        return filtered[:10]  # Cap at 10 URLs for POC
+        return filtered[:10]
+
+    async def identify_entity(self, text: str) -> Dict[str, Any]:
+        """Use AI to quickly identify the company name and main website from text."""
+        prompt = """
+        Identify the primary insurance applicant (Company/Business Name) and any 
+        business website URL mentioned in the text below. 
+        Return ONLY valid JSON in this format: 
+        {"company_name": "...", "website": "..."}
+        If not found, use null.
+        """
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._deployment,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": "You are a data identification assistant."},
+                    {"role": "user", "content": f"{prompt}\n\nContent:\n{text[:4000]}"}
+                ],
+                temperature=0.0,
+                max_tokens=200,
+            )
+            raw = response.choices[0].message.content
+            data = json.loads(raw)
+            logger.info(f"[Enrichment] AI Entity Identification: {data}")
+            return data
+        except Exception as e:
+            logger.warning(f"[Enrichment] AI Entity Identification failed: {e}")
+            return {"company_name": None, "website": None}
 
     @staticmethod
     def extract_company_name(text: str, key_fields: Optional[Dict] = None) -> str:
-        """Derive company name from existing key_fields or heuristic extraction."""
-        # First try key_fields from classification
+        """Fallback/Legacy company name extraction from key_fields."""
         if key_fields:
             name = key_fields.get("name") or ""
             if not name:
                 insured = key_fields.get("insured", {})
                 if isinstance(insured, dict):
                     name = insured.get("name", "")
-            if name and name.lower() not in ["null", "none", "n/a"]:
-                return name
-
-        # Heuristic: look for common patterns in text
-        patterns = [
-            r'(?:insured|applicant|company|business|client)\s*(?:name)?[:\-\s]+([A-Z][A-Za-z\s&.,\'-]+(?:LLC|Inc|Corp|Ltd|LP|LLP)?)',
-            r'Re:\s*([A-Z][A-Za-z\s&.,\'-]+(?:LLC|Inc|Corp|Ltd|LP|LLP))',
-        ]
-        for p in patterns:
-            match = re.search(p, text, re.I)
-            if match:
-                res = match.group(1).split('\n')[0].strip()
-                return res
-
+            if name and str(name).lower() not in ["null", "none", "n/a", ""]:
+                return str(name)
         return ""
 
     # ─── Web Crawling (Crawl4AI) ────────────────────────────────────────────
@@ -297,24 +311,30 @@ class EnrichmentService:
         key_fields: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """
-        Main enrichment pipeline:
-          1. Extract URLs from combined text
-          2. Derive company name
-          3. Crawl each URL
-          4. AI extract fields
-          5. Google search fallback for null fields
-          6. Merge and return
+        Main enrichment pipeline.
         """
-        logger.info("[Enrichment] Starting enrichment pipeline")
+        logger.info(f"[Enrichment] Starting pipeline (text length: {len(combined_text)})")
 
-        # Step 1: Extract company name if not provided
+        # Step 1: Identify entity using AI
+        entity_info = await self.identify_entity(combined_text)
+        
+        # Use AI name if provided, else fallback to key_fields/provided name
+        if not company_name:
+            company_name = entity_info.get("company_name")
         if not company_name:
             company_name = self.extract_company_name(combined_text, key_fields)
-        if not company_name:
-            logger.warning("[Enrichment] No company name found, enrichment will be limited")
+        
+        logger.info(f"[Enrichment] Pipeline company name: '{company_name}'")
 
-        # Step 2: Extract URLs from combined text
+        # Step 2: Extract URLs from combined text + AI identified website
         urls = self.extract_urls(combined_text)
+        ai_site = entity_info.get("website")
+        if ai_site and ai_site not in urls:
+            urls.insert(0, ai_site) # Prioritize AI identified website
+            
+        if not company_name and not urls:
+            logger.warning("[Enrichment] No company name or URLs found. Enrichment aborted.")
+            return EnrichmentResult(enrichment_status="no_data_found").model_dump()
         if not urls:
             logger.info("[Enrichment] No URLs found in text, trying Google search directly")
             if company_name:
