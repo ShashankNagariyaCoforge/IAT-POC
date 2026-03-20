@@ -163,9 +163,9 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
             </div>
 
             {/* Body */}
-            <div className="p-4 max-h-[min(480px,65vh)] overflow-y-auto custom-scrollbar">
+            <div className="p-4 max-h-[min(680px,75vh)] overflow-y-auto custom-scrollbar">
                 {hasFields ? (
-                    <div className="grid grid-cols-2 gap-3 pb-2">
+                    <div className="grid grid-cols-2 gap-3 pb-8">
                         {fields.map(f => (
                             <div key={f.key} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-cyan-200 transition-colors group">
                                 <div className="flex items-center justify-between mb-1.5">
