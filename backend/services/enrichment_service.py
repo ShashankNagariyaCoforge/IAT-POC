@@ -167,6 +167,13 @@ class EnrichmentService:
 
     async def crawl_website(self, url: str) -> str:
         """Crawl a website using Crawl4AI and return markdown content."""
+        if not url:
+            return ""
+            
+        # Ensure URL has protocol
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
         try:
             from crawl4ai import AsyncWebCrawler
 
@@ -179,6 +186,9 @@ class EnrichmentService:
                 else:
                     logger.warning(f"[Enrichment] Crawl4AI returned no content for {url}")
                     return ""
+        except NotImplementedError:
+            logger.warning(f"[Enrichment] Crawl4AI failed with NotImplementedError (Windows Event Loop issue). Falling back to httpx for {url}")
+            return await self._fallback_crawl(url)
         except ImportError:
             logger.warning("[Enrichment] crawl4ai not installed, falling back to httpx")
             return await self._fallback_crawl(url)
@@ -284,9 +294,9 @@ class EnrichmentService:
 
             # Try a specific query or fallback to broad query
             if field_name == "company information":
-                query = f"\"{company_name}\" business overview address website"
+                query = f"{company_name} business overview"
             else:
-                query = f"\"{company_name}\" {field_name.replace('_', ' ')}"
+                query = f"{company_name} {field_name.replace('_', ' ')}"
                 
             logger.info(f"[Enrichment] Searching Google: '{query}'")
 

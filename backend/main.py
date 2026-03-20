@@ -3,9 +3,14 @@ IAT Insurance AI Email Automation Platform
 FastAPI Application Entry Point
 """
 
+import sys
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+
+# Windows-specific fix for Playwright/Subprocess support
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
