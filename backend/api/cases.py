@@ -295,15 +295,16 @@ async def get_case_timeline(case_id: str):
 @router.get("/cases/{case_id}/pipeline-status")
 async def get_case_pipeline_status(case_id: str):
     """
-    Returns a 5-agent agentic pipeline status derived from the case's current status.
-    No additional DB fields needed — status is inferred from CaseStatus.
+    Returns agent pipeline status derived from the case's current status.
 
     Agents:
-      0: Orchestrator Agent  — always runs first
-      1: Email Agent         — EmailFetcherService + email.json download
-      2: PII Agent           — PIIMasker
+      0: Orchestrator Agent   — always runs first
+      1: Email Agent          — EmailFetcherService + email.json download
+      2: PII Agent            — PIIMasker
       3: Content Safety Agent — ContentSafetyService
       4: Classification Agent — Classifier
+      5: Extraction Agent     — DI spatial mapping
+      6: Enrichment Agent     — Web crawling + AI enrichment (runs parallel with 2-5)
     """
     cosmos = _get_cosmos()
     case = await cosmos.get_case(case_id)
@@ -320,58 +321,73 @@ async def get_case_pipeline_status(case_id: str):
         {"id": "safety",       "name": "Content Safety",    "type": "Safety",    "detail": "Running safety checks", "score": 97},
         {"id": "classifier",   "name": "Classification",    "type": "Inference", "detail": "AI classification", "score": 0},
         {"id": "extraction",   "name": "Extraction Agent",  "type": "Vision",    "detail": "High-fidelity mapping", "score": 0},
+        {"id": "enrichment",   "name": "Enrichment Agent",  "type": "Crawl+AI",  "detail": "Web enrichment & search", "score": 0},
     ]
 
     # Determine agent states based on case status
     TERMINAL_STATUSES = {"PROCESSED", "CLASSIFIED", "BLOCKED_SAFETY", "NEEDS_REVIEW_SAFETY", "FAILED", "PENDING_REVIEW"}
 
     if status == "RECEIVED":
-        # Just arrived — orchestrator is spinning up
-        states = ["active", "pending", "pending", "pending", "pending", "pending"]
+        states = ["active", "pending", "pending", "pending", "pending", "pending", "pending"]
         current_agent_index = 0
 
     elif status == "PROCESSING":
-        # Email + PII running
-        states = ["completed", "completed", "active", "pending", "pending", "pending"]
+        # Email done, PII running, enrichment launched in parallel
+        states = ["completed", "completed", "active", "pending", "pending", "pending", "active"]
         current_agent_index = 2
 
     elif status == "BLOCKED_SAFETY":
-        # Safety blocked — safety agent = failed, classifier = skipped
-        states = ["completed", "completed", "completed", "failed", "pending", "pending"]
+        states = ["completed", "completed", "completed", "failed", "pending", "pending", "completed"]
         current_agent_index = 3
         agents[3]["detail"] = "Blocked — content policy violation"
         agents[3]["score"] = 0
 
     elif status == "NEEDS_REVIEW_SAFETY":
-        # Safety flagged but continued — safety = warning
-        states = ["completed", "completed", "completed", "warning", "completed", "completed"]
-        current_agent_index = 5
+        states = ["completed", "completed", "completed", "warning", "completed", "completed", "completed"]
+        current_agent_index = 6
         agents[3]["detail"] = "Flagged for review"
         agents[4]["score"] = 85
         agents[5]["score"] = 85
 
     elif status == "FAILED":
-        # Failed during email or PII step
-        states = ["completed", "failed", "pending", "pending", "pending", "pending"]
+        states = ["completed", "failed", "pending", "pending", "pending", "pending", "pending"]
         current_agent_index = 1
         agents[1]["detail"] = "Processing error"
 
     elif status in {"PROCESSED", "CLASSIFIED", "PENDING_REVIEW"}:
-        # All done
-        states = ["completed", "completed", "completed", "completed", "completed", "completed"]
-        current_agent_index = 5
-        # Pull confidence score from classification if available
+        states = ["completed", "completed", "completed", "completed", "completed", "completed", "completed"]
+        current_agent_index = 6
+        # Pull confidence score from classification
         classification = await cosmos.get_classification_for_case(case_id)
         if classification:
             score = classification.get("confidence_score", 0)
             agents[4]["score"] = int((score or 0) * 100) if (score or 0) <= 1 else int(score or 0)
             agents[4]["detail"] = f"Classified: {classification.get('classification_category', 'Unknown')}"
             agents[5]["score"] = agents[4]["score"]
-            agents[5]["detail"] = f"Coordinates mapped for UI"
+            agents[5]["detail"] = "Coordinates mapped for UI"
+
+        # Pull enrichment score
+        enrichment = await cosmos.get_enrichment_for_case(case_id)
+        if enrichment:
+            enrich_data = enrichment.get("enrichment", {})
+            # Count how many fields have non-null values
+            field_keys = [
+                "entity_type", "naics_code", "entity_structure",
+                "years_in_business", "number_of_employees", "territory_code",
+                "limit_of_liability", "deductible",
+            ]
+            filled = sum(
+                1 for k in field_keys
+                if enrich_data.get(k) and isinstance(enrich_data[k], dict) and enrich_data[k].get("value")
+            )
+            total = len(field_keys)
+            agents[6]["score"] = int((filled / total) * 100) if total > 0 else 0
+            agents[6]["detail"] = f"Enriched {filled}/{total} fields from web"
+        else:
+            agents[6]["detail"] = "Awaiting enrichment data"
 
     else:
-        # Fallback
-        states = ["active", "pending", "pending", "pending", "pending", "pending"]
+        states = ["active", "pending", "pending", "pending", "pending", "pending", "pending"]
         current_agent_index = 0
 
     for i, agent in enumerate(agents):
@@ -384,6 +400,23 @@ async def get_case_pipeline_status(case_id: str):
         "current_agent_index": current_agent_index,
         "is_terminal": status in TERMINAL_STATUSES,
     }
+
+
+# ── GET /cases/{case_id}/enrichment ───────────────────────────────────────────
+@router.get("/cases/{case_id}/enrichment")
+async def get_case_enrichment(case_id: str):
+    """
+    Get the enrichment result for a case.
+    Returns web-crawled enrichment fields with confidence scores.
+    """
+    cosmos = _get_cosmos()
+    case = await cosmos.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+    result = await cosmos.get_enrichment_for_case(case_id)
+    if not result:
+        return {"enrichment": None, "message": "Enrichment not yet available."}
+    return {"enrichment": result}
 
 
 # ── PATCH /cases/{case_id}/fields ─────────────────────────────────────────────

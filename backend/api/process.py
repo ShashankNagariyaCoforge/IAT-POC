@@ -14,6 +14,7 @@ from services.content_safety import ContentSafetyService
 from services.pii_masker import PIIMasker
 from services.blob_storage import BlobStorageService
 from services.extraction_service import ExtractionService
+from services.enrichment_service import EnrichmentService
 from services.renderer import DocumentRenderer
 from utils.pii_report import format_pii_report_html
 from models.case import CaseStatus
@@ -179,6 +180,13 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 text_parts.append(text_content)
         
         combined_raw_text = "\n\n---\n\n".join(text_parts)
+
+        # 2b. Launch enrichment in parallel (does not depend on PII/classification)
+        enrichment_svc = EnrichmentService()
+        enrichment_task = asyncio.create_task(
+            enrichment_svc.run_enrichment(combined_raw_text)
+        )
+        logger.info(f"[Process] Enrichment task launched in background for case {case_id}")
 
         # 3. PII Masking (Optional)
         if not skip_pii:
@@ -450,6 +458,26 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
         # 6.7 Save Classification Result with Annotated Paths
         logger.info(f"[Extraction] Final extraction results count: {len(extraction_results)}")
         await db_service.save_classification_result(classification)
+
+        # 6.8 Await and save enrichment results (was launched in parallel at step 2b)
+        try:
+            enrichment_result = await enrichment_task
+            # Retroactively update company_name from classification if enrichment didn't find one
+            if enrichment_result and not enrichment_result.get("company_name"):
+                company_from_cls = classification.get("key_fields", {}).get("name", "")
+                if company_from_cls:
+                    enrichment_result["company_name"] = company_from_cls
+            
+            enrichment_doc = {
+                "case_id": case_id,
+                "result_id": str(uuid.uuid4()),
+                "enrichment": enrichment_result,
+                "enriched_at": datetime.utcnow().isoformat(),
+            }
+            await db_service.save_enrichment_result(enrichment_doc)
+            logger.info(f"[Process] Enrichment results saved for case {case_id}")
+        except Exception as enrich_err:
+            logger.warning(f"[Process] Enrichment failed (non-fatal) for case {case_id}: {enrich_err}")
 
         # 7. Final Status Update
         if not safety_flagged_for_review:

@@ -14,6 +14,7 @@ import { InlinePdfViewer } from '../components/InlinePdfViewer';
 
 import { PdfViewerModal } from '../components/PdfViewerModal';
 import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
+import { EnrichmentPanel } from '../components/EnrichmentPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
 import { format } from 'date-fns';
 
@@ -408,6 +409,9 @@ export default function CaseActionScreen() {
                         onSelectField={handleFieldSelect}
                         onSelectGroup={handleGroupSelect}
                     />
+
+                    {/* Web Enrichment Panel */}
+                    {caseId && <EnrichmentPanel caseId={caseId} />}
 
                     {/* Decision Panel (only if processing is done) */}
                     {isTerminal && (

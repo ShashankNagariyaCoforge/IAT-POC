@@ -15,6 +15,7 @@ import type {
     TimelineEvent,
     Stats,
     PipelineStatus,
+    EnrichmentResult,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -96,4 +97,7 @@ export const casesApi = {
 
     resetCase: (client: AxiosInstance, caseId: string) =>
         client.post(`/cases/${caseId}/reset`).then((r) => r.data),
+
+    getCaseEnrichment: (client: AxiosInstance, caseId: string) =>
+        client.get<{ enrichment: EnrichmentResult | null }>(`/cases/${caseId}/enrichment`).then((r) => r.data),
 };

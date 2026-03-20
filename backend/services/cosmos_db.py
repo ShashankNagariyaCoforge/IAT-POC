@@ -25,6 +25,7 @@ COLLECTION_EMAILS = "emails"
 COLLECTION_DOCUMENTS = "documents"
 COLLECTION_CLASSIFICATION = "classification_results"
 COLLECTION_PII_MAPPING = "pii_mapping"
+COLLECTION_ENRICHMENT = "enrichment_results"
 
 
 class CosmosDBService:
@@ -168,6 +169,9 @@ class CosmosDBService:
 
         # 2. Delete PII mapping
         await db[COLLECTION_PII_MAPPING].delete_many({"case_id": case_id})
+
+        # 3. Delete enrichment results
+        await db[COLLECTION_ENRICHMENT].delete_many({"case_id": case_id})
 
         # 3. Update case
         await db[COLLECTION_CASES].update_one(
@@ -374,6 +378,20 @@ class CosmosDBService:
         db = self._get_db()
         mapping["_id"] = mapping.get("mapping_id", str(uuid.uuid4()))
         await db[COLLECTION_PII_MAPPING].insert_one(mapping)
+
+    # ===== ENRICHMENT RESULTS =====
+
+    async def save_enrichment_result(self, result: Dict) -> None:
+        db = self._get_db()
+        result["_id"] = result.get("result_id", str(uuid.uuid4()))
+        await db[COLLECTION_ENRICHMENT].insert_one(result)
+        logger.info(f"Saved enrichment for case {result.get('case_id')}")
+
+    async def get_enrichment_for_case(self, case_id: str) -> Optional[Dict]:
+        db = self._get_db()
+        return await db[COLLECTION_ENRICHMENT].find_one(
+            {"case_id": case_id}, sort=[("enriched_at", DESCENDING)]
+        )
 
     # ===== STATS =====
 

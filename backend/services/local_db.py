@@ -108,6 +108,8 @@ class LocalDBService:
         q = Query()
         # Delete classification results
         db.table("classification_results").remove(q.case_id == case_id)
+        # Delete enrichment results
+        db.table("enrichment_results").remove(q.case_id == case_id)
         # Update case record
         db.table("cases").update({
             "status": CaseStatus.RECEIVED.value,
@@ -289,6 +291,22 @@ class LocalDBService:
     async def save_pii_mapping(self, mapping: Dict) -> None:
         # No-op in demo mode — PII mappings not persisted locally
         pass
+
+    # ===== ENRICHMENT RESULTS =====
+
+    async def save_enrichment_result(self, result: Dict) -> None:
+        db = _get_db()
+        db.table("enrichment_results").insert(dict(result))
+        db.storage.flush()
+        logger.info(f"[LocalDB] Saved enrichment for case {result.get('case_id')}")
+
+    async def get_enrichment_for_case(self, case_id: str) -> Optional[Dict]:
+        db = _get_db()
+        R = Query()
+        results = db.table("enrichment_results").search(R.case_id == case_id)
+        if not results:
+            return None
+        return sorted(results, key=lambda r: r.get("enriched_at") or "", reverse=True)[0]
 
     # ===== STATS =====
 

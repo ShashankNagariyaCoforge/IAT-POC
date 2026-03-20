@@ -225,3 +225,41 @@ export interface PipelineStatus {
     current_agent_index: number;
     is_terminal: boolean;
 }
+
+export interface EnrichedField {
+    value: string | null;
+    confidence: number;
+    source: string | null;
+}
+
+export interface EnrichmentData {
+    entity_type?: EnrichedField;
+    naics_code?: EnrichedField;
+    entity_structure?: EnrichedField;
+    years_in_business?: EnrichedField;
+    number_of_employees?: EnrichedField;
+    territory_code?: EnrichedField;
+    limit_of_liability?: EnrichedField;
+    deductible?: EnrichedField;
+    class_mass_action_deductible_retention?: EnrichedField;
+    pending_or_prior_litigation_date?: EnrichedField;
+    duty_to_defend_limit?: EnrichedField;
+    defense_outside_limit?: EnrichedField;
+    employment_category?: EnrichedField;
+    ec_number_of_employees?: EnrichedField;
+    employee_compensation?: EnrichedField;
+    number_of_employees_in_each_band?: EnrichedField;
+    employee_location?: EnrichedField;
+    number_of_employees_in_each_location?: EnrichedField;
+    source_urls: string[];
+    company_name: string | null;
+    website: string | null;
+    enrichment_status: string;
+}
+
+export interface EnrichmentResult {
+    case_id: string;
+    result_id: string;
+    enrichment: EnrichmentData;
+    enriched_at: string;
+}
