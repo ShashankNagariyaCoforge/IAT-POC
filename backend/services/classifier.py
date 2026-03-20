@@ -54,6 +54,7 @@ Confidence Scoring Rules:
 - **Be Critical**: Provide a confidence score (0.0 to 1.0) for every field extracted in `key_fields`.
 - **Lower Confidence on Doubt**: If a value is inferred, blurry in a document, or comes from a conflicting source, you MUST lower the score below 0.7.
 - **Ambiguity**: If you are making an "educated guess" (e.g., date format is unclear), use 0.4 - 0.6.
+- **Null Fields**: If a field is not found (`null`), set its confidence in `field_confidence` to **0.0** or omit it entirely.
 - **High Certainty**: Only use 0.95+ for values that are explicitly and clearly present in the source text.
 
 Extraction Instructions:

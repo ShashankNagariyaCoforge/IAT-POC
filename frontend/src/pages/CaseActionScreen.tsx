@@ -150,12 +150,20 @@ export default function CaseActionScreen() {
     const kf = classification?.key_fields;
     const conf = kf?.field_confidence || {};
 
-    const getField = (label: string, value: string | undefined | null, techKey?: string, isCritical: boolean = false): FieldItem => ({
-        label,
-        value: value || 'N/A',
-        confidence: techKey && conf[techKey] !== undefined ? conf[techKey] : (conf[label] !== undefined ? conf[label] : undefined),
-        isCritical
-    });
+    const getField = (label: string, value: string | undefined | null, techKey?: string, isCritical: boolean = false): FieldItem => {
+        const hasValue = value && value.toString().trim() !== '' && value.toString().toLowerCase() !== 'null';
+        const finalValue = hasValue ? value : 'N/A';
+
+        return {
+            label,
+            value: finalValue,
+            // Only show confidence if there is an actual value
+            confidence: hasValue && techKey && conf[techKey] !== undefined
+                ? conf[techKey]
+                : (hasValue && conf[label] !== undefined ? conf[label] : undefined),
+            isCritical
+        };
+    };
 
     const groupedFields: Record<string, PanelItem[]> = {
         'Submission Details': [
