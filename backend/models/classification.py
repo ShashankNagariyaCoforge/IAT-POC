@@ -66,6 +66,7 @@ class KeyFields(BaseModel):
     document_type: Optional[str] = None
     urgency: Optional[str] = None
     policy_reference: Optional[str] = None
+    field_confidence: Dict[str, float] = Field(default_factory=dict, description="Confidence score (0.0-1.0) for each field")
 
 
 class ClassificationResult(BaseModel):

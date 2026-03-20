@@ -34,6 +34,19 @@ Classification Rules:
 - If an email is following up on a New application, use Follow-up, NOT New.
 - If the latest reply just says "Thank you" or "Received", distinguish it from the core request but don't ignore the context of the conversion.
 
+Extraction Rules:
+- **Accuracy First**: Only extract values that are explicitly present or can be strongly inferred. 
+- **Multi-Source Synthesis**: You are provided with multiple email threads and document contents. If a field (like Policy Number) appears in both an email and a PDF, prefer the most formal one or the latest one if they conflict.
+- **Null Handling**: If a field is absolutely not found in any source, return `null`. Do not make up values.
+- **Entity Resolution**: Even if a name is slightly different across sources (e.g., "IAT Insurance" vs "IAT Insurance Group"), resolve it to the most complete version found.
+- **Nested Objects**: For "agent" and "insured", fill in all sub-fields (email, phone, etc.) by looking across all available text parts.
+
+Confidence Scoring Rules:
+- **Be Critical**: Provide a confidence score (0.0 to 1.0) for every field extracted in `key_fields`.
+- **Lower Confidence on Doubt**: If a value is inferred, blurry in a document, or comes from a conflicting source, you MUST lower the score below 0.7.
+- **Ambiguity**: If you are making an "educated guess" (e.g., date format is unclear), use 0.4 - 0.6.
+- **High Certainty**: Only use 0.95+ for values that are explicitly and clearly present in the source text.
+
 Extraction Instructions:
 {extraction_instructions}
 {pii_masking_notice}
@@ -47,7 +60,11 @@ Respond ONLY with valid JSON in this exact format:
   "key_fields": {{
 {key_fields_json}
   }},
-  "requires_human_review": <true if confidence < 0.75, else false>
+  "field_confidence": {{
+    "<field_key>": <0.0 to 1.0>,
+    ...
+  }},
+  "requires_human_review": <true if confidence < 0.75 or any critical field confidence < 0.6, else false>
 }}"""
 
 
@@ -101,6 +118,12 @@ class Classifier:
             # Key/Value description for AI
             simple_fields.append(f["key"])
             kf_lines.append(f'    "{f["key"]}": "<val>",')
+            
+            # Add enriched context for each field (additive)
+            desc = f.get("description", "Standard extraction")
+            aliases = ", ".join(f.get("aliases", []))
+            alias_text = f" (aliases: {aliases})" if aliases else ""
+            instructions.append(f"- {f['key']}: {desc}{alias_text}")
         
         if simple_fields:
             instructions.append(f"- {', '.join(simple_fields)}: Standard string extraction as defined in the schema.")
@@ -158,6 +181,10 @@ class Classifier:
                 f"Classification result: {result.get('classification_category')} "
                 f"(confidence: {result.get('confidence_score')})"
             )
+            # Map field_confidence to key_fields object for Pydantic
+            if "field_confidence" in result and "key_fields" in result:
+                result["key_fields"]["field_confidence"] = result["field_confidence"]
+            
             return result
         except json.JSONDecodeError as e:
             logger.error(f"GPT returned invalid JSON: {e}")

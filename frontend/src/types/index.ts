@@ -138,6 +138,7 @@ export interface KeyFields {
     entity_type?: string;
     agency?: string;
     address?: string;
+    field_confidence?: Record<string, number>;
 
     // Legacy fields
     document_type?: string;

@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from typing import Any
 import re
 import uuid
@@ -94,70 +95,88 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
         
         doc_layout_results = {} # doc_id -> analyze_result
         doc_bytes_map = {} # doc_id -> doc_bytes
-        for doc in documents:
+
+        async def process_document_item(doc):
             doc_id = doc.get("document_id")
             blob_path = doc.get("blob_path")
             filename = doc.get("filename") or doc.get("file_name") # Handle key variance
             
             logger.info(f"[Process] Processing doc: {filename} (ID: {doc_id}, Blob: {blob_path})")
             
-            # Fetch bytes from blob
-            if blob_path:
-                try:
-                    # Multi-container search strategy
-                    containers_to_try = [
-                        settings.blob_container_raw_emails,
-                        settings.blob_container_attachments
-                    ]
-                    
-                    doc_bytes = None
-                    last_err = None
-                    used_container = None
-                    
-                    for container in containers_to_try:
-                        try:
-                            logger.info(f"[Process] Trying container '{container}' for blob '{blob_path}'")
-                            doc_bytes = await blob_service.download_bytes(container, blob_path)
-                            used_container = container
-                            break
-                        except Exception as e:
-                            last_err = e
-                            continue
-                            
-                    if not doc_bytes:
-                        # Final "Smart" fallback if the path actually IS "container/blob"
-                        if "/" in blob_path:
-                            parts = blob_path.split("/", 1)
-                            c, b = parts[0], parts[1]
-                            logger.info(f"[Process] Final fallback: Trying container '{c}', blob '{b}'")
-                            doc_bytes = await blob_service.download_bytes(c, b)
-                            used_container = c
-                        else:
-                            raise last_err or Exception(f"Blob {blob_path} not found in any container.")
-
-                    logger.info(f"[Process] Successfully downloaded {filename} from container '{used_container}'")
-                    
-                    import mimetypes
-                    content_type, _ = mimetypes.guess_type(filename)
-                    content_type = content_type or "application/octet-stream"
-                    
-                    logger.info(f"[Process] Running DI extraction on {filename} ({doc_id})")
-                    layout_result = await extraction_svc.analyze_document(doc_bytes, content_type)
-                    doc_layout_results[doc_id] = layout_result
-                    doc_bytes_map[doc_id] = doc_bytes
-                    
-                    # Update text parts with DI text if missing
-                    extracted_text = layout_result.get("content", "")
-                    if extracted_text:
-                        text_parts.append(f"[Source: Attachment {filename}]\n{extracted_text}")
-                except Exception as di_err:
-                    logger.warning(f"[Process] DI extraction failed for {filename}: {di_err}")
-                    if doc.get("extracted_text"):
-                        text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
-            else:
+            if not blob_path:
                 logger.warning(f"[Process] Skip DI: No blob_path for {filename}")
+                content = None
                 if doc.get("extracted_text"):
-                    text_parts.append(f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}")
+                    content = f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}"
+                return doc_id, None, None, content
+
+            try:
+                # Multi-container search strategy
+                containers_to_try = [
+                    settings.blob_container_raw_emails,
+                    settings.blob_container_attachments
+                ]
+                
+                doc_bytes = None
+                last_err = None
+                used_container = None
+                
+                for container in containers_to_try:
+                    try:
+                        logger.info(f"[Process] Trying container '{container}' for blob '{blob_path}'")
+                        doc_bytes = await blob_service.download_bytes(container, blob_path)
+                        used_container = container
+                        break
+                    except Exception as e:
+                        last_err = e
+                        continue
+                        
+                if not doc_bytes:
+                    # Final "Smart" fallback if the path actually IS "container/blob"
+                    if "/" in blob_path:
+                        parts = blob_path.split("/", 1)
+                        c, b = parts[0], parts[1]
+                        logger.info(f"[Process] Final fallback: Trying container '{c}', blob '{b}'")
+                        doc_bytes = await blob_service.download_bytes(c, b)
+                        used_container = c
+                    else:
+                        raise last_err or Exception(f"Blob {blob_path} not found in any container.")
+
+                logger.info(f"[Process] Successfully downloaded {filename} from container '{used_container}'")
+                
+                import mimetypes
+                content_type, _ = mimetypes.guess_type(filename)
+                content_type = content_type or "application/octet-stream"
+                
+                logger.info(f"[Process] Running DI extraction on {filename} ({doc_id})")
+                layout_result = await extraction_svc.analyze_document(doc_bytes, content_type)
+                
+                text_content = None
+                # Update text parts with DI text if missing
+                extracted_text = layout_result.get("content", "")
+                if extracted_text:
+                    text_content = f"[Source: Attachment {filename}]\n{extracted_text}"
+                
+                return doc_id, layout_result, doc_bytes, text_content
+            except Exception as di_err:
+                logger.warning(f"[Process] DI extraction failed for {filename}: {di_err}")
+                text_content = None
+                if doc.get("extracted_text"):
+                    text_content = f"[Source: Attachment {filename}]\n{doc.get('extracted_text')}"
+                return doc_id, None, None, text_content
+
+        # Process all documents in parallel
+        doc_tasks = [process_document_item(doc) for doc in documents]
+        doc_results = await asyncio.gather(*doc_tasks)
+
+        for doc_id, layout_result, doc_bytes, text_content in doc_results:
+            if doc_id:
+                if layout_result:
+                    doc_layout_results[doc_id] = layout_result
+                if doc_bytes:
+                    doc_bytes_map[doc_id] = doc_bytes
+            if text_content:
+                text_parts.append(text_content)
         
         combined_raw_text = "\n\n---\n\n".join(text_parts)
 
@@ -279,7 +298,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 t["doc_id"] = doc_id
                 doc_tables.append(t)
 
-        def recursive_extract(data: Any, prefix: str = ""):
+        async def recursive_extract(data: Any, prefix: str = ""):
             if isinstance(data, dict):
                 for k, v in data.items():
                     # Clean the key for display (e.g. agencyName -> Agency Name)
@@ -298,11 +317,11 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                         clean_k = re.sub(r'([a-z])([A-Z])', r'\1 \2', k).replace("_", " ").title()
                     
                     new_prefix = f"{prefix}: {clean_k}" if prefix else clean_k
-                    recursive_extract(v, new_prefix)
+                    await recursive_extract(v, new_prefix)
             elif isinstance(data, list):
                 for i, item in enumerate(data):
                     new_prefix = f"{prefix} [{i+1}]"
-                    recursive_extract(item, new_prefix)
+                    await recursive_extract(item, new_prefix)
             elif data and str(data).lower() not in ["null", "none", "—", "n/a", "not available", "not provided", "none"]:
                 # Leaf node: search for coordinates
                 field_label = prefix
@@ -312,85 +331,118 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 if str(data) in placeholder_to_originals:
                     search_values.extend(list(placeholder_to_originals[str(data)]))
                 
-                instances = []
                 # Remove duplicates and empty strings
                 search_values = list(set([v for v in search_values if v and v.strip()]))
                 
                 logger.info(f"[Extraction] Searching for field '{field_label}' with values: {search_values}")
                 
+                # Optimized: Parallelize searching for field matches across all search values and document layouts
+                search_tasks = []
+                # Record (val, doc_id) to map results back
+                task_metadata = []
+                
                 for val in search_values:
                     for doc_id, layout in doc_layout_results.items():
-                        matches = extraction_svc.find_field_in_lines(layout, val)
+                        # find_field_in_lines is CPU bound, use to_thread to avoid blocking event loop
+                        search_tasks.append(asyncio.to_thread(extraction_svc.find_field_in_lines, layout, val))
+                        task_metadata.append(doc_id)
+                
+                if search_tasks:
+                    all_matches_results = await asyncio.gather(*search_tasks)
+                    
+                    instances = []
+                    for i, matches in enumerate(all_matches_results):
+                        doc_id = task_metadata[i]
                         for m in matches:
                             m["doc_id"] = doc_id
                             instances.append(m)
-                
-                if instances:
-                    # Sort globally by similarity and confidence before picking top
-                    instances.sort(key=lambda x: (x.get("similarity", 0), x.get("confidence", 0)), reverse=True)
                     
-                    # Enforce "Winner Takes All" for single fields to avoid noise
-                    if "[" not in field_label:
-                        # Take only the absolute best match found across all documents
-                        instances = [instances[0]]
-                    
-                    logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}'")
-                    extraction_results.append({
-                        "field": field_label,
-                        "value": str(data),
-                        "instances": instances
-                    })
-                else:
-                    logger.warning(f"[Extraction] No matches found for '{field_label}' in any document.")
+                    if instances:
+                        # Sort globally by similarity and confidence before picking top
+                        instances.sort(key=lambda x: (x.get("similarity", 0), x.get("confidence", 0)), reverse=True)
+                        
+                        # Enforce "Winner Takes All" for single fields to avoid noise
+                        if "[" not in field_label:
+                            # Take only the absolute best match found across all documents
+                            instances = [instances[0]]
+                        
+                        logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}'")
+                        extraction_results.append({
+                            "field": field_label,
+                            "value": str(data),
+                            "instances": instances
+                        })
+                    else:
+                        logger.warning(f"[Extraction] No matches found for '{field_label}' in any document.")
 
         logger.info(f"[Extraction] Starting recursive extraction on {len(doc_layout_results)} document layouts.")
-        recursive_extract(classification.get("key_fields", {}))
+        await recursive_extract(classification.get("key_fields", {}))
         
         classification["extraction_results"] = extraction_results
         classification["extracted_tables"] = doc_tables
         
         # 6.6 Generate Annotated PDFs
-        print(f"DEBUG [Process]: Generating annotated PDFs for {len(doc_layout_results)} documents...")
+        logger.info(f"[Process] Generating annotated PDFs for {len(doc_layout_results)} documents in parallel...")
         annotated_docs = {}
         renderer = DocumentRenderer()
-        for doc_id, layout in doc_layout_results.items():
+
+        async def render_and_upload(doc_id, layout):
             try:
                 orig_bytes = doc_bytes_map.get(doc_id)
                 if not orig_bytes:
-                    print(f"WARNING [Process]: Missing original bytes for doc {doc_id}")
-                    continue
+                    logger.warning(f"[Process] Missing original bytes for doc {doc_id}")
+                    return None, None
                 
                 # Find filename for this doc_id
                 doc_entry = next((d for d in documents if d.get("document_id") == doc_id), {})
                 filename = doc_entry.get("filename") or doc_entry.get("file_name") or f"{doc_id}.pdf"
                 
-                print(f"DEBUG [Process]: Rendering annotated PDF for {filename} ({doc_id})")
                 logger.info(f"[Process] Rendering annotated PDF for {filename} ({doc_id})")
                 
                 if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    annotated_bytes = renderer.render_image_to_annotated(orig_bytes, layout.get("pages", [{}])[0], extraction_results)
+                    # Use to_thread for CPU-bound rendering
+                    annotated_bytes = await asyncio.to_thread(
+                        renderer.render_image_to_annotated, 
+                        orig_bytes, 
+                        layout.get("pages", [{}])[0], 
+                        extraction_results
+                    )
                 else:
                     # PDF or Scanned PDF - passing content bytes directly
-                    annotated_bytes = renderer.render_pdf_to_annotated(filename, layout, extraction_results, content=orig_bytes)
+                    annotated_bytes = await asyncio.to_thread(
+                        renderer.render_pdf_to_annotated, 
+                        filename, 
+                        layout, 
+                        extraction_results, 
+                        orig_bytes
+                    )
                 
                 if not annotated_bytes:
-                    print(f"WARNING [Process]: Failed to generate annotated bytes for {filename}")
-                    continue
+                    logger.warning(f"[Process] Failed to generate annotated bytes for {filename}")
+                    return None, None
 
                 annotated_blob_name = f"annotated/{case_id}/{doc_id}_annotated.pdf"
                 upload_container = settings.blob_container_raw_emails
-                print(f"DEBUG [Process]: Uploading annotated PDF to container='{upload_container}', blob='{annotated_blob_name}'")
+                logger.info(f"[Process] Uploading annotated PDF for {filename} to {annotated_blob_name}")
+                
                 await blob_service.upload_bytes(
                     upload_container,
                     annotated_blob_name,
                     annotated_bytes,
                     content_type="application/pdf"
                 )
-                annotated_docs[doc_id] = annotated_blob_name
-                print(f"SUCCESS [Process]: Uploaded annotated PDF to {upload_container}/{annotated_blob_name}")
+                return doc_id, annotated_blob_name
             except Exception as e:
-                print(f"ERROR [Process]: Failed to render doc {doc_id}: {e}")
-                logger.error(f"Failed to render doc {doc_id}: {e}", exc_info=True)
+                logger.error(f"Failed to render/upload doc {doc_id}: {e}", exc_info=True)
+                return None, None
+
+        # Execute rendering and uploading in parallel
+        render_tasks = [render_and_upload(doc_id, layout) for doc_id, layout in doc_layout_results.items()]
+        render_results = await asyncio.gather(*render_tasks)
+
+        for doc_id, blob_name in render_results:
+            if doc_id and blob_name:
+                annotated_docs[doc_id] = blob_name
 
         classification["annotated_docs"] = annotated_docs
         print(f"DEBUG [Process]: Phase 6 complete. Found {len(annotated_docs)} annotated documents.")
