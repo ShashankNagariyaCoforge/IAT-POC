@@ -137,9 +137,11 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
         );
     }
 
-    if (!enrichmentData || fields.length === 0) {
-        return null; // Don't render if no enrichment data
+    if (!enrichmentData) {
+        return null;
     }
+
+    const hasFields = fields.length > 0;
 
     return (
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -160,32 +162,42 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                 <ConfidenceBadge confidence={avgConfidence} />
             </div>
 
-            {/* Fields */}
+            {/* Body */}
             <div className="p-4">
-                <div className="grid grid-cols-2 gap-3">
-                    {fields.map(f => (
-                        <div key={f.key} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-cyan-200 transition-colors group">
-                            <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                                    {f.label}
-                                </span>
-                                <ConfidenceBadge confidence={f.confidence} />
+                {hasFields ? (
+                    <div className="grid grid-cols-2 gap-3">
+                        {fields.map(f => (
+                            <div key={f.key} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-cyan-200 transition-colors group">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                        {f.label}
+                                    </span>
+                                    <ConfidenceBadge confidence={f.confidence} />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-800 mb-2 break-words">{f.value}</p>
+                                <ConfidenceBar confidence={f.confidence} />
+                                {f.source && f.source !== 'google_search' && (
+                                    <a
+                                        href={f.source}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[9px] text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <ExternalLink size={9} /> Source
+                                    </a>
+                                )}
                             </div>
-                            <p className="text-sm font-semibold text-slate-800 mb-2 break-words">{f.value}</p>
-                            <ConfidenceBar confidence={f.confidence} />
-                            {f.source && f.source !== 'google_search' && (
-                                <a
-                                    href={f.source}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-[9px] text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <ExternalLink size={9} /> Source
-                                </a>
-                            )}
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-8 px-4 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                        <Globe size={24} className="text-slate-300 mb-2" />
+                        <h3 className="text-sm font-bold text-slate-600 mb-1">Entity Identified</h3>
+                        <p className="text-[11px] text-slate-400 max-w-[240px]">
+                            We've identified <strong>{enrichmentData.company_name}</strong>, but no additional enriched fields were found in public web records at this time.
+                        </p>
+                    </div>
+                )}
 
                 {/* Source URLs collapsible */}
                 {enrichmentData.source_urls && enrichmentData.source_urls.length > 0 && (
