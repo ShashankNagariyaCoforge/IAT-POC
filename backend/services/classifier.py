@@ -222,5 +222,15 @@ class Classifier:
         if not (0.0 <= score <= 1.0):
             raise ValueError(f"Invalid confidence_score: {score}")
 
-        # Enforce requires_human_review based on threshold
-        result["requires_human_review"] = score < self._confidence_threshold
+        # Enforce requires_human_review based on threshold or sensitive categories
+        is_low_confidence = score < self._confidence_threshold
+        category = result.get("classification_category", "")
+        
+        # These categories ALWAYS require human eyes for safety/business reasons
+        is_sensitive_category = category in [
+            "Spam/Irrelevant",
+            "Complaint/Escalation",
+            "Regulatory/Legal"
+        ]
+        
+        result["requires_human_review"] = is_low_confidence or is_sensitive_category
