@@ -123,12 +123,18 @@ class EnrichmentService:
         return filtered[:10]
 
     async def identify_entity(self, text: str) -> Dict[str, Any]:
-        """Use AI to quickly identify the company name and main website from text."""
-        prompt = """
-        Identify the primary insurance applicant (Company/Business Name) and any 
-        business website URL mentioned in the text below. 
+        """Use AI to identify company name, website, and any enrichment fields from text."""
+        prompt = f"""
+        Identify the primary insurance applicant (Company/Business Name), their website,
+        and any of the following fields found DIRECTLY in the text below. 
+        Fields: {", ".join(EnrichmentResult.field_keys())}
+
         Return ONLY valid JSON in this format: 
-        {"company_name": "...", "website": "..."}
+        {{
+            "company_name": "...", 
+            "website": "...", 
+            "extracted_fields": {{ "field_name": {{ "value": "...", "confidence": 0.9 }}, ... }}
+        }}
         If not found, use null.
         """
         try:
@@ -136,19 +142,19 @@ class EnrichmentService:
                 model=self._deployment,
                 response_format={"type": "json_object"},
                 messages=[
-                    {"role": "system", "content": "You are a data identification assistant."},
-                    {"role": "user", "content": f"{prompt}\n\nContent:\n{text[:4000]}"}
+                    {"role": "system", "content": "You are a business data extraction assistant."},
+                    {"role": "user", "content": f"{prompt}\n\nContent:\n{text[:6000]}"}
                 ],
                 temperature=0.0,
-                max_tokens=200,
+                max_tokens=600,
             )
             raw = response.choices[0].message.content
             data = json.loads(raw)
-            logger.info(f"[Enrichment] AI Entity Identification: {data}")
+            logger.info(f"[Enrichment] AI Entity Identification: {data.get('company_name')} (Found {len(data.get('extracted_fields', {}))} fields in text)")
             return data
         except Exception as e:
             logger.warning(f"[Enrichment] AI Entity Identification failed: {e}")
-            return {"company_name": None, "website": None}
+            return {"company_name": None, "website": None, "extracted_fields": {}}
 
     @staticmethod
     def extract_company_name(text: str, key_fields: Optional[Dict] = None) -> str:
@@ -205,6 +211,7 @@ class EnrichmentService:
             async with httpx.AsyncClient(
                 timeout=CRAWL_TIMEOUT,
                 follow_redirects=True,
+                verify=False, # Bypass SSL verification for better success rate on corporate sites
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -329,7 +336,7 @@ class EnrichmentService:
     async def run_enrichment(
         self,
         combined_text: str,
-        company_name: str = "",
+        company_name: Optional[str] = None,
         key_fields: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """
@@ -337,7 +344,7 @@ class EnrichmentService:
         """
         logger.info(f"[Enrichment] Starting pipeline (text length: {len(combined_text)})")
 
-        # Step 1: Identify entity using AI
+        # Step 1: Identify entity using AI (and extract any fields directly from text)
         entity_info = await self.identify_entity(combined_text)
         
         # Use AI name if provided, else fallback to key_fields/provided name
@@ -348,55 +355,52 @@ class EnrichmentService:
         
         logger.info(f"[Enrichment] Pipeline company name: '{company_name}'")
 
-        # Step 2: Extract URLs from combined text + AI identified website
+        # Initialize merged_fields with what AI found directly in text
+        merged_fields: Dict[str, EnrichedField] = {}
+        ai_extracted = entity_info.get("extracted_fields", {})
+        for field_name, info in ai_extracted.items():
+            if field_name in EnrichmentResult.field_keys() and info and info.get("value"):
+                merged_fields[field_name] = EnrichedField(
+                    name=field_name,
+                    value=str(info["value"]),
+                    confidence=float(info.get("confidence", 0.7)),
+                    source="source_text"
+                )
+
+        # Step 2: Identify URLs
         urls = self.extract_urls(combined_text)
         ai_site = entity_info.get("website")
-        if ai_site and ai_site not in urls:
-            urls.insert(0, ai_site) # Prioritize AI identified website
+        if ai_site:
+            if not ai_site.startswith(("http://", "https://")):
+                ai_site = f"https://{ai_site}"
+            if ai_site not in urls:
+                urls.insert(0, ai_site) # Prioritize AI identified website
             
         if not company_name and not urls:
             logger.warning("[Enrichment] No company name or URLs found. Enrichment aborted.")
             return EnrichmentResult(enrichment_status="no_data_found").model_dump()
-        if not urls:
-            logger.info("[Enrichment] No URLs found in text, trying Google search directly")
-            if company_name:
-                # Try a broad Google search for the company
-                search_content = await self.search_and_crawl(company_name, "company information")
-                if search_content:
-                    fields = await self.extract_fields_from_content(
-                        search_content, company_name, "google_search"
-                    )
-                    result = self._build_result(fields, company_name, ["google_search"])
-                    return result.model_dump()
-            # No URLs and no company name — return empty result
-            return EnrichmentResult(
-                company_name=company_name or None,
-                enrichment_status="no_urls_found"
-            ).model_dump()
 
         # Step 3: Crawl URLs and extract fields
-        merged_fields: Dict[str, EnrichedField] = {}
-        source_urls: List[str] = []
+        source_urls: List[str] = ["source_text"] if merged_fields else []
 
-        # Crawl URLs in parallel (limit to first 5)
-        crawl_tasks = [self.crawl_website(url) for url in urls[:5]]
-        crawled_contents = await asyncio.gather(*crawl_tasks, return_exceptions=True)
+        # Crawl URLs in parallel (limit to first 3)
+        if urls:
+            crawl_tasks = [self.crawl_website(url) for url in urls[:3]]
+            crawled_contents = await asyncio.gather(*crawl_tasks, return_exceptions=True)
 
-        for url, content in zip(urls[:5], crawled_contents):
-            if isinstance(content, Exception) or not content:
-                continue
+            for url, content in zip(urls[:3], crawled_contents):
+                if isinstance(content, Exception) or not content:
+                    continue
 
-            # Extract fields from this crawled content
-            fields = await self.extract_fields_from_content(content, company_name, url)
-            source_urls.append(url)
-
-            # Merge: only fill fields that are still null or have lower confidence
-            for key, field in fields.items():
-                existing = merged_fields.get(key)
-                if existing is None or (existing.value is None and field.value is not None):
-                    merged_fields[key] = field
-                elif field.value is not None and field.confidence > (existing.confidence or 0):
-                    merged_fields[key] = field
+                # Extract fields from this crawled content
+                fields = await self.extract_fields_from_content(content, company_name, url)
+                if fields:
+                    source_urls.append(url)
+                    # Merge: replace only if higher confidence
+                    for key, field in fields.items():
+                        existing = merged_fields.get(key)
+                        if existing is None or (field.value and field.confidence > existing.confidence):
+                            merged_fields[key] = field
 
         # Step 4: Identify null fields and try Google search fallback
         null_fields = [
@@ -405,26 +409,38 @@ class EnrichmentService:
         ]
 
         if null_fields and company_name:
-            logger.info(f"[Enrichment] {len(null_fields)} null fields, trying Google for top {MAX_SEARCH_FIELDS}")
-            for field_name in null_fields[:MAX_SEARCH_FIELDS]:
+            logger.info(f"[Enrichment] {len(null_fields)} null fields, trying Google search")
+            # Try top 3 missing fields
+            for field_name in null_fields[:3]:
                 search_content = await self.search_and_crawl(company_name, field_name)
                 if search_content:
                     search_fields = await self.extract_fields_from_content(
                         search_content, company_name, "google_search"
                     )
-                    # Only fill still-null fields
-                    for key, field in search_fields.items():
-                        existing = merged_fields.get(key)
-                        if (existing is None or existing.value is None) and field.value is not None:
-                            merged_fields[key] = field
-                            source_urls.append("google_search")
+                    if search_fields:
+                        source_urls.append("google_search")
+                        for key, field in search_fields.items():
+                            existing = merged_fields.get(key)
+                            if (existing is None or existing.value is None) and field.value:
+                                merged_fields[key] = field
+
+        # Final fallback: Broad search if still very empty
+        if len(merged_fields) < 3 and company_name:
+            logger.info(f"[Enrichment] Still mostly empty. Final broad search for '{company_name}'")
+            search_content = await self.search_and_crawl(company_name, "company information")
+            if search_content:
+                search_fields = await self.extract_fields_from_content(search_content, company_name, "google_search")
+                if search_fields:
+                    source_urls.append("google_search")
+                    for k, v in search_fields.items():
+                        if k not in merged_fields or v.confidence > merged_fields[k].confidence:
+                            merged_fields[k] = v
 
         # Step 5: Build final result
         result = self._build_result(merged_fields, company_name, source_urls)
         logger.info(
             f"[Enrichment] Pipeline complete. "
-            f"Extracted {sum(1 for k in EnrichmentResult.field_keys() if getattr(result, k) and getattr(result, k).value)} "
-            f"fields from {len(source_urls)} sources"
+            f"Extracted {len(merged_fields)} fields from {len(set(source_urls))} sources"
         )
         return result.model_dump()
 
