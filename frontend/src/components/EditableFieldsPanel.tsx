@@ -166,9 +166,21 @@ export function EditableFieldsPanel({
                                                 onClick={() => onSelectField?.(f.id || f.label)}
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer">
-                                                        {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
-                                                    </label>
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer">
+                                                            {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
+                                                        </label>
+                                                        {f.confidence !== undefined && (
+                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${f.confidence >= 0.8
+                                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                                : f.confidence >= 0.6
+                                                                    ? 'bg-amber-50 text-amber-600 border-amber-100'
+                                                                    : 'bg-rose-50 text-rose-600 border-rose-100'
+                                                                }`}>
+                                                                {(f.confidence * 100).toFixed(0)}%
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     {isEdited ? (
                                                         <div className="flex items-center gap-1">
                                                             {f.original && (

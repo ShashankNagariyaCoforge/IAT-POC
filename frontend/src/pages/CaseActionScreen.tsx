@@ -148,39 +148,47 @@ export default function CaseActionScreen() {
     // In a real app, this layout logic would be driven by the schema
     const hitlFields = (classification as any)?.hitl_fields || {};
     const kf = classification?.key_fields;
+    const conf = kf?.field_confidence || {};
+
+    const getField = (label: string, value: string | undefined | null, isCritical: boolean = false): FieldItem => ({
+        label,
+        value: value || 'N/A',
+        confidence: conf[label] !== undefined ? conf[label] : undefined,
+        isCritical
+    });
 
     const groupedFields: Record<string, PanelItem[]> = {
         'Submission Details': [
             { label: 'Subject', value: caseData.subject },
             { label: 'Sender', value: caseData.sender },
             { label: 'Received At', value: format(new Date(caseData.created_at), 'PPPp') },
-            { label: 'Submission Description', value: kf?.submission_description || 'N/A' },
+            getField('Submission Description', kf?.submission_description),
         ],
         'Classification Insights': [
-            { label: 'Category', value: classification?.classification_category || 'N/A' },
-            { label: 'Document Type', value: kf?.document_type || 'Unknown' },
-            { label: 'Submission Type', value: kf?.submission_type || 'N/A' },
-            { label: 'Segment', value: kf?.segment || 'N/A' },
-            { label: 'IAT Product', value: kf?.iat_product || 'N/A' },
-            { label: 'UW / AM', value: kf?.uw_am || 'N/A' },
+            getField('Category', classification?.classification_category),
+            getField('Document Type', kf?.document_type),
+            getField('Submission Type', kf?.submission_type),
+            getField('Segment', kf?.segment),
+            getField('IAT Product', kf?.iat_product),
+            getField('UW / AM', kf?.uw_am),
         ],
         'Counterparty Details': [
-            { label: 'Insured: Name', value: kf?.insured?.name || kf?.name || 'N/A' },
-            { label: 'Applicant Name', value: kf?.applicant_name || 'N/A' },
-            { label: 'Entity Type', value: kf?.entity_type || 'N/A' },
-            { label: 'Insured: Address', value: kf?.insured?.address || kf?.address || 'N/A' },
-            { label: 'Business Description', value: kf?.business_description || 'N/A' },
-            { label: 'Primary Rating State', value: kf?.primary_rating_state || 'N/A' },
-            { label: 'Agency', value: kf?.agent?.agencyName || kf?.agency || 'N/A' },
-            { label: 'Agent / Producer', value: kf?.agent?.name || kf?.licensed_producer || 'N/A' },
+            getField('Insured: Name', kf?.insured?.name || kf?.name),
+            getField('Applicant Name', kf?.applicant_name),
+            getField('Entity Type', kf?.entity_type),
+            getField('Insured: Address', kf?.insured?.address || kf?.address),
+            getField('Business Description', kf?.business_description),
+            getField('Primary Rating State', kf?.primary_rating_state),
+            getField('Agency', kf?.agent?.agencyName || kf?.agency),
+            getField('Agent / Producer', kf?.agent?.name || kf?.licensed_producer),
         ],
         'Contact Info': [
-            { label: 'Email', value: kf?.agent?.email || kf?.email_address || 'N/A' },
-            { label: 'Phone', value: kf?.agent?.phone || kf?.primary_phone || 'N/A' },
+            getField('Email', kf?.agent?.email || kf?.email_address),
+            getField('Phone', kf?.agent?.phone || kf?.primary_phone),
         ],
         'Industry Codes': [
-            { label: 'NAICS Code', value: kf?.naics_code || 'N/A' },
-            { label: 'SIC Code', value: kf?.sic_code || 'N/A' },
+            getField('NAICS Code', kf?.naics_code),
+            getField('SIC Code', kf?.sic_code),
         ],
         'Recurring Structures': [
             {
@@ -206,9 +214,9 @@ export default function CaseActionScreen() {
             }
         ],
         'Financial Terms': [
-            { label: 'Policy Reference', value: kf?.policy_reference || 'N/A' },
-            { label: 'Effective Date', value: kf?.effective_date || 'N/A' },
-            { label: 'Urgency', value: kf?.urgency || 'Unknown', isCritical: kf?.urgency === 'high' },
+            getField('Policy Reference', kf?.policy_reference),
+            getField('Effective Date', kf?.effective_date),
+            getField('Urgency', kf?.urgency, kf?.urgency === 'high'),
         ],
         'AI Summary': [
             { label: 'Executive Summary', value: classification?.summary || 'Processing...' },

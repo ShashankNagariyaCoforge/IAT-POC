@@ -17,6 +17,15 @@ You are analyzing a Conversation Thread between multiple parties (Brokers, Under
 The content may contain multiple emails and attachments, separated by [Source: ...]. 
 Your goal is to synthesize the entire thread to identify the final intent, latest names, dates, and terms. 
 
+THOUGHT PROCESS:
+Before providing the final JSON, you must follow these steps:
+1. Identify the core intent of the most recent communication in the thread.
+2. List all participants and resolve their roles (Underwriter, Broker, Insured, etc.).
+3. **Extraction Audit**: For every field in the extraction schema, locate the value and note which Source (Email # or Attachment Name) it came from.
+4. **Conflict Resolution**: If a field has conflicting values across sources, determine the most authoritative one (e.g., a formal PDF Policy usually beats an informal email mention).
+5. Compare your findings against the Classification Rules below.
+6. **Hallucination Check**: Ensure no values were "guessed" or "invented" just to fill the schema. 
+
 Categories:
 1. New - New policy applications or first-time insurance requests
 2. Renewal - Policy renewal requests or related documents
@@ -53,7 +62,7 @@ Extraction Instructions:
 
 Respond ONLY with valid JSON in this exact format:
 {{
-  "reasoning": "<Explain step-by-step why you chose this category.>",
+  "reasoning": "<Detailed step-by-step chain of thought: 1. Core intent. 2. Participant roles. 3. Classification justification. 4. Extraction Walk-through: explain where you found key data points and how you resolved any conflicting values between emails and documents.>",
   "classification_category": "<category name>",
   "confidence_score": <0.0 to 1.0>,
   "summary": "<2-3 sentence summary>",
