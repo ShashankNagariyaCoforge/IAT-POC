@@ -181,7 +181,7 @@ class Classifier:
                     {"role": "user", "content": f"Email content:\n\n{masked_text[:8000]}"},
                 ],
                 temperature=0.1,
-                max_tokens=1024,
+                max_tokens=16384,
                 response_format={"type": "json_object"},
             )
             raw_json = response.choices[0].message.content
