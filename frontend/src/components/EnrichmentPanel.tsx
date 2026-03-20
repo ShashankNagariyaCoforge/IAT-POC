@@ -144,7 +144,7 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
     const hasFields = fields.length > 0;
 
     return (
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden flex-shrink-0 min-h-[450px] flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 border-b bg-gradient-to-r from-cyan-50/80 to-emerald-50/60 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -163,9 +163,9 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
             </div>
 
             {/* Body */}
-            <div className="p-4 max-h-[min(680px,75vh)] overflow-y-auto custom-scrollbar">
+            <div className="p-6 flex-1 max-h-[700px] overflow-y-auto custom-scrollbar">
                 {hasFields ? (
-                    <div className="grid grid-cols-2 gap-3 pb-8">
+                    <div className="grid grid-cols-2 gap-4 pb-12">
                         {fields.map(f => (
                             <div key={f.key} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-cyan-200 transition-colors group">
                                 <div className="flex items-center justify-between mb-1.5">

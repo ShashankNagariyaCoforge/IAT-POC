@@ -86,7 +86,7 @@ export function EditableFieldsPanel({
     const hasEdits = Object.keys(editedFields).length > 0;
 
     return (
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col h-full">
+        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b bg-slate-50/50 flex items-center justify-between shrink-0">
                 <h2 className="text-lg font-bold text-slate-800">Extracted Entities</h2>
                 {isReadOnly ? (
