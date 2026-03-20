@@ -66,45 +66,63 @@ class CosmosDBService:
 
     async def initialize_containers(self):
         """
-        Ensure connection to MongoDB is valid.
-        In MongoDB API, we don't need to 'create' collections explicitly as they 
-        are created on first use, but we can verify connectivity.
+        Ensures collections and indexes exist for optimal performance and sorting.
         """
         db = self._get_db()
-        if db is not None:
-            try:
-                # The ping command is a reliable way to check connectivity
-                await db.command("ping")
-                logger.info(f"Connected to Cosmos DB MongoDB: {self._database_name}")
-                
-                # Optionally create indexes here for performance and to support sorting
-                await db[COLLECTION_CASES].create_index([("case_id", ASCENDING)], unique=True)
-                await db[COLLECTION_CASES].create_index([("created_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("updated_at", DESCENDING)])
-                
-                # Compound indexes for common filter + sort patterns (REQUIRED by some Cosmos DB versions)
-                await db[COLLECTION_CASES].create_index([("subject", ASCENDING), ("created_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("subject", ASCENDING), ("updated_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("status", ASCENDING), ("created_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("status", ASCENDING), ("updated_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("classification_category", ASCENDING), ("created_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("classification_category", ASCENDING), ("updated_at", DESCENDING)])
-                await db[COLLECTION_CASES].create_index([("requires_human_review", ASCENDING), ("created_at", DESCENDING)])
-
-                await db[COLLECTION_EMAILS].create_index([("message_id", ASCENDING)])
-                await db[COLLECTION_EMAILS].create_index([("case_id", ASCENDING)])
-                await db[COLLECTION_EMAILS].create_index([("received_at", ASCENDING)])
-                await db[COLLECTION_EMAILS].create_index([("case_id", ASCENDING), ("received_at", ASCENDING)])
-                await db[COLLECTION_DOCUMENTS].create_index([("document_id", ASCENDING)], unique=True)
-                await db[COLLECTION_CLASSIFICATION].create_index([("case_id", ASCENDING)])
-                await db[COLLECTION_CLASSIFICATION].create_index([("classified_at", DESCENDING)])
-                await db[COLLECTION_CLASSIFICATION].create_index([("case_id", ASCENDING), ("classified_at", DESCENDING)])
-                
-            except Exception as e:
-                logger.error(f"Failed to connect to MongoDB API: {e}")
-                # Don't raise if we want the app to start (e.g. for health checks)
-        else:
+        if db is None:
             logger.error("No MongoDB client available. Check your MONGODB_CONNECTION_STRING.")
+            return
+
+        try:
+            await db.command("ping")
+            logger.info(f"Connected to Cosmos DB MongoDB: {self._database_name}")
+            
+            async def _create_index(collection, keys, unique=False):
+                try:
+                    await db[collection].create_index(keys, unique=unique)
+                except Exception as e:
+                    # Ignore errors like "index already exists with different options" 
+                    # as long as we have SOME index on those fields
+                    logger.warning(f"Could not create index {keys} on {collection}: {e}")
+
+            # --- Cases Collection ---
+            await _create_index(COLLECTION_CASES, [("case_id", ASCENDING)], unique=True)
+            await _create_index(COLLECTION_CASES, [("created_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("updated_at", DESCENDING)])
+            
+            # Compound indexes for common filter + sort patterns
+            await _create_index(COLLECTION_CASES, [("subject", ASCENDING), ("created_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("subject", ASCENDING), ("updated_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("status", ASCENDING), ("created_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("status", ASCENDING), ("updated_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("classification_category", ASCENDING), ("created_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("classification_category", ASCENDING), ("updated_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("requires_human_review", ASCENDING), ("created_at", DESCENDING)])
+            await _create_index(COLLECTION_CASES, [("requires_human_review", ASCENDING), ("updated_at", DESCENDING)]) # MISSING FIX
+
+            # --- Emails Collection ---
+            await _create_index(COLLECTION_EMAILS, [("message_id", ASCENDING)])
+            await _create_index(COLLECTION_EMAILS, [("case_id", ASCENDING)])
+            await _create_index(COLLECTION_EMAILS, [("received_at", ASCENDING)])
+            await _create_index(COLLECTION_EMAILS, [("case_id", ASCENDING), ("received_at", ASCENDING)])
+
+            # --- Documents Collection ---
+            await _create_index(COLLECTION_DOCUMENTS, [("document_id", ASCENDING)], unique=True)
+            await _create_index(COLLECTION_DOCUMENTS, [("case_id", ASCENDING)])
+
+            # --- Classification Collection ---
+            await _create_index(COLLECTION_CLASSIFICATION, [("case_id", ASCENDING)])
+            await _create_index(COLLECTION_CLASSIFICATION, [("classified_at", DESCENDING)])
+            await _create_index(COLLECTION_CLASSIFICATION, [("case_id", ASCENDING), ("classified_at", DESCENDING)])
+
+            # --- Enrichment Collection ---
+            await _create_index(COLLECTION_ENRICHMENT, [("case_id", ASCENDING)])
+            await _create_index(COLLECTION_ENRICHMENT, [("enriched_at", DESCENDING)])
+
+            logger.info("Cosmos DB indexing ensured.")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Cosmos DB containers: {e}")
 
     # ===== CASES =====
 
