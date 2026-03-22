@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ChevronLeft, Lock, Calendar, History, CheckCircle2, XCircle } from 'lucide-react';
+import { ChevronLeft, Lock, Calendar, History, CheckCircle2, XCircle, FileJson } from 'lucide-react';
+import { JsonDisplayModal } from '../components/JsonDisplayModal';
 import { AuditTrailPanel } from '../components/AuditTrailPanel';
 
 interface SnapshotData {
@@ -23,6 +24,7 @@ export default function CaseSnapshotPage() {
 
     const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showJson, setShowJson] = useState(false);
 
     useEffect(() => {
         if (!caseId) return;
@@ -79,11 +81,19 @@ export default function CaseSnapshotPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 border border-slate-200 rounded-xl px-4 py-2 bg-slate-50">
-                    <Calendar size={14} className="text-slate-400" />
-                    <div className="text-xs">
-                        <span className="font-bold text-slate-700">Processed: </span>
-                        <span className="text-slate-500">{format(new Date(snapshot.updated_at || snapshot.created_at), 'PPP pp')}</span>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setShowJson(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
+                    >
+                        <FileJson size={16} /> Download JSON
+                    </button>
+                    <div className="flex items-center gap-4 border border-slate-200 rounded-xl px-4 py-2 bg-slate-50">
+                        <Calendar size={14} className="text-slate-400" />
+                        <div className="text-xs">
+                            <span className="font-bold text-slate-700">Processed: </span>
+                            <span className="text-slate-500">{format(new Date(snapshot.updated_at || snapshot.created_at), 'PPP pp')}</span>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -188,6 +198,19 @@ export default function CaseSnapshotPage() {
                 </div>
 
             </main>
+
+            {showJson && (
+                <JsonDisplayModal
+                    onClose={() => setShowJson(false)}
+                    jsonData={{
+                        case_id: caseId,
+                        insured_name: snapshot.extracted_fields?.name || snapshot.extracted_fields?.applicant_name || '—',
+                        status: snapshot.status,
+                        fields: snapshot.extracted_fields,
+                        hitl_overrides: snapshot.hitl_fields
+                    }}
+                />
+            )}
         </div>
     );
 }

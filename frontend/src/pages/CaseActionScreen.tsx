@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     ChevronLeft, ExternalLink, Activity, CheckCircle2,
-    FileText, Eye, RefreshCw, Loader2, Download
+    FileText, Eye, RefreshCw, Loader2, Download, FileJson
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance } from '../types';
@@ -13,6 +13,7 @@ import { IngestionStatsCard } from '../components/IngestionStatsCard';
 import { InlinePdfViewer } from '../components/InlinePdfViewer';
 
 import { PdfViewerModal } from '../components/PdfViewerModal';
+import { JsonDisplayModal } from '../components/JsonDisplayModal';
 import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
 import { EnrichmentPanel } from '../components/EnrichmentPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
@@ -38,6 +39,7 @@ export default function CaseActionScreen() {
     const [activePdfName, setActivePdfName] = useState<string | null>(null);
     const [selectedInstances, setSelectedInstances] = useState<ExtractionInstance[]>([]);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
+    const [showJson, setShowJson] = useState(false);
 
     const fetchAll = async () => {
         if (!caseId) return;
@@ -286,6 +288,16 @@ export default function CaseActionScreen() {
                         <Download size={16} /> Masked Content
                     </button>
                     <button
+                        onClick={() => setShowJson(true)}
+                        disabled={!classification}
+                        className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${classification
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 border-indigo-700 shadow-md shadow-indigo-200'
+                            : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                            }`}
+                    >
+                        <FileJson size={16} /> Download JSON
+                    </button>
+                    <button
                         onClick={() => navigate(`/cases/${caseId}/snapshot`)}
                         disabled={!isApproved}
                         className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${isApproved
@@ -473,6 +485,29 @@ export default function CaseActionScreen() {
                     url={activePdfUrl}
                     name={activePdfName!}
                     onClose={() => setShowFullscreenPdf(false)}
+                />
+            )}
+
+            {showJson && classification && (
+                <JsonDisplayModal
+                    onClose={() => setShowJson(false)}
+                    jsonData={{
+                        case_id: caseId,
+                        insured: {
+                            name: classification.key_fields?.name || '—',
+                            address: classification.key_fields?.insured?.address || classification.key_fields?.address || '—'
+                        },
+                        agent: {
+                            agencyName: classification.key_fields?.agent?.agencyName || classification.key_fields?.agency || '—',
+                            name: classification.key_fields?.agent?.name || classification.key_fields?.licensed_producer || '—',
+                            email: classification.key_fields?.agent_email || classification.key_fields?.email_address || '—',
+                            phone: classification.key_fields?.agent_phone || classification.key_fields?.primary_phone || '—'
+                        },
+                        description: classification.key_fields?.submission_description || '—',
+                        coverages: classification.key_fields?.coverages || [],
+                        exposures: classification.key_fields?.exposures || [],
+                        documents: classification.key_fields?.documents || []
+                    }}
                 />
             )}
         </div>

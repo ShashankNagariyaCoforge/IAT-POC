@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Copy, CheckCircle2 } from 'lucide-react';
+import { X, Copy, CheckCircle2, Download } from 'lucide-react';
 
 interface Props {
     jsonData: any;
@@ -29,10 +29,25 @@ export function JsonDisplayModal({ jsonData, onClose }: Props) {
                     </div>
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={() => {
+                                const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `submission_data.json`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border bg-white text-slate-700 border-slate-200 hover:bg-slate-50 active:scale-95 shadow-sm"
+                        >
+                            <Download size={16} />
+                            Download JSON
+                        </button>
+                        <button
                             onClick={handleCopy}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${copied
-                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                    : 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-200'
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                : 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-200'
                                 }`}
                         >
                             {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}

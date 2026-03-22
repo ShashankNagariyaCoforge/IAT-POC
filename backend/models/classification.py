@@ -56,6 +56,8 @@ class KeyFields(BaseModel):
     uw_am: Optional[str] = None
     naics_code: Optional[str] = None
     sic_code: Optional[str] = None
+    agent_phone: Optional[str] = None
+    agent_email: Optional[str] = None
     primary_phone: Optional[str] = None
     email_address: Optional[str] = None
     entity_type: Optional[str] = None
