@@ -29,22 +29,32 @@ const FIELD_LABELS: Record<string, string> = {
 /** Extractable field keys (matching backend model) */
 const FIELD_KEYS = Object.keys(FIELD_LABELS);
 
-function ConfidenceBadge({ confidence }: { confidence: number }) {
+function ConfidenceBadge({ confidence, isNA = false }: { confidence: number; isNA?: boolean }) {
     const pct = Math.round(confidence * 100);
-    const color =
+    const colorClass = isNA ? 'bg-rose-50 text-rose-600 border-rose-100' : (
         confidence >= 0.8
-            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
             : confidence >= 0.5
-                ? 'bg-amber-50 text-amber-600 border-amber-200'
-                : 'bg-rose-50 text-rose-600 border-rose-200';
+                ? 'bg-amber-50 text-amber-600 border-amber-100'
+                : 'bg-rose-50 text-rose-600 border-rose-100'
+    );
+
     return (
-        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${color}`}>
-            {pct}%
-        </span>
+        <div className={`px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-tight flex items-center gap-1.5 ${colorClass}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isNA ? 'bg-rose-500' : (confidence >= 0.8 ? 'bg-emerald-500' : confidence >= 0.5 ? 'bg-amber-500' : 'bg-rose-500')}`} />
+            confidence score: {isNA ? 'N/A' : `${pct}%`}
+        </div>
     );
 }
 
-function ConfidenceBar({ confidence }: { confidence: number }) {
+function ConfidenceBar({ confidence, isNA = false }: { confidence: number; isNA?: boolean }) {
+    if (isNA) {
+        return (
+            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500 bg-slate-300" style={{ width: '100%' }} />
+            </div>
+        );
+    }
     const pct = Math.round(confidence * 100);
     const barColor =
         confidence >= 0.8
@@ -109,6 +119,7 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                     value: f?.value || null,
                     confidence: f?.confidence || 0,
                     source: f?.source || null,
+                    isCritical: f?.is_critical || false, // Add isCritical property
                 };
             })
             .filter(f => f.value !== null);
@@ -116,7 +127,9 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
 
     const avgConfidence = useMemo(() => {
         if (fields.length === 0) return 0;
-        return fields.reduce((sum, f) => sum + f.confidence, 0) / fields.length;
+        const validFields = fields.filter(f => f.value !== 'NA');
+        if (validFields.length === 0) return 0; // All fields are N/A
+        return validFields.reduce((sum, f) => sum + f.confidence, 0) / validFields.length;
     }, [fields]);
 
     if (loading) {
@@ -172,10 +185,15 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
                                         {f.label}
                                     </span>
-                                    <ConfidenceBadge confidence={f.confidence} />
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <ConfidenceBadge confidence={f.confidence} isNA={f.value === 'NA'} />
+                                        {f.isCritical && (
+                                            <span className="text-[9px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">CRITICAL</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <p className="text-sm font-semibold text-slate-800 mb-2 break-words">{f.value}</p>
-                                <ConfidenceBar confidence={f.confidence} />
+                                <ConfidenceBar confidence={f.confidence} isNA={f.value === 'NA'} />
                                 {f.source && f.source !== 'google_search' && (
                                     <a
                                         href={f.source}

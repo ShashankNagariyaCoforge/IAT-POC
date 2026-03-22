@@ -138,6 +138,8 @@ export interface KeyFields {
     entity_type?: string;
     agency?: string;
     address?: string;
+    agent_email?: string;
+    agent_phone?: string;
     field_confidence?: Record<string, number>;
 
     // Legacy fields
@@ -230,6 +232,7 @@ export interface EnrichedField {
     value: string | null;
     confidence: number;
     source: string | null;
+    is_critical?: boolean;
 }
 
 export interface EnrichmentData {

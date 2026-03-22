@@ -1,4 +1,7 @@
 import type { Case, ClassificationResult } from '../types';
+import { useState } from 'react';
+import { FileJson } from 'lucide-react';
+import { JsonDisplayModal } from './JsonDisplayModal';
 
 interface ExtractedFieldsCardProps {
     caseData: Case | null;
@@ -7,6 +10,8 @@ interface ExtractedFieldsCardProps {
 }
 
 export function ExtractedFieldsCard({ caseData, classification, dark = false }: ExtractedFieldsCardProps) {
+    const [showJson, setShowJson] = useState(false);
+
     const bg = dark ? '#0f172a' : '#ffffff';
     const border = dark ? 'rgba(255,255,255,0.08)' : '#e2e8f0';
     const label = dark ? 'rgba(255,255,255,0.35)' : '#94a3b8';
@@ -67,7 +72,7 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
         {
             label: 'Overall Confidence',
             key: 'overall',
-            value: confidencePercent,
+            value: `confidence score: ${confidencePercent}`,
             color: getConfidenceColor(cScore),
         },
         {
@@ -87,15 +92,24 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
             padding: '24px',
             height: '100%',
         }}>
-            <div style={{ marginBottom: '20px' }}>
-                <p style={{
-                    margin: 0, fontSize: '9px', fontWeight: 800,
-                    textTransform: 'uppercase', letterSpacing: '0.12em', color: label,
-                }}>Extracted Intelligence</p>
-                <h3 style={{
-                    margin: '4px 0 0 0', fontSize: '15px', fontWeight: 800,
-                    color: val, letterSpacing: '-0.01em',
-                }}>Key Fields</h3>
+            <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                    <p style={{
+                        margin: 0, fontSize: '9px', fontWeight: 800,
+                        textTransform: 'uppercase', letterSpacing: '0.12em', color: label,
+                    }}>Extracted Intelligence</p>
+                    <h3 style={{
+                        margin: '4px 0 0 0', fontSize: '15px', fontWeight: 800,
+                        color: val, letterSpacing: '-0.01em',
+                    }}>Key Fields</h3>
+                </div>
+                <button
+                    onClick={() => setShowJson(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition active:scale-95 shadow-md shadow-indigo-200"
+                >
+                    <FileJson size={14} />
+                    Generate JSON
+                </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -118,8 +132,8 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
                                     gap: '4px',
                                     fontSize: '8px',
                                     fontWeight: 900,
-                                    color: getConfidenceColor(getFieldConfidence(field.key)),
-                                    background: `${getConfidenceColor(getFieldConfidence(field.key))}15`,
+                                    color: getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key)),
+                                    background: `${getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))}15`,
                                     padding: '2px 6px',
                                     borderRadius: '6px'
                                 }}>
@@ -127,9 +141,9 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
                                         width: '4px',
                                         height: '4px',
                                         borderRadius: '50%',
-                                        background: getConfidenceColor(getFieldConfidence(field.key))
+                                        background: getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))
                                     }} />
-                                    {Math.round((getFieldConfidence(field.key) || 0) * 100)}%
+                                    confidence score: {getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? 'N/A' : `${Math.round((getFieldConfidence(field.key) || 0) * 100)}%`}
                                 </div>
                             )}
                         </div>
@@ -145,6 +159,42 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
                     </div>
                 ))}
             </div>
+
+            {showJson && (
+                <JsonDisplayModal
+                    onClose={() => setShowJson(false)}
+                    jsonData={{
+                        name: classification?.key_fields?.name || '—',
+                        insured: {
+                            name: classification?.key_fields?.name || 'Business Name',
+                            address: classification?.key_fields?.address || 'Address'
+                        },
+                        agent: {
+                            agencyName: classification?.key_fields?.agent?.agencyName || classification?.key_fields?.agency || 'Agency Name',
+                            name: classification?.key_fields?.agent?.name || classification?.key_fields?.licensed_producer || 'Agent Full Name',
+                            email: classification?.key_fields?.agent?.email || classification?.key_fields?.agent_email || 'agent@agency.com',
+                            phone: classification?.key_fields?.agent?.phone || classification?.key_fields?.agent_phone || '555-123-4567'
+                        },
+                        description: classification?.key_fields?.submission_description || 'Brief summary of the insurance submission',
+                        coverages: (classification?.key_fields?.coverages || []).map((c: any) => ({
+                            coverage: c.coverage,
+                            description: c.coverageDescription,
+                            limit: c.limit,
+                            deductible: c.deductible
+                        })),
+                        exposures: (classification?.key_fields?.exposures || []).map((e: any) => ({
+                            exposureType: e.exposureType,
+                            description: e.exposureDescription,
+                            value: e.value
+                        })),
+                        documents: (classification?.key_fields?.documents || []).map((d: any) => ({
+                            fileName: d.fileName,
+                            fileType: d.fileType || (d.fileName.includes('.') ? `.${d.fileName.split('.').pop()}` : '.pdf'),
+                            description: d.documentDescription || d.description || 'Document description'
+                        }))
+                    }}
+                />
+            )}
         </div>
     );
 }

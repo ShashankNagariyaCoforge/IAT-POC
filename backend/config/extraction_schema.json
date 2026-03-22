@@ -152,24 +152,28 @@
             "description": "Standard Industrial Classification code"
         },
         {
-            "key": "primary_phone",
-            "name": "Primary Phone",
+            "key": "agent_phone",
+            "name": "Agent Phone",
             "aliases": [
                 "phone",
                 "contact phone",
-                "telephone"
+                "telephone",
+                "agent phone",
+                "producer phone"
             ],
-            "description": "Primary contact phone number"
+            "description": "Primary contact phone number of the agent/producer"
         },
         {
-            "key": "email_address",
-            "name": "Email Address",
+            "key": "agent_email",
+            "name": "Agent Email",
             "aliases": [
                 "email",
                 "contact email",
-                "email address"
+                "email address",
+                "agent email",
+                "producer email"
             ],
-            "description": "Primary contact email address"
+            "description": "Primary contact email address of the agent/producer"
         },
         {
             "key": "entity_type",

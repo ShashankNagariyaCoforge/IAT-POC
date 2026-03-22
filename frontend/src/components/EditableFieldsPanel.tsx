@@ -171,13 +171,13 @@ export function EditableFieldsPanel({
                                                             {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
                                                         </label>
                                                         {f.confidence !== undefined && (
-                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${f.confidence >= 0.8
+                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${f.value === 'NA' ? 'bg-rose-50 text-rose-600 border-rose-100' : (f.confidence >= 0.8
                                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                                 : f.confidence >= 0.6
                                                                     ? 'bg-amber-50 text-amber-600 border-amber-100'
                                                                     : 'bg-rose-50 text-rose-600 border-rose-100'
-                                                                }`}>
-                                                                {(f.confidence * 100).toFixed(0)}%
+                                                            )}`}>
+                                                                confidence score: {f.value === 'NA' ? 'N/A' : `${(f.confidence * 100).toFixed(0)}%`}
                                                             </div>
                                                         )}
                                                     </div>
@@ -203,7 +203,7 @@ export function EditableFieldsPanel({
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
                                                         onFocus={() => onSelectField?.(f.id || f.label)}
                                                         readOnly={isReadOnly}
-                                                        rows={2}
+                                                        rows={6}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
                                                             f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
                                                                 isEdited ? 'bg-amber-50/50 border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-700 font-semibold' :

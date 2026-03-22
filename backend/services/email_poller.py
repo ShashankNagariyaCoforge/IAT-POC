@@ -115,7 +115,7 @@ async def run_email_sync_pipeline() -> dict:
                 await db_service.create_email(email_record)
 
                 blobs_in_folder = await blob_service.list_blobs_in_folder(container, folder)
-                attachment_paths = [b for b in blobs_in_folder if b != email_json_path and "/unzipped/" not in b]
+                attachment_paths = [b for b in blobs_in_folder if b != email_json_path]
 
                 combined_text = email_data.get("body", "") + " \n\n "
                 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".csv", ".png", ".jpg", ".jpeg", ".gif"}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, Clock, AlertTriangle, FileText, Eye, ExternalLink, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, FileText, ExternalLink, ChevronDown } from 'lucide-react';
 import { ConfidenceMeter } from './ConfidenceMeter';
 import { CategoryBadge } from './CategoryBadge';
 import type { ClassificationResult } from '../types';
