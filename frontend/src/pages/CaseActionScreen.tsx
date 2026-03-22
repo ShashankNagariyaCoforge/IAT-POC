@@ -152,16 +152,18 @@ export default function CaseActionScreen() {
     const conf = kf?.field_confidence || {};
 
     const getField = (label: string, value: string | undefined | null, techKey?: string, isCritical: boolean = false): FieldItem => {
-        const hasValue = value && value.toString().trim() !== '' && value.toString().toLowerCase() !== 'null';
-        const finalValue = hasValue ? value : 'N/A';
+        const isNullish = !value ||
+            value.toString().trim() === '' ||
+            ['null', 'na', 'n/a', '—', 'none', 'undefined'].includes(value.toString().toLowerCase().trim());
+        const finalValue = isNullish ? 'N/A' : value.toString();
 
         return {
             label,
             value: finalValue,
-            // Only show confidence if there is an actual value
-            confidence: hasValue && techKey && conf[techKey] !== undefined
+            // Only show confidence if there is an actual value and it's not nullish
+            confidence: !isNullish && techKey && conf[techKey] !== undefined
                 ? conf[techKey]
-                : (hasValue && conf[label] !== undefined ? conf[label] : undefined),
+                : (!isNullish && conf[label] !== undefined ? conf[label] : undefined),
             isCritical
         };
     };
@@ -192,8 +194,8 @@ export default function CaseActionScreen() {
             getField('Agent / Producer', kf?.agent?.name || kf?.licensed_producer, 'licensed_producer'),
         ],
         'Contact Info': [
-            getField('Email', kf?.agent?.email || kf?.email_address, 'email_address'),
-            getField('Phone', kf?.agent?.phone || kf?.primary_phone, 'primary_phone'),
+            getField('Agent Email', kf?.agent?.email || kf?.agent_email || kf?.email_address, 'agent_email'),
+            getField('Agent Phone', kf?.agent?.phone || kf?.agent_phone || kf?.primary_phone, 'agent_phone'),
         ],
         'Industry Codes': [
             getField('NAICS Code', kf?.naics_code, 'naics_code'),

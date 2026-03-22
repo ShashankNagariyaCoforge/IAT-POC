@@ -47,7 +47,7 @@ Extraction Rules:
 - **Accuracy First**: Only extract values that are explicitly present or can be strongly inferred. 
 - **Multi-Source Synthesis**: You are provided with multiple email threads and document contents. If a field (like Policy Number) appears in both an email and a PDF, prefer the most formal one or the latest one if they conflict.
 - **Nested Objects**: For "agent" and "insured", fill in all sub-fields (email, phone, etc.) by looking across all available text parts.
-- **Agent Identification**: Pay extremely close attention to email signatures and headers. The "agent" is usually the Broker or Producer sending the submission or replying to an Underwriter. Verify that the `agent_email` and `agent_phone` specifically belong to this individual/agency and NOT the Insured entity.
+- **Agent Identification**: The "agent" (also called Broker or Producer) is the professional intermediary sending the submission. Look for their contact details (Agent Email, Agent Phone) primarily in the **email signature block** at the bottom of the emails they SENT. Do not confuse their details with the Insured's contact info found in application forms. If multiple agents are in a thread, extract the details of the one who initiated the latest relevant submission/follow-up.
 
 Confidence Scoring Rules:
 - **Be Critical**: Provide a confidence score (0.0 to 1.0) for every field extracted in `key_fields`.
@@ -113,6 +113,8 @@ class Classifier:
         kf_lines.append('    "name": "<Insured Business Name>",')
         kf_lines.append('    "insured": { "name": "<val>", "address": "<val>" },')
         kf_lines.append('    "agent": { "agencyName": "<val>", "name": "<val>", "email": "<val>", "phone": "<val>" },')
+        kf_lines.append('    "agent_email": "<extract from signature>",')
+        kf_lines.append('    "agent_phone": "<extract from signature>",')
         kf_lines.append('    "submission_description": "<summary>",')
         kf_lines.append('    "coverages": [ { "coverage": "<val>", "coverageDescription": "<val>", "limit": "<val>", "deductible": "<val>" } ],')
         kf_lines.append('    "exposures": [ { "exposureType": "<val>", "exposureDescription": "<val>", "value": "<val>" } ],')

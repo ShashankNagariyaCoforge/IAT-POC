@@ -186,14 +186,14 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                                         {f.label}
                                     </span>
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <ConfidenceBadge confidence={f.confidence} isNA={f.value === 'NA'} />
+                                        <ConfidenceBadge confidence={f.confidence} isNA={!f.value || ['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim())} />
                                         {f.isCritical && (
                                             <span className="text-[9px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">CRITICAL</span>
                                         )}
                                     </div>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-800 mb-2 break-words">{f.value}</p>
-                                <ConfidenceBar confidence={f.confidence} isNA={f.value === 'NA'} />
+                                <p className="text-sm font-semibold text-slate-800 mb-2 break-words">{f.value || '—'}</p>
+                                <ConfidenceBar confidence={f.confidence} isNA={!f.value || ['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim())} />
                                 {f.source && f.source !== 'google_search' && (
                                     <a
                                         href={f.source}

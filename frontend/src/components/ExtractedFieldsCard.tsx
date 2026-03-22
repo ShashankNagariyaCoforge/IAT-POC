@@ -141,9 +141,9 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
                                         width: '4px',
                                         height: '4px',
                                         borderRadius: '50%',
-                                        background: getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))
+                                        background: getFieldConfidence(field.key) !== undefined && (!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))
                                     }} />
-                                    confidence score: {getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? 'N/A' : `${Math.round((getFieldConfidence(field.key) || 0) * 100)}%`}
+                                    confidence score: {getFieldConfidence(field.key) !== undefined && (!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? 'N/A' : `${Math.round((getFieldConfidence(field.key) || 0) * 100)}%`}
                                 </div>
                             )}
                         </div>
