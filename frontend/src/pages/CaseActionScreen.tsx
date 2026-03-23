@@ -159,13 +159,21 @@ export default function CaseActionScreen() {
             ['null', 'na', 'n/a', '—', 'none', 'undefined'].includes(value.toString().toLowerCase().trim());
         const finalValue = isNullish ? 'N/A' : value.toString();
 
+        let fieldConfidence = undefined;
+        if (!isNullish) {
+            if (techKey === 'classification_category') {
+                fieldConfidence = classification?.confidence_score;
+            } else if (techKey && conf[techKey] !== undefined) {
+                fieldConfidence = conf[techKey];
+            } else if (conf[label] !== undefined) {
+                fieldConfidence = conf[label];
+            }
+        }
+
         return {
             label,
             value: finalValue,
-            // Only show confidence if there is an actual value and it's not nullish
-            confidence: !isNullish && techKey && conf[techKey] !== undefined
-                ? conf[techKey]
-                : (!isNullish && conf[label] !== undefined ? conf[label] : undefined),
+            confidence: fieldConfidence,
             isCritical
         };
     };

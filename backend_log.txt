@@ -1,0 +1,17 @@
+IAT_Insurance_IDE_Prompt.docx
+IAT_Insurance_PRD.docx
+README.md
+Screenshot 2026-03-20 192422.png
+Screenshot 2026-03-20 200419.png
+Screenshot from 2026-02-26 13-43-17.png
+backend
+backend_log.txt
+docker-compose.yml
+frontend
+nginx
+output
+synthetic_1.pdf
+synthetic_2.pdf
+synthetic_3.pdf
+synthetic_4.pdf
+synthetic_5.pdf

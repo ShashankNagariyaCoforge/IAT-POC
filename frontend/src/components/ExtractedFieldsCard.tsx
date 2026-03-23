@@ -30,7 +30,10 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
         ? `${Math.round(cScore <= 1 ? cScore * 100 : cScore)}%`
         : `${85 + ((caseData?.case_id || 'A').toString().charCodeAt(0) % 15)}%`;
 
-    const getFieldConfidence = (key: string) => classification?.key_fields?.field_confidence?.[key];
+    const getFieldConfidence = (key: string) => {
+        if (key === 'classification_category') return classification?.confidence_score;
+        return classification?.key_fields?.field_confidence?.[key];
+    };
 
     const fields = [
         {
@@ -125,15 +128,15 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
                                 margin: 0, fontSize: '9px', fontWeight: 800,
                                 textTransform: 'uppercase', letterSpacing: '0.1em', color: label,
                             }}>{field.label}</p>
-                            {field.key && getFieldConfidence(field.key) !== undefined && (
+                            {field.key && (getFieldConfidence(field.key) !== undefined || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) && (
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '4px',
                                     fontSize: '8px',
                                     fontWeight: 900,
-                                    color: getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key)),
-                                    background: `${getFieldConfidence(field.key) !== undefined && field.value === 'NA' ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))}15`,
+                                    color: (!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key)),
+                                    background: `${(!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))}15`,
                                     padding: '2px 6px',
                                     borderRadius: '6px'
                                 }}>
@@ -141,9 +144,9 @@ export function ExtractedFieldsCard({ caseData, classification, dark = false }: 
                                         width: '4px',
                                         height: '4px',
                                         borderRadius: '50%',
-                                        background: getFieldConfidence(field.key) !== undefined && (!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))
+                                        background: (!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? '#ef4444' : getConfidenceColor(getFieldConfidence(field.key))
                                     }} />
-                                    confidence score: {getFieldConfidence(field.key) !== undefined && (!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? 'N/A' : `${Math.round((getFieldConfidence(field.key) || 0) * 100)}%`}
+                                    confidence score: {(!field.value || ['n/a', 'na', 'null', '—'].includes(String(field.value).toLowerCase().trim())) ? 'N/A' : `${Math.round((getFieldConfidence(field.key) || 0) * 100)}%`}
                                 </div>
                             )}
                         </div>

@@ -89,17 +89,36 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                         <h4 style={{ color: '#00263E', fontSize: '13px', fontWeight: 600, margin: '0 0 16px 0' }}>Extracted Key Fields</h4>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                             {[
-                                { label: 'Document Type', value: classification.key_fields?.document_type || '—', color: '#00263E' },
-                                { label: 'Submission Type', value: classification.key_fields?.submission_type || '—', color: '#00263E' },
-                                { label: 'Segment', value: classification.key_fields?.segment || '—', color: '#00263E' },
-                                { label: 'Urgency', value: classification.key_fields?.urgency || '—', color: urgencyColor },
-                                { label: 'Policy Reference', value: classification.key_fields?.policy_reference || '—', color: '#00263E' },
-                            ].map(field => (
-                                <div key={field.label}>
-                                    <p style={labelStyle}>{field.label}</p>
-                                    <p style={{ ...valueStyle, color: field.color, fontWeight: 500 }}>{field.value}</p>
-                                </div>
-                            ))}
+                                { label: 'Document Type', value: classification.key_fields?.document_type || '—', color: '#00263E', key: 'document_type' },
+                                { label: 'Submission Type', value: classification.key_fields?.submission_type || '—', color: '#00263E', key: 'submission_type' },
+                                { label: 'Segment', value: classification.key_fields?.segment || '—', color: '#00263E', key: 'segment' },
+                                { label: 'Urgency', value: classification.key_fields?.urgency || '—', color: urgencyColor, key: 'urgency' },
+                                { label: 'Policy Reference', value: classification.key_fields?.policy_reference || '—', color: '#00263E', key: 'policy_reference' },
+                            ].map(field => {
+                                const confidence = classification.key_fields?.field_confidence?.[field.key];
+                                const isNullish = !field.value || ['—', 'null', 'na', 'n/a'].includes(field.value.toLowerCase());
+                                return (
+                                    <div key={field.label}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                            <p style={{ ...labelStyle, marginBottom: 0 }}>{field.label}</p>
+                                            {(confidence !== undefined || isNullish) && (
+                                                <div style={{
+                                                    fontSize: '9px',
+                                                    fontWeight: 800,
+                                                    padding: '1px 5px',
+                                                    borderRadius: '4px',
+                                                    background: isNullish ? '#fee2e2' : (confidence! >= 0.8 ? '#dcfce7' : (confidence! >= 0.6 ? '#fef3c7' : '#fee2e2')),
+                                                    color: isNullish ? '#991b1b' : (confidence! >= 0.8 ? '#166534' : (confidence! >= 0.6 ? '#92400e' : '#991b1b')),
+                                                    border: `1px solid ${isNullish ? '#fecaca' : (confidence! >= 0.8 ? '#bbf7d0' : (confidence! >= 0.6 ? '#fde68a' : '#fecaca'))}`
+                                                }}>
+                                                    {isNullish ? 'N/A' : `${Math.round(confidence! * 100)}%`}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p style={{ ...valueStyle, color: field.color, fontWeight: 500 }}>{field.value}</p>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 

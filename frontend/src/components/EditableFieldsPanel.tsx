@@ -170,14 +170,14 @@ export function EditableFieldsPanel({
                                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer">
                                                             {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
                                                         </label>
-                                                        {f.confidence !== undefined && (
-                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'bg-rose-50 text-rose-600 border-rose-100' : (f.confidence >= 0.8
+                                                        {(f.confidence !== undefined || ['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim())) && (
+                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'bg-rose-50 text-rose-600 border-rose-100' : (f.confidence !== undefined && f.confidence >= 0.8
                                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                                : f.confidence >= 0.6
+                                                                : f.confidence !== undefined && f.confidence >= 0.6
                                                                     ? 'bg-amber-50 text-amber-600 border-amber-100'
                                                                     : 'bg-rose-50 text-rose-600 border-rose-100'
                                                             )}`}>
-                                                                confidence score: {['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'N/A' : `${(f.confidence * 100).toFixed(0)}%`}
+                                                                confidence score: {['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'N/A' : `${(f.confidence! * 100).toFixed(0)}%`}
                                                             </div>
                                                         )}
                                                     </div>
