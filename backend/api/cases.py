@@ -312,6 +312,7 @@ async def get_case_pipeline_status(case_id: str):
         raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
 
     status = case.get("status", "RECEIVED")
+    pii_skipped = case.get("pii_skipped", False)
 
     # Base agent definitions
     agents = [
@@ -324,53 +325,72 @@ async def get_case_pipeline_status(case_id: str):
         {"id": "enrichment",   "name": "Enrichment Agent",  "type": "Crawl+AI",  "detail": "Web enrichment & search", "score": 0},
     ]
 
+    # Filter out PII agent if skipped
+    if pii_skipped:
+        agents = [a for a in agents if a["id"] != "pii"]
+
     # Determine agent states based on case status
     TERMINAL_STATUSES = {"PROCESSED", "CLASSIFIED", "BLOCKED_SAFETY", "NEEDS_REVIEW_SAFETY", "FAILED", "PENDING_REVIEW"}
 
     if status == "RECEIVED":
-        states = ["active", "pending", "pending", "pending", "pending", "pending", "pending"]
+        states = ["active"] + ["pending"] * (len(agents) - 1)
         current_agent_index = 0
 
     elif status == "PROCESSING":
-        # Email done, PII running, enrichment launched in parallel
-        states = ["completed", "completed", "active", "pending", "pending", "pending", "active"]
+        # Email done, Next agent active, enrichment launched in parallel
+        # If PII is skipped, Safety is index 2. If PII is NOT skipped, PII is index 2.
+        # In both cases, index 2 is the one that becomes active after Email.
+        states = ["completed", "completed", "active"] + ["pending"] * (len(agents) - 4) + ["active"]
         current_agent_index = 2
 
     elif status == "BLOCKED_SAFETY":
-        states = ["completed", "completed", "completed", "failed", "pending", "pending", "completed"]
-        current_agent_index = 3
-        agents[3]["detail"] = "Blocked — content policy violation"
-        agents[3]["score"] = 0
+        # Orchestrator, Email, PII (if any), Safety(failed)
+        safety_idx = 2 if pii_skipped else 3
+        states = ["completed"] * safety_idx + ["failed"] + ["pending"] * (len(agents) - safety_idx - 2) + ["completed"]
+        current_agent_index = safety_idx
+        agents[safety_idx]["detail"] = "Blocked — content policy violation"
+        agents[safety_idx]["score"] = 0
 
     elif status == "NEEDS_REVIEW_SAFETY":
-        states = ["completed", "completed", "completed", "warning", "completed", "completed", "completed"]
-        current_agent_index = 6
-        agents[3]["detail"] = "Flagged for review"
-        agents[4]["score"] = 85
-        agents[5]["score"] = 85
+        safety_idx = 2 if pii_skipped else 3
+        states = ["completed"] * len(agents)
+        states[safety_idx] = "warning"
+        current_agent_index = len(agents) - 1 # Enrichment is last
+        agents[safety_idx]["detail"] = "Flagged for review"
+        
+        # Pull indices for classifier/extraction
+        classifier_idx = 3 if pii_skipped else 4
+        extraction_idx = 4 if pii_skipped else 5
+        agents[classifier_idx]["score"] = 85
+        agents[extraction_idx]["score"] = 85
 
     elif status == "FAILED":
-        states = ["completed", "failed", "pending", "pending", "pending", "pending", "pending"]
+        states = ["completed", "failed"] + ["pending"] * (len(agents) - 2)
         current_agent_index = 1
         agents[1]["detail"] = "Processing error"
 
     elif status in {"PROCESSED", "CLASSIFIED", "PENDING_REVIEW"}:
-        states = ["completed", "completed", "completed", "completed", "completed", "completed", "completed"]
-        current_agent_index = 6
+        states = ["completed"] * len(agents)
+        current_agent_index = len(agents) - 1
+        
+        # Pull indices
+        classifier_idx = 3 if pii_skipped else 4
+        extraction_idx = 4 if pii_skipped else 5
+        enrichment_idx = 5 if pii_skipped else 6
+
         # Pull confidence score from classification
         classification = await cosmos.get_classification_for_case(case_id)
         if classification:
             score = classification.get("confidence_score", 0)
-            agents[4]["score"] = int((score or 0) * 100) if (score or 0) <= 1 else int(score or 0)
-            agents[4]["detail"] = f"Classified: {classification.get('classification_category', 'Unknown')}"
-            agents[5]["score"] = agents[4]["score"]
-            agents[5]["detail"] = "Coordinates mapped for UI"
+            agents[classifier_idx]["score"] = int((score or 0) * 100) if (score or 0) <= 1 else int(score or 0)
+            agents[classifier_idx]["detail"] = f"Classified: {classification.get('classification_category', 'Unknown')}"
+            agents[extraction_idx]["score"] = agents[classifier_idx]["score"]
+            agents[extraction_idx]["detail"] = "Coordinates mapped for UI"
 
         # Pull enrichment score
         enrichment = await cosmos.get_enrichment_for_case(case_id)
         if enrichment:
             enrich_data = enrichment.get("enrichment", {})
-            # Count how many fields have non-null values
             field_keys = [
                 "entity_type", "naics_code", "entity_structure",
                 "years_in_business", "number_of_employees", "territory_code",
@@ -381,17 +401,18 @@ async def get_case_pipeline_status(case_id: str):
                 if enrich_data.get(k) and isinstance(enrich_data[k], dict) and enrich_data[k].get("value")
             )
             total = len(field_keys)
-            agents[6]["score"] = int((filled / total) * 100) if total > 0 else 0
-            agents[6]["detail"] = f"Enriched {filled}/{total} fields from web"
+            agents[enrichment_idx]["score"] = int((filled / total) * 100) if total > 0 else 0
+            agents[enrichment_idx]["detail"] = f"Enriched {filled}/{total} fields from web"
         else:
-            agents[6]["detail"] = "Awaiting enrichment data"
+            agents[enrichment_idx]["detail"] = "Awaiting enrichment data"
 
     else:
-        states = ["active", "pending", "pending", "pending", "pending", "pending", "pending"]
+        states = ["active"] + ["pending"] * (len(agents) - 1)
         current_agent_index = 0
 
     for i, agent in enumerate(agents):
-        agent["status"] = states[i]
+        if i < len(states):
+            agent["status"] = states[i]
 
     return {
         "case_id": case_id,

@@ -46,7 +46,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
          raise HTTPException(status_code=400, detail=f"Case {case_id} is already processed or processing.")
 
     # 1. Update status to processing so UI reflects it immediately
-    await db_service.update_case_status(case_id, CaseStatus.PROCESSING)
+    await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii)
 
     try:
         classifier = Classifier()
@@ -62,7 +62,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
         logger.info(f"[Process] Fetching case {case_id}: Found {len(emails)} emails and {len(documents)} documents.")
 
         if not emails and not documents:
-            await db_service.update_case_status(case_id, CaseStatus.FAILED)
+            await db_service.update_case_status(case_id, CaseStatus.FAILED, pii_skipped=skip_pii)
             raise HTTPException(status_code=400, detail="No content found for this case to process.")
 
         # 2. Build combined text (Raw)
@@ -268,7 +268,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
             )
             if max_severity >= 4:
                 logger.warning(f"[ContentSafety] Case {case_id} BLOCKED. Max Severity: {max_severity}")
-                await db_service.update_case_status(case_id, CaseStatus.BLOCKED_SAFETY)
+                await db_service.update_case_status(case_id, CaseStatus.BLOCKED_SAFETY, pii_skipped=skip_pii)
                 return {"message": "Case blocked by safety guardrails."}
             elif max_severity >= 2:
                 logger.info(f"[ContentSafety] Case {case_id} flagged for review. Max Severity: {max_severity}")
@@ -486,6 +486,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 classification_category=classification["classification_category"],
                 confidence_score=classification["confidence_score"],
                 requires_human_review=classification["requires_human_review"],
+                pii_skipped=skip_pii
             )
         else:
             await db_service.update_case_status(
@@ -493,6 +494,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 classification_category=classification["classification_category"],
                 confidence_score=classification["confidence_score"],
                 requires_human_review=True,
+                pii_skipped=skip_pii
             )
             
         print(f"SUCCESS [Process]: Total case {case_id} processed successfully.")
@@ -504,7 +506,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
         # Attempt to set status to FAILED in DB
         try:
             db_service = _get_cosmos()
-            await db_service.update_case_status(case_id, CaseStatus.FAILED)
+            await db_service.update_case_status(case_id, CaseStatus.FAILED, pii_skipped=skip_pii)
         except:
             pass
         raise HTTPException(status_code=500, detail=str(e))

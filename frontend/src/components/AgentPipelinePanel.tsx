@@ -106,11 +106,12 @@ interface AgentPipelinePanelProps {
     onStatusChange?: (status: PipelineStatus) => void;
     onRevealIndexChange?: (index: number) => void;
     compact?: boolean;
+    skipPii?: boolean;
 }
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 
-export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, onStatusChange, onRevealIndexChange, compact = false }: AgentPipelinePanelProps) {
+export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, onStatusChange, onRevealIndexChange, compact = false, skipPii = false }: AgentPipelinePanelProps) {
     const { instance } = useMsal();
     const apiClient = useMemo(() => (DEV_BYPASS_AUTH ? createApiClient(instance) : createApiClient(instance)), [instance]);
     const [pipeline, setPipeline] = useState<PipelineStatus | null>(initialStatus ?? null);
@@ -181,6 +182,9 @@ export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, 
 
     if (!pipeline) return null;
 
+    // Filter agents based on skipPii (if backend hasn't already filtered them, or if we want immediate UI feedback)
+    const displayAgents = skipPii ? pipeline.agents.filter(a => a.id !== 'pii') : pipeline.agents;
+
     return (
         <div className={`bg-white border border-slate-200 rounded-[24px] ${compact ? 'p-4' : 'p-6'} shadow-sm flex flex-col h-full`}>
             {/* Header */}
@@ -199,9 +203,9 @@ export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, 
 
             {/* Vertical Flow */}
             <div className="flex-1">
-                {pipeline.agents.map((agent, i) => {
+                {displayAgents.map((agent, i) => {
                     const isRevealed = i <= revealIndex;
-                    const displayAgent = isRevealed ? agent : { ...agent, status: 'pending', detail: 'Pending execution...', score: 0 };
+                    const displayAgentData = isRevealed ? agent : { ...agent, status: 'pending', detail: 'Pending execution...', score: 0 };
 
                     return (
                         <div
@@ -209,9 +213,9 @@ export function AgentPipelinePanel({ caseId, initialStatus, initialRevealIndex, 
                             className={`transition-all duration-700 ease-out ${isRevealed ? "opacity-100 translate-y-0" : "opacity-40 translate-y-4"}`}
                         >
                             <VerticalAgentCard
-                                agent={displayAgent as AgentStatus}
+                                agent={displayAgentData as AgentStatus}
                                 isActive={agent.status === 'active' && i === pipeline.current_agent_index && isRevealed}
-                                isLast={i === pipeline.agents.length - 1}
+                                isLast={i === displayAgents.length - 1}
                             />
                         </div>
                     );

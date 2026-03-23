@@ -358,6 +358,7 @@ export default function CommandCenterPage() {
                                 key={`${selectedCase.case_id}-${reprocessKey}`}
                                 caseId={selectedCase.case_id}
                                 compact
+                                skipPii={skipPii}
                             />
                         </div>
 
