@@ -281,6 +281,20 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
         classification["classified_at"] = datetime.utcnow().isoformat()
         classification["masked_text_blob_path"] = masked_blob_path
         classification["pii_report_blob_path"] = report_blob_path
+        
+        # 6.1 Ensure documents list is populated from actual attachments
+        # This provides a reliable source of truth even if GPT extraction fails due to truncation.
+        if "key_fields" not in classification:
+            classification["key_fields"] = {}
+            
+        classification["key_fields"]["documents"] = [
+            {
+                "fileName": d.get("filename") or d.get("file_name"),
+                "fileType": d.get("content_type") or "PDF",
+                "documentDescription": "Attachment"
+            }
+            for d in documents
+        ]
 
         # 6.4 Pre-decrypt PII mappings for spatial matching
         placeholder_to_originals = {}

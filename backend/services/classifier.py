@@ -180,7 +180,7 @@ class Classifier:
                 model=self._deployment,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Email content:\n\n{masked_text[:8000]}"},
+                    {"role": "user", "content": f"Email content:\n\n{masked_text[:32000]}"},
                 ],
                 temperature=0.1,
                 max_tokens=16384,
