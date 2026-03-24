@@ -100,4 +100,7 @@ export const casesApi = {
 
     getCaseEnrichment: (client: AxiosInstance, caseId: string) =>
         client.get<{ enrichment: EnrichmentResult | null }>(`/cases/${caseId}/enrichment`).then((r) => r.data),
+
+    deleteCases: (client: AxiosInstance, caseIds: string[]) =>
+        client.delete('/cases', { data: { case_ids: caseIds } }).then((r) => r.data),
 };

@@ -221,10 +221,29 @@ class CosmosDBService:
         await db[COLLECTION_CLASSIFICATION].delete_many({"case_id": case_id})
         # 4. Delete PII mapping
         await db[COLLECTION_PII_MAPPING].delete_many({"case_id": case_id})
-        # 5. Delete the case itself
+        # 5. Delete enrichment results
+        await db[COLLECTION_ENRICHMENT].delete_many({"case_id": case_id})
+        # 6. Delete the case itself
         await db[COLLECTION_CASES].delete_one({"_id": case_id})
             
         logger.info(f"Successfully rolled back data for {case_id}")
+
+    async def bulk_delete_cases(self, case_ids: List[str]) -> Dict[str, Any]:
+        """
+        Bulk deletes multiple cases and their associated data.
+        """
+        logger.info(f"[MongoDB] Bulk deleting {len(case_ids)} cases")
+        deleted = []
+        failed = []
+        for cid in case_ids:
+            try:
+                await self.delete_case_data(cid)
+                deleted.append(cid)
+            except Exception as e:
+                logger.error(f"[MongoDB] Failed to delete case {cid}: {e}")
+                failed.append({"case_id": cid, "error": str(e)})
+        
+        return {"deleted": deleted, "failed": failed}
 
     async def list_cases(
         self,

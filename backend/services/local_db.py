@@ -87,9 +87,27 @@ class LocalDBService:
         db.table("emails").remove(q.case_id == case_id)
         db.table("documents").remove(q.case_id == case_id)
         db.table("classification_results").remove(q.case_id == case_id)
+        db.table("enrichment_results").remove(q.case_id == case_id)
         db.table("cases").remove(q.case_id == case_id)
         db.storage.flush()
         logger.info(f"[LocalDB] Successfully rolled back data for {case_id}")
+
+    async def bulk_delete_cases(self, case_ids: List[str]) -> Dict[str, Any]:
+        """
+        Bulk deletes multiple cases and their associated data.
+        """
+        logger.info(f"[LocalDB] Bulk deleting {len(case_ids)} cases")
+        deleted = []
+        failed = []
+        for cid in case_ids:
+            try:
+                await self.delete_case_data(cid)
+                deleted.append(cid)
+            except Exception as e:
+                logger.error(f"[LocalDB] Failed to delete case {cid}: {e}")
+                failed.append({"case_id": cid, "error": str(e)})
+        
+        return {"deleted": deleted, "failed": failed}
 
     async def update_case_safety(self, case_id: str, safety_result: dict) -> None:
         """Update case with content safety scores."""

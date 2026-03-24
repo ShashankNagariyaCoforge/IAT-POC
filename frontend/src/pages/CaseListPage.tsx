@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     Search, AlertTriangle, ChevronUp, ChevronDown, LogOut, RefreshCw, X,
-    CheckCircle2, Clock, Zap, AlertCircle, ExternalLink, Activity
+    CheckCircle2, Clock, Zap, AlertCircle, ExternalLink, Activity, Trash2
 } from 'lucide-react';
 import { createApiClient, casesApi, ListCasesParams } from '../api/casesApi';
 import type { Case, ClassificationCategory, CaseStatus } from '../types';
@@ -41,6 +41,41 @@ export default function CaseListPage() {
 
     // Stats & Dashboard
     const [dashboardMetrics, setDashboardMetrics] = useState<any>(null);
+
+    // Selection State
+    const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
+    const [deleting, setDeleting] = useState(false);
+
+    const toggleSelect = (caseId: string) => {
+        setSelectedCaseIds(prev =>
+            prev.includes(caseId) ? prev.filter(id => id !== caseId) : [...prev, caseId]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedCaseIds.length === cases.length && cases.length > 0) {
+            setSelectedCaseIds([]);
+        } else {
+            setSelectedCaseIds(cases.map(c => c.case_id));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedCaseIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedCaseIds.length} cases? This action cannot be undone.`)) return;
+
+        setDeleting(true);
+        try {
+            await casesApi.deleteCases(apiClient, selectedCaseIds);
+            setSelectedCaseIds([]);
+            fetchCases();
+            fetchDashboardMetrics();
+        } catch (err: any) {
+            setError(err.response?.data?.detail || 'Failed to delete cases.');
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const fetchCases = useCallback(async () => {
         setLoading(true);
@@ -329,6 +364,18 @@ export default function CaseListPage() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid #f1f5f9', background: 'rgba(248,250,252,0.7)' }}>
+                                    <th style={{ padding: '20px 16px', width: '48px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={cases.length > 0 && selectedCaseIds.length === cases.length}
+                                            onChange={toggleSelectAll}
+                                            style={{
+                                                width: '18px', height: '18px', borderRadius: '6px',
+                                                border: '2px solid #cbd5e1', cursor: 'pointer',
+                                                accentColor: '#4f46e5'
+                                            }}
+                                        />
+                                    </th>
                                     {[
                                         { key: 'case_id', label: 'Submission ID' },
                                         { key: 'sender', label: 'Broker Entity' },
@@ -357,11 +404,17 @@ export default function CaseListPage() {
                                 {loading && !cases.length ? (
                                     Array.from({ length: 8 }).map((_, i) => (
                                         <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                            {Array.from({ length: 8 }).map((_, j) => (
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ width: '18px', height: '18px', background: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+                                            </td>
+                                            {Array.from({ length: 6 }).map((_, j) => (
                                                 <td key={j} style={{ padding: '16px' }}>
                                                     <div style={{ height: '13px', background: '#f1f5f9', borderRadius: '6px', width: `${60 + Math.random() * 40}px`, animation: 'pulse 1.5s infinite' }} />
                                                 </td>
                                             ))}
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ height: '13px', background: '#f1f5f9', borderRadius: '6px', width: '80px', animation: 'pulse 1.5s infinite' }} />
+                                            </td>
                                         </tr>
                                     ))
                                 ) : cases.length === 0 ? (
@@ -375,15 +428,30 @@ export default function CaseListPage() {
                                         const confidencePct = c.confidence_score != null
                                             ? (c.confidence_score <= 1 ? Math.round(c.confidence_score * 100) : Math.round(c.confidence_score))
                                             : null;
+                                        const isSelected = selectedCaseIds.includes(c.case_id);
 
                                         return (
                                             <tr
                                                 key={c.case_id}
                                                 onClick={() => navigate(`/cases/${c.case_id}`)}
-                                                style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', transition: 'background 0.15s' }}
-                                                onMouseEnter={e => (e.currentTarget.style.background = '#fafbff')}
-                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', transition: 'background 0.15s', background: isSelected ? 'rgba(79, 70, 229, 0.04)' : 'transparent' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = isSelected ? 'rgba(79, 70, 229, 0.08)' : '#fafbff')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = isSelected ? 'rgba(79, 70, 229, 0.04)' : 'transparent')}
                                             >
+                                                {/* Checkbox */}
+                                                <td style={{ padding: '24px 16px' }} onClick={e => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelect(c.case_id)}
+                                                        style={{
+                                                            width: '18px', height: '18px', borderRadius: '6px',
+                                                            border: '2px solid #cbd5e1', cursor: 'pointer',
+                                                            accentColor: '#4f46e5'
+                                                        }}
+                                                    />
+                                                </td>
+
                                                 {/* Case ID */}
                                                 <td style={{ padding: '24px 16px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -496,6 +564,45 @@ export default function CaseListPage() {
                     )}
                 </div>
             </main>
+
+            {/* ── Beautiful Delete Button ── */}
+            {selectedCaseIds.length > 0 && (
+                <div style={{
+                    position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 100, animation: 'slideUp 0.3s ease-out'
+                }}>
+                    <button
+                        onClick={handleBulkDelete}
+                        disabled={deleting}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '14px 28px', borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #f43f5e, #e11d48)',
+                            color: '#ffffff', fontWeight: 800, fontSize: '14px',
+                            boxShadow: '0 10px 25px -5px rgba(225, 29, 72, 0.4)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            backdropFilter: 'blur(8px)',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 15px 30px -5px rgba(225, 29, 72, 0.5)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(225, 29, 72, 0.4)'; }}
+                    >
+                        {deleting ? (
+                            <RefreshCw size={18} className="animate-spin" />
+                        ) : (
+                            <Trash2 size={18} />
+                        )}
+                        <span>Delete {selectedCaseIds.length} Selected Cases</span>
+                    </button>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideUp {
+                    from { transform: translate(-50%, 100px); opacity: 0; }
+                    to { transform: translate(-50%, 0); opacity: 1; }
+                }
+            `}</style>
         </div>
     );
 }

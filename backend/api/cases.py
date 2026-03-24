@@ -618,3 +618,19 @@ async def reset_case(case_id: str):
     cosmos = _get_cosmos()
     await cosmos.reset_case(case_id)
     return {"message": f"Successfully reset case {case_id}"}
+
+
+class BulkDeleteRequest(BaseModel):
+    case_ids: List[str]
+
+@router.delete("/cases")
+async def bulk_delete_cases(body: BulkDeleteRequest):
+    """
+    Bulk deletes multiple cases and their associated data.
+    """
+    if not body.case_ids:
+        raise HTTPException(status_code=400, detail="No case_ids provided")
+    
+    cosmos = _get_cosmos()
+    result = await cosmos.bulk_delete_cases(body.case_ids)
+    return result
