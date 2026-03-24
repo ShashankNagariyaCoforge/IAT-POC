@@ -38,7 +38,7 @@ export default function CommandCenterPage() {
     const [pdfName, setPdfName] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [reprocessKey, setReprocessKey] = useState(0);
-    const [skipPii, setSkipPii] = useState(false);
+    const [skipPii, setSkipPii] = useState(true);
 
     const fetchCases = useCallback(async () => {
         try {
