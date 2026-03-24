@@ -381,26 +381,35 @@ class EnrichmentService:
             return EnrichmentResult(enrichment_status="no_data_found").model_dump()
 
         # Step 3: Crawl URLs and extract fields
-        source_urls: List[str] = ["source_text"] if merged_fields else []
+        source_urls = ["source_text"] if merged_fields else []
 
-        # Crawl URLs in parallel (limit to first 3)
+        # 3a. Crawl URLs in parallel (limit to first 3)
         if urls:
             crawl_tasks = [self.crawl_website(url) for url in urls[:3]]
             crawled_contents = await asyncio.gather(*crawl_tasks, return_exceptions=True)
 
+            # 3b. Extract fields from all crawled contents in parallel (Optimization)
+            extraction_tasks = []
+            valid_source_urls = []
+            
             for url, content in zip(urls[:3], crawled_contents):
                 if isinstance(content, Exception) or not content:
                     continue
-
-                # Extract fields from this crawled content
-                fields = await self.extract_fields_from_content(content, company_name, url)
-                if fields:
-                    source_urls.append(url)
-                    # Merge: replace only if higher confidence
-                    for key, field in fields.items():
-                        existing = merged_fields.get(key)
-                        if existing is None or (field.value and field.confidence > existing.confidence):
-                            merged_fields[key] = field
+                extraction_tasks.append(self.extract_fields_from_content(content, company_name, url))
+                valid_source_urls.append(url)
+            
+            if extraction_tasks:
+                logger.info(f"[Enrichment] Launching {len(extraction_tasks)} parallel extractions from crawled content.")
+                results = await asyncio.gather(*extraction_tasks)
+                
+                for url, fields in zip(valid_source_urls, results):
+                    if fields:
+                        source_urls.append(url)
+                        # Merge: replace only if higher confidence
+                        for key, field in fields.items():
+                            existing = merged_fields.get(key)
+                            if existing is None or (field.value and field.confidence > existing.confidence):
+                                merged_fields[key] = field
 
         # Step 4: Identify null fields and try Google search fallback
         null_fields = [

@@ -291,9 +291,20 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
             report_blob_path = report_blob_name if not skip_pii else None
             masked_blob_path = masked_blob_name
 
-        # 5. Content Safety (on masked text)
-        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="content_safety")
-        safety_result = await safety_svc.analyze_text(masked_text)
+        # 5 & 6. Content Safety and AI Classification (Parallel Optimization)
+        # We combine these statuses into a single "Analyzing" state for the UI 
+        # while they run in parallel back-to-back
+        asyncio.create_task(db_service.update_case_status(
+            case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="classification"
+        ))
+        
+        logger.info(f"[Process] Launching Safety Analysis and AI Classification in parallel for case {case_id}")
+        
+        safety_task = asyncio.create_task(safety_svc.analyze_text(masked_text))
+        classification_task = asyncio.create_task(classifier.classify(masked_text, is_masked=(not skip_pii)))
+        
+        safety_result, classification = await asyncio.gather(safety_task, classification_task)
+        
         safety_flagged_for_review = False
         
         if safety_result:
@@ -303,7 +314,9 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                         f"Sexual={safety_result.sexual_severity}, "
                         f"Violence={safety_result.violence_severity}")
             
-            await db_service.update_case_safety(case_id, safety_result.model_dump())
+            # Non-blocking safety update
+            asyncio.create_task(db_service.update_case_safety(case_id, safety_result.model_dump()))
+            
             max_severity = max(
                 safety_result.hate_severity,
                 safety_result.self_harm_severity,
@@ -318,9 +331,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 logger.info(f"[ContentSafety] Case {case_id} flagged for review. Max Severity: {max_severity}")
                 safety_flagged_for_review = True
 
-        # 6. AI Classification
-        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="classification")
-        classification = await classifier.classify(masked_text, is_masked=(not skip_pii))
+        # AI Classification (already got result from gather above)
         classification["result_id"] = str(uuid.uuid4())
         classification["case_id"] = case_id
         classification["classified_at"] = datetime.utcnow().isoformat()
@@ -355,7 +366,8 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 pass
 
         # 6.5 Match Key Fields to Locations (Parallel Extraction)
-        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="extraction")
+        # Using create_task for the status update to let CPU initialization start immediately
+        asyncio.create_task(db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="extraction"))
         extraction_results = []
         doc_tables = [] # List of extracted tables across all docs
         
@@ -540,10 +552,11 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         
         # 6.7 Save Classification Result with Annotated Paths
         logger.info(f"[Extraction] Final extraction results count: {len(extraction_results)}")
-        await db_service.save_classification_result(classification)
+        # Non-blocking save
+        asyncio.create_task(db_service.save_classification_result(classification))
 
         # 6.8 Await and save enrichment results (was launched in parallel at step 2b)
-        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="enrichment")
+        asyncio.create_task(db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="enrichment"))
         try:
             enrichment_result = await enrichment_task
             # Retroactively update company_name from classification if enrichment didn't find one
