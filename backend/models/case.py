@@ -55,6 +55,7 @@ class CaseDocument(BaseModel):
     requires_human_review: bool = False
     summary: Optional[str] = None
     content_safety_result: Optional[ContentSafetyResult] = None
+    pipeline_step: Optional[str] = None
 
 
 class CaseResponse(BaseModel):
@@ -71,6 +72,7 @@ class CaseResponse(BaseModel):
     requires_human_review: bool
     summary: Optional[str] = None
     content_safety_result: Optional[ContentSafetyResult] = None
+    pipeline_step: Optional[str] = None
 
 
 class CaseListResponse(BaseModel):

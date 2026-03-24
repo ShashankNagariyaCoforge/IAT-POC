@@ -337,11 +337,36 @@ async def get_case_pipeline_status(case_id: str):
         current_agent_index = 0
 
     elif status == "PROCESSING":
-        # Email done, Next agent active, enrichment launched in parallel
-        # If PII is skipped, Safety is index 2. If PII is NOT skipped, PII is index 2.
-        # In both cases, index 2 is the one that becomes active after Email.
-        states = ["completed", "completed", "active"] + ["pending"] * (len(agents) - 4) + ["active"]
-        current_agent_index = 2
+        # Use pipeline_step for granular real-time progress
+        step = case.get("pipeline_step")
+        
+        # Map step names to their respective agent indices
+        if not pii_skipped:
+            step_map = {
+                "fetch_content": 1, "pii_masking": 2, "content_safety": 3,
+                "classification": 4, "extraction": 5, "enrichment": 6, "completed": 6
+            }
+        else:
+            step_map = {
+                "fetch_content": 1, "content_safety": 2, "classification": 3,
+                "extraction": 4, "enrichment": 5, "completed": 5
+            }
+            
+        current_agent_index = step_map.get(step, 1)
+        
+        states = []
+        for i in range(len(agents)):
+            if i < current_agent_index:
+                states.append("completed")
+            elif i == current_agent_index:
+                states.append("active")
+            else:
+                states.append("pending")
+        
+        # Enrichment agent (the last one) runs in parallel from PII/Safety onwards
+        enrichment_idx = len(agents) - 1
+        if 2 <= current_agent_index < enrichment_idx:
+            states[enrichment_idx] = "active"
 
     elif status == "BLOCKED_SAFETY":
         # Orchestrator, Email, PII (if any), Safety(failed)

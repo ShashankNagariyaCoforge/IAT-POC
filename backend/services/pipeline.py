@@ -97,7 +97,7 @@ async def run_pipeline(message_id: str) -> None:
         await cosmos.create_email(email_doc)
 
         # Update case status to PROCESSING
-        await cosmos.update_case_status(case_id, CaseStatus.PROCESSING)
+        await cosmos.update_case_status(case_id, CaseStatus.PROCESSING, pipeline_step="fetch_content")
 
         # ── Steps 3-6: Parse each attachment ─────────────────────────────────
         all_extracted_texts = []
@@ -176,6 +176,7 @@ async def run_pipeline(message_id: str) -> None:
 
         # ── Step 7: PII masking ───────────────────────────────────────────────
         logger.info(f"[Pipeline] Masking PII for case {case_id}")
+        await cosmos.update_case_status(case_id, CaseStatus.PROCESSING, pipeline_step="pii_masking")
         doc_id_for_masking = str(uuid.uuid4())
         masked_text, pii_mappings = await masker.mask_text(combined_text, case_id, doc_id_for_masking)
 
@@ -189,6 +190,7 @@ async def run_pipeline(message_id: str) -> None:
 
         # ── Step 7b: Content Safety check ─────────────────────────────────────
         logger.info(f"[Pipeline] Running Content Safety check for case {case_id}")
+        await cosmos.update_case_status(case_id, CaseStatus.PROCESSING, pipeline_step="content_safety")
         safety_result = None
         safety_status = None
         
@@ -223,6 +225,7 @@ async def run_pipeline(message_id: str) -> None:
 
         # ── Step 8: GPT-4o-mini classification ───────────────────────────────
         logger.info(f"[Pipeline] Classifying case {case_id}")
+        await cosmos.update_case_status(case_id, CaseStatus.PROCESSING, pipeline_step="classification")
         classification = await classifier.classify(masked_text)
 
         # ── Step 9: Save results, update case status ──────────────────────────
@@ -263,7 +266,7 @@ async def run_pipeline(message_id: str) -> None:
 
         # Send downstream notification
         await notifier.send_notification(case_id, result_doc)
-        await cosmos.update_case_status(case_id, CaseStatus.PROCESSED)
+        await cosmos.update_case_status(case_id, CaseStatus.PROCESSED, pipeline_step="completed")
         await cosmos.update_classification_notification(result_id, datetime.utcnow())
 
         logger.info(f"[Pipeline] Case {case_id} completed successfully. Category: {classification['classification_category']}")

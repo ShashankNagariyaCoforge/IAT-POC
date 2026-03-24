@@ -48,7 +48,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
          raise HTTPException(status_code=400, detail=f"Case {case_id} is already processed or processing.")
 
     # 1. Update status to processing so UI reflects it immediately
-    await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii)
+    await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="fetch_content")
 
     try:
         classifier = Classifier()
@@ -194,6 +194,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
 
         # 3. PII Masking (Optional)
         if not skip_pii:
+            await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="pii_masking")
             logger.info(f"[Process] Masking PII for case {case_id} using ProcessPool (if available)")
             # Optimization: Mask each Document in parallel before merging
             # This is much faster than masking a single giant combined string sequentially.
@@ -291,6 +292,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
             masked_blob_path = masked_blob_name
 
         # 5. Content Safety (on masked text)
+        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="content_safety")
         safety_result = await safety_svc.analyze_text(masked_text)
         safety_flagged_for_review = False
         
@@ -317,6 +319,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 safety_flagged_for_review = True
 
         # 6. AI Classification
+        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="classification")
         classification = await classifier.classify(masked_text, is_masked=(not skip_pii))
         classification["result_id"] = str(uuid.uuid4())
         classification["case_id"] = case_id
@@ -352,6 +355,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 pass
 
         # 6.5 Match Key Fields to Locations (Parallel Extraction)
+        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="extraction")
         extraction_results = []
         doc_tables = [] # List of extracted tables across all docs
         
@@ -539,6 +543,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         await db_service.save_classification_result(classification)
 
         # 6.8 Await and save enrichment results (was launched in parallel at step 2b)
+        await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="enrichment")
         try:
             enrichment_result = await enrichment_task
             # Retroactively update company_name from classification if enrichment didn't find one
@@ -565,7 +570,8 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 classification_category=classification["classification_category"],
                 confidence_score=classification["confidence_score"],
                 requires_human_review=classification["requires_human_review"],
-                pii_skipped=skip_pii
+                pii_skipped=skip_pii,
+                pipeline_step="completed"
             )
         else:
             await db_service.update_case_status(
@@ -573,7 +579,8 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 classification_category=classification["classification_category"],
                 confidence_score=classification["confidence_score"],
                 requires_human_review=True,
-                pii_skipped=skip_pii
+                pii_skipped=skip_pii,
+                pipeline_step="completed"
             )
             
         print(f"SUCCESS [Process]: Total case {case_id} processed successfully.")
