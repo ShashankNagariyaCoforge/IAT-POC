@@ -179,8 +179,23 @@ class LocalDBService:
         }
 
     async def get_next_case_sequence(self) -> int:
+        """Find the max sequence by parsing case_id strings."""
         db = _get_db()
-        return len(db.table("cases").all()) + 1
+        cases = db.table("cases").all()
+        if not cases:
+            return 1
+            
+        max_seq = 0
+        try:
+            for c in cases:
+                case_id = c.get("case_id", "")
+                if "-" in case_id:
+                    seq_part = case_id.split("-")[-1]
+                    if seq_part.isdigit():
+                        max_seq = max(max_seq, int(seq_part))
+            return max_seq + 1
+        except (ValueError, IndexError):
+            return len(cases) + 1
 
     # ===== EMAILS =====
 

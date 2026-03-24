@@ -283,11 +283,26 @@ class CosmosDBService:
         }
 
     async def get_next_case_sequence(self) -> int:
-        """Get the next global case sequence number."""
+        """Get the next global case sequence number by finding the highest existing ID."""
         db = self._get_db()
-        # MongoDB count is fast enough for sequence in POC
-        count = await db[COLLECTION_CASES].count_documents({})
-        return count + 1
+        # Find the case with the lexicographically highest case_id
+        # format: IAT-YYYY-XXXXXX
+        last_case = await db[COLLECTION_CASES].find_one(
+            {}, 
+            sort=[("case_id", DESCENDING)]
+        )
+        if not last_case:
+            return 1
+        
+        try:
+            # Extract the numeric part from IAT-YYYY-XXXXXX
+            last_id = last_case["case_id"]
+            seq_str = last_id.split("-")[-1]
+            return int(seq_str) + 1
+        except (ValueError, IndexError):
+            # Fallback for unexpected formats
+            count = await db[COLLECTION_CASES].count_documents({})
+            return count + 1
 
     # ===== EMAILS =====
 
