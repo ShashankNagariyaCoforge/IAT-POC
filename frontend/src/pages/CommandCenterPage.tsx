@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     Inbox, LayoutDashboard, Search,
-    Paperclip, ChevronLeft, ChevronRight, Activity, Loader2, BrainCircuit
+    Paperclip, ChevronLeft, ChevronRight, Activity, Loader2, BrainCircuit, Trash2
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import type { Case, Email, Document as CaseDoc } from '../types';
@@ -146,6 +146,45 @@ export default function CommandCenterPage() {
         }
     };
 
+    // --- Bulk Delete Logic ---
+    const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
+    const [deleting, setDeleting] = useState(false);
+
+    const toggleSelect = (caseId: string) => {
+        setSelectedCaseIds(prev =>
+            prev.includes(caseId) ? prev.filter(id => id !== caseId) : [...prev, caseId]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedCaseIds.length === cases.length && cases.length > 0) {
+            setSelectedCaseIds([]);
+        } else {
+            setSelectedCaseIds(cases.map(c => c.case_id));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedCaseIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedCaseIds.length} cases? This action cannot be undone.`)) return;
+
+        setDeleting(true);
+        try {
+            await casesApi.deleteCases(apiClient, selectedCaseIds);
+            setSelectedCaseIds([]);
+            fetchCases();
+            // If active case was deleted, clear it
+            if (selectedCaseId && selectedCaseIds.includes(selectedCaseId)) {
+                setSelectedCaseId(null);
+            }
+        } catch (error) {
+            console.error("Failed to delete cases:", error);
+            alert("Failed to delete cases.");
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const showAI = selectedCase?.status && !['RECEIVED'].includes(selectedCase.status);
 
     if (activeTab === 'dashboard') {
@@ -195,6 +234,9 @@ export default function CommandCenterPage() {
                     cases={cases}
                     selectedId={selectedCaseId}
                     onSelect={setSelectedCaseId}
+                    selectedIds={selectedCaseIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSelectAll={toggleSelectAll}
                     isLoading={loading}
                 />
             </div>
@@ -389,6 +431,44 @@ export default function CommandCenterPage() {
                     name={pdfName}
                     onClose={() => setPdfUrl(null)}
                 />
+            )}
+
+            {/* ── Beautiful Delete Button ── */}
+            {selectedCaseIds.length > 0 && (
+                <div style={{
+                    position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 100, animation: 'slideUp 0.3s ease-out'
+                }}>
+                    <button
+                        onClick={handleBulkDelete}
+                        disabled={deleting}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '14px 28px', borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #f43f5e, #e11d48)',
+                            color: '#ffffff', fontWeight: 800, fontSize: '14px',
+                            boxShadow: '0 10px 25px -5px rgba(225, 29, 72, 0.4)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            backdropFilter: 'blur(8px)',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05) translateX(-50%)'; e.currentTarget.style.boxShadow = '0 15px 30px -5px rgba(225, 29, 72, 0.5)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateX(-50%)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(225, 29, 72, 0.4)'; }}
+                    >
+                        {deleting ? (
+                            <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                            <Trash2 size={18} />
+                        )}
+                        <span>Delete {selectedCaseIds.length} Selected Cases</span>
+                    </button>
+                    <style>{`
+                        @keyframes slideUp {
+                            from { transform: translate(-50%, 100px); opacity: 0; }
+                            to { transform: translate(-50%, 0); opacity: 1; }
+                        }
+                    `}</style>
+                </div>
             )}
         </div>
     );

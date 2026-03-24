@@ -15,10 +15,13 @@ interface Props {
     cases: Case[];
     selectedId: string | null;
     onSelect: (id: string) => void;
+    selectedIds: string[];
+    onToggleSelect: (id: string) => void;
+    onToggleSelectAll: () => void;
     isLoading?: boolean;
 }
 
-export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props) {
+export function CaseThreadList({ cases, selectedId, onSelect, selectedIds, onToggleSelect, onToggleSelectAll, isLoading }: Props) {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Restore scroll position
@@ -63,7 +66,7 @@ export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props
     return (
         <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50"
+            className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 flex flex-col"
             onScroll={(e) => localStorage.setItem('caseListScroll', e.currentTarget.scrollTop.toString())}
         >
             {cases.length === 0 ? (
@@ -73,21 +76,41 @@ export function CaseThreadList({ cases, selectedId, onSelect, isLoading }: Props
                 </div>
             ) : (
                 <div className="flex flex-col">
+                    {/* Select All Section */}
+                    <div className="px-4 py-2 border-b border-slate-200 bg-slate-100/50 flex items-center gap-3">
+                        <input
+                            type="checkbox"
+                            checked={cases.length > 0 && selectedIds.length === cases.length}
+                            onChange={(e) => { e.stopPropagation(); onToggleSelectAll(); }}
+                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            Select All {selectedIds.length > 0 && `(${selectedIds.length})`}
+                        </span>
+                    </div>
+
                     {cases.map((c) => {
-                        const isSelected = selectedId === c.case_id;
+                        const isCurrentActive = selectedId === c.case_id;
+                        const isSelected = selectedIds.includes(c.case_id);
                         const isNew = c.status === 'RECEIVED';
 
                         return (
                             <div
                                 key={c.case_id}
                                 onClick={() => onSelect(c.case_id)}
-                                className={`flex gap-3 p-4 border-b border-slate-100 cursor-pointer transition-colors ${isSelected
+                                className={`flex gap-3 p-4 border-b border-slate-100 cursor-pointer transition-colors relative group ${isCurrentActive
                                     ? 'bg-indigo-100/50 border-l-4 border-l-indigo-600 pl-3'
                                     : 'bg-white hover:bg-slate-50 border-l-4 border-l-transparent pl-3'
                                     }`}
                             >
-                                {/* Icon */}
-                                <div className="pt-1 flex-shrink-0">
+                                {/* Checkbox Overlay/Side */}
+                                <div className="pt-1 flex-shrink-0 flex flex-col items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => { e.stopPropagation(); onToggleSelect(c.case_id); }}
+                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    />
                                     {isNew ? (
                                         <Mail size={16} className="text-indigo-600" fill="currentColor" opacity={0.2} />
                                     ) : (
