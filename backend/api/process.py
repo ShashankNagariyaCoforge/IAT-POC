@@ -5,8 +5,10 @@ import re
 import uuid
 import os
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+from services.extraction_service import find_field_worker
+from services.pii_masker import mask_text_worker
 
 from config import settings
 from services.classifier import Classifier
@@ -31,7 +33,7 @@ def _get_cosmos():
 
 
 @router.post("/cases/{case_id}/process")
-async def process_single_case(case_id: str, skip_pii: bool = False):
+async def process_single_case(request: Request, case_id: str, skip_pii: bool = False):
     """
     Manually triggers the AI pipeline (Safety check + Classification) 
     for a specific case that is currently in 'RECEIVED' state.
@@ -54,6 +56,8 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
         masker = PIIMasker()
         blob_service = BlobStorageService()
         extraction_svc = ExtractionService()
+        executor = getattr(request.app.state, "executor", None)
+        loop = asyncio.get_event_loop()
 
         # 1. Fetch all content for merging
         emails = await db_service.get_emails_for_case(case_id)
@@ -190,12 +194,50 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
 
         # 3. PII Masking (Optional)
         if not skip_pii:
-            logger.info(f"[Process] Masking PII for case {case_id}")
-            masked_text, pii_mappings = await masker.mask_text(
-                combined_raw_text, 
-                case_id=case_id, 
-                document_id=case_id  # Use case_id as doc_id for the combined report
-            )
+            logger.info(f"[Process] Masking PII for case {case_id} using ProcessPool (if available)")
+            # Optimization: Mask each Document in parallel before merging
+            # This is much faster than masking a single giant combined string sequentially.
+            
+            # 3a. Prepare text parts for masking
+            # We want to keep the source labels outside of masking to avoid polluting PII detection
+            masking_tasks = []
+            
+            # Helper to mask a specific source
+            async def mask_source(source_label: str, raw_text: str):
+                m_text, m_mappings = await masker.mask_text(
+                    raw_text, 
+                    case_id=case_id, 
+                    document_id=case_id, # Simplified for combined report
+                    executor=executor
+                )
+                return source_label, m_text, m_mappings
+
+            # Emails
+            for em in sorted_emails:
+                 body_text = em.get('body') or em.get('body_masked', '')
+                 if not em.get('body'):
+                     from utils.html_utils import clean_html
+                     body_text = clean_html(body_text)
+                 cleaned_body = clean_conversation_context(body_text)
+                 masking_tasks.append(mask_source(f"[Source: Email from {em.get('sender')}]", cleaned_body))
+            
+            # Documents (using DI text if available, fallback to doc.extracted_text)
+            for doc_id, layout in doc_layout_results.items():
+                filename = next((d.get("filename") or d.get("file_name") for d in documents if d.get("document_id") == doc_id), "Attachment")
+                extracted_text = layout.get("content", "")
+                if extracted_text:
+                    masking_tasks.append(mask_source(f"[Source: Attachment {filename}]", extracted_text))
+            
+            # Execute masking in parallel
+            masking_results = await asyncio.gather(*masking_tasks)
+            
+            masked_text_parts = []
+            pii_mappings = []
+            for label, m_text, m_mappings in masking_results:
+                masked_text_parts.append(f"{label}\n{m_text}")
+                pii_mappings.extend(m_mappings)
+            
+            masked_text = "\n\n---\n\n".join(masked_text_parts)
         else:
             logger.info(f"[Process] Skipping PII masking for case {case_id} as requested by UI.")
             masked_text = combined_raw_text
@@ -309,7 +351,7 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
             except Exception:
                 pass
 
-        # 6.5 Match Key Fields to Locations (Recursive Extraction)
+        # 6.5 Match Key Fields to Locations (Parallel Extraction)
         extraction_results = []
         doc_tables = [] # List of extracted tables across all docs
         
@@ -320,11 +362,12 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 t["doc_id"] = doc_id
                 doc_tables.append(t)
 
-        async def recursive_extract(data: Any, prefix: str = ""):
+        # Collect all leaf nodes for parallel processing
+        fields_to_extract = []
+
+        def collect_fields(data: Any, prefix: str = ""):
             if isinstance(data, dict):
                 for k, v in data.items():
-                    # Clean the key for display (e.g. agencyName -> Agency Name)
-                    # Add space before capitals for CamelCase, then replace _ with space
                     SPECIAL_KEYS = {
                         "name": "Insured: Name",
                         "agency": "Agency",
@@ -339,66 +382,69 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                         clean_k = re.sub(r'([a-z])([A-Z])', r'\1 \2', k).replace("_", " ").title()
                     
                     new_prefix = f"{prefix}: {clean_k}" if prefix else clean_k
-                    await recursive_extract(v, new_prefix)
+                    collect_fields(v, new_prefix)
             elif isinstance(data, list):
                 for i, item in enumerate(data):
                     new_prefix = f"{prefix} [{i+1}]"
-                    await recursive_extract(item, new_prefix)
+                    collect_fields(item, new_prefix)
             elif data and str(data).lower() not in ["null", "none", "—", "n/a", "not available", "not provided", "none"]:
-                # Leaf node: search for coordinates
-                field_label = prefix
-                
+                fields_to_extract.append((prefix, str(data)))
+
+        collect_fields(classification.get("key_fields", {}))
+        logger.info(f"[Extraction] Collected {len(fields_to_extract)} fields for extraction.")
+
+        # Semaphore to limit concurrency (e.g. 16 fields at a time) to avoid too many parallel DI/Executor calls
+        sem = asyncio.Semaphore(16)
+
+        async def extract_single_field(field_label: str, raw_value: str):
+            async with sem:
                 # If the value is a placeholder, try to search for the original text
-                search_values = [str(data)]
-                if str(data) in placeholder_to_originals:
-                    search_values.extend(list(placeholder_to_originals[str(data)]))
+                search_values = [raw_value]
+                if raw_value in placeholder_to_originals:
+                    search_values.extend(list(placeholder_to_originals[raw_value]))
                 
                 # Remove duplicates and empty strings
                 search_values = list(set([v for v in search_values if v and v.strip()]))
                 
-                logger.info(f"[Extraction] Searching for field '{field_label}' with values: {search_values}")
+                instances = []
                 
-                # Optimized: Parallelize searching for field matches across all search values and document layouts
-                search_tasks = []
-                # Record (val, doc_id) to map results back
-                task_metadata = []
-                
-                for val in search_values:
-                    for doc_id, layout in doc_layout_results.items():
-                        # find_field_in_lines is CPU bound, use to_thread to avoid blocking event loop
-                        search_tasks.append(asyncio.to_thread(extraction_svc.find_field_in_lines, layout, val))
-                        task_metadata.append(doc_id)
-                
-                if search_tasks:
-                    all_matches_results = await asyncio.gather(*search_tasks)
-                    
-                    instances = []
-                    for i, matches in enumerate(all_matches_results):
-                        doc_id = task_metadata[i]
+                # Search document by document
+                for doc_id, layout in doc_layout_results.items():
+                    doc_field_matches = []
+                    for val in search_values:
+                        if executor:
+                            matches = await loop.run_in_executor(executor, find_field_worker, layout, val)
+                        else:
+                            matches = await asyncio.to_thread(extraction_svc.find_field_in_lines, layout, val)
+                        
                         for m in matches:
                             m["doc_id"] = doc_id
-                            instances.append(m)
+                            doc_field_matches.append(m)
                     
-                    if instances:
-                        # Sort globally by similarity and confidence before picking top
-                        instances.sort(key=lambda x: (x.get("similarity", 0), x.get("confidence", 0)), reverse=True)
+                    if doc_field_matches:
+                        doc_field_matches.sort(key=lambda x: (x.get("similarity", 0), x.get("confidence", 0)), reverse=True)
+                        best_in_doc = doc_field_matches[0]
+                        instances.extend(doc_field_matches)
                         
-                        # Enforce "Winner Takes All" for single fields to avoid noise
-                        if "[" not in field_label:
-                            # Take only the absolute best match found across all documents
-                            instances = [instances[0]]
-                        
-                        logger.info(f"[Extraction] Found {len(instances)} matches for '{field_label}'")
-                        extraction_results.append({
-                            "field": field_label,
-                            "value": str(data),
-                            "instances": instances
-                        })
-                    else:
-                        logger.warning(f"[Extraction] No matches found for '{field_label}' in any document.")
+                        # Early Exit Check
+                        if best_in_doc.get("similarity", 0) >= 0.95:
+                            break 
+                
+                if instances:
+                    instances.sort(key=lambda x: (x.get("similarity", 0), x.get("confidence", 0)), reverse=True)
+                    if "[" not in field_label:
+                        instances = [instances[0]]
+                    
+                    extraction_results.append({
+                        "field": field_label,
+                        "value": raw_value,
+                        "instances": instances
+                    })
 
-        logger.info(f"[Extraction] Starting recursive extraction on {len(doc_layout_results)} document layouts.")
-        await recursive_extract(classification.get("key_fields", {}))
+        if fields_to_extract:
+            extraction_tasks = [extract_single_field(f, v) for f, v in fields_to_extract]
+            await asyncio.gather(*extraction_tasks)
+            logger.info(f"[Extraction] Parallel extraction complete. Found {len(extraction_results)} matches.")
         
         classification["extraction_results"] = extraction_results
         classification["extracted_tables"] = doc_tables
@@ -422,22 +468,41 @@ async def process_single_case(case_id: str, skip_pii: bool = False):
                 logger.info(f"[Process] Rendering annotated PDF for {filename} ({doc_id})")
                 
                 if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    # Use to_thread for CPU-bound rendering
-                    annotated_bytes = await asyncio.to_thread(
-                        renderer.render_image_to_annotated, 
-                        orig_bytes, 
-                        layout.get("pages", [{}])[0], 
-                        extraction_results
-                    )
+                    # Use ProcessPool for rendering if available
+                    if executor:
+                        annotated_bytes = await loop.run_in_executor(
+                            executor, 
+                            renderer.render_image_to_annotated, 
+                            orig_bytes, 
+                            layout.get("pages", [{}])[0], 
+                            extraction_results
+                        )
+                    else:
+                        annotated_bytes = await asyncio.to_thread(
+                            renderer.render_image_to_annotated, 
+                            orig_bytes, 
+                            layout.get("pages", [{}])[0], 
+                            extraction_results
+                        )
                 else:
-                    # PDF or Scanned PDF - passing content bytes directly
-                    annotated_bytes = await asyncio.to_thread(
-                        renderer.render_pdf_to_annotated, 
-                        filename, 
-                        layout, 
-                        extraction_results, 
-                        orig_bytes
-                    )
+                    # PDF or Scanned PDF
+                    if executor:
+                        annotated_bytes = await loop.run_in_executor(
+                            executor, 
+                            renderer.render_pdf_to_annotated, 
+                            filename, 
+                            layout, 
+                            extraction_results, 
+                            orig_bytes
+                        )
+                    else:
+                        annotated_bytes = await asyncio.to_thread(
+                            renderer.render_pdf_to_annotated, 
+                            filename, 
+                            layout, 
+                            extraction_results, 
+                            orig_bytes
+                        )
                 
                 if not annotated_bytes:
                     logger.warning(f"[Process] Failed to generate annotated bytes for {filename}")

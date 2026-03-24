@@ -21,12 +21,13 @@ Masked PII fields (aligned to IAT Insurance requirements):
   ✅ Health Plan Member ID   → [HEALTH_PLAN_ID](custom pattern recognizer)
 """
 
+import asyncio
 import base64
 import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer, RecognizerRegistry
@@ -222,6 +223,77 @@ def _build_job_title_recognizer() -> PatternRecognizer:
 # Max characters to send to spaCy NER at once (limit is 1,000,000 — we use 500K for safety)
 MAX_CHUNK_SIZE = 500_000
 
+# ── Worker Cache for Parallel Processing ──────────────────────────────────────
+# These are initialized once per worker process to avoid reloading Spacy models
+_worker_analyzer = None
+_worker_anonymizer = None
+
+def _get_worker_engines():
+    global _worker_analyzer, _worker_anonymizer
+    if _worker_analyzer is None:
+        registry = RecognizerRegistry()
+        registry.load_predefined_recognizers()
+        registry.add_recognizer(_build_employee_id_recognizer())
+        registry.add_recognizer(_build_salary_recognizer())
+        registry.add_recognizer(_build_internal_id_recognizer())
+        registry.add_recognizer(_build_health_plan_id_recognizer())
+        registry.add_recognizer(_build_job_title_recognizer())
+        _worker_analyzer = AnalyzerEngine(registry=registry)
+        _worker_anonymizer = AnonymizerEngine()
+    return _worker_analyzer, _worker_anonymizer
+
+def mask_text_worker(text: str, case_id: str, document_id: str, aes_key_bytes: bytes) -> Tuple[str, List[Dict]]:
+    """
+    Stand-alone worker function for ProcessPoolExecutor.
+    Masks PII in a single chunk of text.
+    """
+    analyzer, anonymizer = _get_worker_engines()
+    
+    results = analyzer.analyze(
+        text=text,
+        entities=ALL_ENTITIES,
+        language="en",
+    )
+
+    if not results:
+        return text, []
+
+    operators = {}
+    for result in results:
+        placeholder = PLACEHOLDER_MAP.get(result.entity_type, "****")
+        operators[result.entity_type] = OperatorConfig("replace", {"new_value": placeholder})
+
+    anonymized = anonymizer.anonymize(
+        text=text,
+        analyzer_results=results,
+        operators=operators,
+    )
+    masked_text = anonymized.text
+
+    # Internal helper for encryption within the worker
+    def encrypt_val(val: str, key: bytes) -> str:
+        aesgcm = AESGCM(key)
+        nonce = os.urandom(12)
+        ciphertext = aesgcm.encrypt(nonce, val.encode("utf-8"), None)
+        return base64.b64encode(nonce + ciphertext).decode("utf-8")
+
+    pii_mappings = []
+    for result in results:
+        original_value = text[result.start:result.end]
+        encrypted_value = encrypt_val(original_value, aes_key_bytes)
+        mapping = {
+            "mapping_id": str(uuid.uuid4()),
+            "case_id": case_id,
+            "document_id": document_id,
+            "pii_type": result.entity_type,
+            "masked_value": PLACEHOLDER_MAP.get(result.entity_type, "****"),
+            "original_value_encrypted": encrypted_value,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        pii_mappings.append(mapping)
+
+    return masked_text, pii_mappings
+
 
 class PIIMasker:
     """
@@ -261,10 +333,12 @@ class PIIMasker:
         text: str,
         case_id: str,
         document_id: str,
+        executor: Any = None,
     ) -> Tuple[str, List[Dict]]:
         """
         Mask all PII in the given text and return masked text with PII mapping records.
         Automatically chunks text larger than MAX_CHUNK_SIZE to avoid spaCy's 1M char limit.
+        If executor is provided, chunks are processed in parallel using the process pool.
         """
         if not text.strip():
             return text, []
@@ -272,7 +346,15 @@ class PIIMasker:
         logger.info(f"[PIIMasker] Running PII analysis on {len(text):,} characters for document {document_id}")
 
         if len(text) > MAX_CHUNK_SIZE:
-            return await self._mask_chunked(text, case_id, document_id)
+            return await self._mask_chunked(text, case_id, document_id, executor)
+
+        if executor:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                executor, 
+                mask_text_worker, 
+                text, case_id, document_id, self._aes_key
+            )
 
         return self._mask_chunk(text, case_id, document_id)
 
@@ -281,6 +363,7 @@ class PIIMasker:
         text: str,
         case_id: str,
         document_id: str,
+        executor: Any = None,
     ) -> Tuple[str, List[Dict]]:
         """Split text into ~MAX_CHUNK_SIZE chunks (splitting on newlines) and mask each."""
         chunks: List[str] = []
@@ -303,11 +386,23 @@ class PIIMasker:
         masked_parts: List[str] = []
         all_mappings: List[Dict] = []
 
-        for i, chunk in enumerate(chunks, 1):
-            logger.info(f"[PIIMasker] Processing chunk {i}/{len(chunks)} ({len(chunk):,} chars)...")
-            masked_chunk, chunk_mappings = self._mask_chunk(chunk, case_id, document_id)
-            masked_parts.append(masked_chunk)
-            all_mappings.extend(chunk_mappings)
+        if executor:
+            logger.info(f"[PIIMasker] Offloading {len(chunks)} chunks to ProcessPoolExecutor.")
+            loop = asyncio.get_event_loop()
+            tasks = [
+                loop.run_in_executor(executor, mask_text_worker, chunk, case_id, document_id, self._aes_key)
+                for chunk in chunks
+            ]
+            chunk_results = await asyncio.gather(*tasks)
+            for m_text, m_mappings in chunk_results:
+                masked_parts.append(m_text)
+                all_mappings.extend(m_mappings)
+        else:
+            for i, chunk in enumerate(chunks, 1):
+                logger.info(f"[PIIMasker] Processing chunk {i}/{len(chunks)} ({len(chunk):,} chars) sequentially...")
+                masked_chunk, chunk_mappings = self._mask_chunk(chunk, case_id, document_id)
+                masked_parts.append(masked_chunk)
+                all_mappings.extend(chunk_mappings)
 
         logger.info(f"[PIIMasker] All {len(chunks)} chunks processed. Total PII entities: {len(all_mappings)}.")
         return "".join(masked_parts), all_mappings

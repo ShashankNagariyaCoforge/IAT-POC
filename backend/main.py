@@ -7,6 +7,8 @@ import sys
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 # Windows-specific fix for Playwright/Subprocess support
 if sys.platform == 'win32':
@@ -39,6 +41,15 @@ async def lifespan(app: FastAPI):
 
     renewal_task = None
     poll_task = None
+    executor = None
+
+    # Step: Initialize Global Process Pool for CPU-bound tasks (PII, Bounding Box, Rendering)
+    num_cpus = multiprocessing.cpu_count()
+    # We cap at 8 or use available CPUs to fully utilize the VM
+    max_workers = min(num_cpus, 8) 
+    logger.info(f"Initializing global ProcessPoolExecutor with {max_workers} workers.")
+    executor = ProcessPoolExecutor(max_workers=max_workers)
+    app.state.executor = executor
 
     if settings.demo_mode:
         # ── Demo Mode: skip all cloud service initialization ──────────────
@@ -100,6 +111,10 @@ async def lifespan(app: FastAPI):
     if poll_task is not None:
         poll_task.cancel()
         logger.info("Email auto-poller stopped.")
+    
+    if executor:
+        logger.info("Shutting down global ProcessPoolExecutor...")
+        executor.shutdown(wait=True)
 
 
 async def _renew_subscription_loop(graph: GraphClient):
