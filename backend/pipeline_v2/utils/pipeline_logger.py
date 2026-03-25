@@ -15,15 +15,21 @@ Usage:
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# log.txt lives in the backend root directory (next to process_v2.py)
-_LOG_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "log.txt")
-)
+# Log path resolution order:
+#   1. V2_DEBUG_LOG_PATH env var (set this on the VM if you want a specific location)
+#   2. Current working directory  (wherever uvicorn / gunicorn is started from)
+# This avoids any __file__ path issues across different machines / project names.
+def _resolve_log_path() -> str:
+    env = os.environ.get("V2_DEBUG_LOG_PATH", "").strip()
+    if env:
+        return env
+    return os.path.join(os.getcwd(), "log.txt")
 
 
 def _safe_json(obj: Any, limit: int = 0) -> str:
@@ -48,14 +54,27 @@ class _PipelineLogger:
         """Call once at the very start of a pipeline run. Overwrites log.txt."""
         self._close()
         self._case_id = case_id
-        self._f = open(_LOG_PATH, "w", encoding="utf-8")
+        log_path = _resolve_log_path()
+        try:
+            self._f = open(log_path, "w", encoding="utf-8")
+        except Exception as e:
+            # Fallback: write next to this source file if cwd is not writable
+            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "log.txt")
+            try:
+                self._f = open(log_path, "w", encoding="utf-8")
+            except Exception as e2:
+                print(f"[PipelineLogger] ERROR: could not open log file: {e} / {e2}", file=sys.stderr)
+                return
         self._banner(
-            f"PIPELINE V2 DEBUG LOG",
+            "PIPELINE V2 DEBUG LOG",
             f"Case ID : {case_id}",
             f"Started : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
-            f"Log file: {_LOG_PATH}",
+            f"Log file: {log_path}",
         )
-        logger.info(f"[PipelineLogger] Debug log → {_LOG_PATH}")
+        # Print to stdout AND logger so it's visible in the app console too
+        msg = f"[PipelineLogger] Debug log → {log_path}"
+        print(msg, file=sys.stdout, flush=True)
+        logger.info(msg)
 
     def log_stage(self, stage_name: str, **kwargs):
         """
