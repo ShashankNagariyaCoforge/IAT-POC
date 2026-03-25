@@ -6,7 +6,8 @@ import {
     FileText, Eye, RefreshCw, Loader2, Download, FileJson
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
-import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance } from '../types';
+import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance, V2FieldTraceability } from '../types';
+import type { HighlightTarget } from '../components/InlinePdfViewer';
 import { usePipeline } from '../contexts/PipelineContext';
 import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
 import { IngestionStatsCard } from '../components/IngestionStatsCard';
@@ -38,6 +39,7 @@ export default function CaseActionScreen() {
     const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
     const [activePdfName, setActivePdfName] = useState<string | null>(null);
     const [selectedInstances, setSelectedInstances] = useState<ExtractionInstance[]>([]);
+    const [activeHighlight, setActiveHighlight] = useState<HighlightTarget | null>(null);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
     const [showJson, setShowJson] = useState(false);
 
@@ -102,35 +104,68 @@ export default function CaseActionScreen() {
     };
 
     const handleFieldSelect = (label: string) => {
-        console.log('[DEBUG] Field selected:', label);
-        if (!classification?.extraction_results) {
-            console.warn('[DEBUG] No extraction results found in classification object');
-            return;
+        // ── V2 path: use v2_traceability for precise bbox highlight ──────────
+        const v2 = classification?.v2_traceability;
+        if (v2) {
+            // Match by field_name (techKey) or display_label
+            const techKey = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const traceEntry: V2FieldTraceability | undefined =
+                v2[techKey] ??
+                Object.values(v2).find(
+                    (t) => (t as any).display_label?.toLowerCase() === label.toLowerCase()
+                ) as V2FieldTraceability | undefined;
+
+            if (traceEntry?.bbox && traceEntry.page_width && traceEntry.page_height) {
+                const docUrl = `/api/cases/${caseId}/documents/${traceEntry.doc_id}/pdf`;
+                const doc = docs.find(
+                    (d) => d.document_id === traceEntry.doc_id || d.file_name === traceEntry.document_name
+                );
+                setActiveHighlight({
+                    page:             traceEntry.page_number ?? 1,
+                    bbox:             traceEntry.bbox,
+                    page_width:       traceEntry.page_width,
+                    page_height:      traceEntry.page_height,
+                    coordinate_unit:  traceEntry.coordinate_unit ?? 'inch',
+                });
+                setSelectedInstances([{
+                    value:       '',
+                    confidence:  0,
+                    doc_id:      traceEntry.doc_id,
+                    page:        traceEntry.page_number ?? 1,
+                    polygon:     traceEntry.bbox
+                        ? [traceEntry.bbox[0], traceEntry.bbox[1], traceEntry.bbox[2], traceEntry.bbox[1],
+                           traceEntry.bbox[2], traceEntry.bbox[3], traceEntry.bbox[0], traceEntry.bbox[3]]
+                        : [],
+                    page_width:  traceEntry.page_width,
+                    page_height: traceEntry.page_height,
+                    unit:        traceEntry.coordinate_unit ?? 'inch',
+                }]);
+                setActivePdfUrl(null);
+                return;
+            }
         }
 
-        const result = classification.extraction_results.find(r => r.field.toLowerCase() === label.toLowerCase());
+        // ── V1 fallback: use extraction_results (no bbox highlight) ──────────
+        if (!classification?.extraction_results) return;
+        const result = classification.extraction_results.find(
+            (r) => r.field.toLowerCase() === label.toLowerCase()
+        );
         if (result && result.instances.length > 0) {
-            console.log(`[DEBUG] Found ${result.instances.length} instances for:`, label);
+            setActiveHighlight(null);
             setSelectedInstances(result.instances);
             setActivePdfUrl(null);
-        } else {
-            console.warn('[DEBUG] No matches found for label:', label);
-            console.log('[DEBUG] Available fields:', classification.extraction_results.map(r => r.field));
         }
     };
 
     const handleGroupSelect = (labels: string[]) => {
         if (!classification?.extraction_results) return;
         let allInstances: ExtractionInstance[] = [];
-
         labels.forEach(label => {
             const found = classification.extraction_results?.find(r => r.field.toLowerCase() === label.toLowerCase());
-            if (found) {
-                allInstances = [...allInstances, ...found.instances];
-            }
+            if (found) allInstances = [...allInstances, ...found.instances];
         });
-
         if (allInstances.length > 0) {
+            setActiveHighlight(null);
             setSelectedInstances(allInstances);
             setActivePdfUrl(null);
         }
@@ -344,17 +379,19 @@ export default function CaseActionScreen() {
                         {/* Inline PDF Viewer (annotated or original) */}
                         <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstances.length > 0) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
                             {selectedInstances.length > 0 ? (() => {
-                                const annotatedDocs = classification?.annotated_docs || {};
                                 const docId = selectedInstances[0].doc_id;
-                                const fieldUrl = annotatedDocs[docId]
-                                    ? `/api/cases/${caseId}/documents/${docId}/annotated`
-                                    : `/api/cases/${caseId}/documents/${docId}/pdf`;
-                                const doc = docs.find(d => d.document_id === docId);
+                                // Support both UUID (V1) and filename (V2 fallback)
+                                const doc = docs.find(
+                                    d => d.document_id === docId || d.file_name === docId || (d as any).filename === docId
+                                );
+                                const resolvedId = doc?.document_id || docId;
+                                const fieldUrl = `/api/cases/${caseId}/documents/${resolvedId}/pdf`;
                                 return (
                                     <InlinePdfViewer
                                         url={fieldUrl}
                                         name={doc?.file_name || 'Document'}
-                                        onClose={() => setSelectedInstances([])}
+                                        highlight={activeHighlight}
+                                        onClose={() => { setSelectedInstances([]); setActiveHighlight(null); }}
                                         onFullscreen={() => {
                                             setActivePdfUrl(fieldUrl);
                                             setActivePdfName(doc?.file_name || 'Document');
@@ -395,7 +432,8 @@ export default function CaseActionScreen() {
                                         <div
                                             key={i}
                                             onClick={() => {
-                                                setSelectedInstances([]); // Clear annotation when selecting a full doc
+                                                setSelectedInstances([]);
+                                                setActiveHighlight(null);
                                                 setActivePdfUrl(url);
                                                 setActivePdfName(doc.file_name);
                                             }}

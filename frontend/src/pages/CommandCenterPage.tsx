@@ -111,7 +111,7 @@ export default function CommandCenterPage() {
         if (!selectedCaseId) return;
         setIsProcessing(true);
         try {
-            await apiClient.post(`/cases/${selectedCaseId}/process?skip_pii=${skipPii}`);
+            await apiClient.post(`/v2/cases/${selectedCaseId}/process?skip_pii=${skipPii}`);
             navigate(`/cases/${selectedCaseId}`);
             await fetchCases();
             if (fetchDetailsRef.current) fetchDetailsRef.current();

@@ -180,6 +180,21 @@ export interface ExtractedTable {
     doc_id: string;
 }
 
+export interface V2FieldTraceability {
+    page_number: number;
+    bbox: [number, number, number, number] | null; // [x1, y1, x2, y2] in ADI units
+    page_width: number | null;
+    page_height: number | null;
+    coordinate_unit: string;   // "inch" | "pixel"
+    doc_id: string;            // document UUID — use for /api/cases/{id}/documents/{doc_id}/pdf
+    document_name: string;
+    raw_text: string | null;
+    chunk_id: string | null;
+    section_heading: string | null;
+    extraction_source: string;
+    enrichment_url: string | null;
+}
+
 export interface ClassificationResult {
     result_id: string;
     case_id: string;
@@ -194,6 +209,8 @@ export interface ClassificationResult {
     annotated_docs?: Record<string, string>;
     downstream_notification_sent: boolean;
     downstream_notification_at: string | null;
+    // V2 click-to-highlight data
+    v2_traceability?: Record<string, V2FieldTraceability>;
 }
 
 export interface TimelineEvent {
