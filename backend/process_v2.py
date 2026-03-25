@@ -696,10 +696,10 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
     await db_v2.log_stage(case_id, "stage1_ingestion", "success", time.time() - stage_start)
     plog.log_stage("1 — Ingestion",
         email_subject=ingestion.email_subject,
-        email_sender=getattr(ingestion, "email_sender", ""),
+        email_sender=ingestion.email_sender,
         email_body_length=f"{len(ingestion.email_body)} chars",
         email_body_preview=ingestion.email_body[:1000],
-        attachments=[getattr(a, "filename", str(a)) for a in (ingestion.attachments or [])],
+        attachments=list(ingestion.attachment_blob_paths.keys()),
     )
 
     # ── Stage 2: Parsing + OCR (parallel per doc) ─────────────────────────────
