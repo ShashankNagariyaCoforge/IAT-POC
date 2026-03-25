@@ -347,6 +347,97 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         if "field_confidence" in extraction_result:
             classification["key_fields"]["field_confidence"] = extraction_result["field_confidence"]
 
+        # ── V1 Traceability: resolve raw_text → bbox for each field ──────────
+        field_traceability_raw = extraction_result.get("field_traceability", {})
+        if field_traceability_raw:
+            from services.traceability_service import resolve_bbox
+
+            # Build filename → doc_id lookup
+            filename_to_doc_id = {}
+            for d in documents:
+                fname = (d.get("filename") or d.get("file_name") or "").lower().strip()
+                if fname:
+                    filename_to_doc_id[fname] = d.get("document_id")
+
+            v1_traceability = {}
+            for field_key, trace in field_traceability_raw.items():
+                raw_text = trace.get("raw_text", "")
+                source_doc = (trace.get("source_document") or "").strip()
+                if not raw_text:
+                    continue
+
+                source_lower = source_doc.lower()
+                is_email = (
+                    source_lower == "email"
+                    or source_lower.startswith("email from")
+                    or source_lower.startswith("email")
+                    or not source_lower
+                )
+
+                if is_email:
+                    v1_traceability[field_key] = {
+                        "source": "email",
+                        "raw_text": raw_text,
+                    }
+                else:
+                    # Match filename to doc_id (case-insensitive)
+                    doc_id = filename_to_doc_id.get(source_lower)
+                    if not doc_id:
+                        # Partial match fallback
+                        for fname, did in filename_to_doc_id.items():
+                            if source_lower in fname or fname in source_lower:
+                                doc_id = did
+                                break
+
+                    layout = doc_layout_results.get(doc_id) if doc_id else None
+                    if layout:
+                        location = resolve_bbox(raw_text, layout)
+                        if location:
+                            # Find doc entry for filename
+                            doc_entry = next(
+                                (d for d in documents if d.get("document_id") == doc_id), {}
+                            )
+                            v1_traceability[field_key] = {
+                                "source": "document",
+                                "doc_id": doc_id,
+                                "document_name": doc_entry.get("filename") or doc_entry.get("file_name") or source_doc,
+                                "raw_text": raw_text,
+                                "page": location["page"],
+                                "bbox": location["bbox"],
+                                "page_width": location["page_width"],
+                                "page_height": location["page_height"],
+                                "unit": location["unit"],
+                            }
+                        else:
+                            # bbox resolution failed — still record doc source without bbox
+                            doc_entry = next(
+                                (d for d in documents if d.get("document_id") == doc_id), {}
+                            )
+                            v1_traceability[field_key] = {
+                                "source": "document",
+                                "doc_id": doc_id,
+                                "document_name": doc_entry.get("filename") or doc_entry.get("file_name") or source_doc,
+                                "raw_text": raw_text,
+                                "page": None,
+                                "bbox": None,
+                                "page_width": None,
+                                "page_height": None,
+                                "unit": None,
+                            }
+                    else:
+                        # Doc not in OCR results — fall back to email-style snippet
+                        v1_traceability[field_key] = {
+                            "source": "email",
+                            "raw_text": raw_text,
+                        }
+
+            classification["v1_traceability"] = v1_traceability
+            logger.info(f"[Process] v1_traceability resolved for {len(v1_traceability)} fields "
+                        f"({sum(1 for v in v1_traceability.values() if v.get('bbox'))} with bbox, "
+                        f"{sum(1 for v in v1_traceability.values() if v['source'] == 'email')} from email)")
+        else:
+            classification["v1_traceability"] = {}
+
         # Stamp result metadata
         classification["result_id"] = str(uuid.uuid4())
         classification["case_id"] = case_id
