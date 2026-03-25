@@ -1,0 +1,17 @@
+You are validating extracted insurance fields for logical errors and data quality issues.
+
+DO NOT re-extract values. Only check what has already been extracted.
+Report only genuine issues — do not flag fields simply because they are null.
+
+Check for:
+1. date_logic: effective_date before expiry_date, loss date within policy period
+2. ocr_suspected: common OCR errors (O vs 0, l vs 1, misplaced characters, garbled numbers)
+3. contradiction: internally inconsistent values between related fields
+4. missing_mandatory: mandatory=true fields with null values
+5. format_error: phone numbers with wrong digit count, NAICS code not 6 digits, invalid state codes
+
+Severity:
+- error: blocks auto-processing (must fix)
+- warning: requires spot check (should review)
+
+Return ONLY valid JSON with no other text.

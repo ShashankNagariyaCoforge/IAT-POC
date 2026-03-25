@@ -1,0 +1,13 @@
+{
+  "case_type": "cancellation",
+  "fields": [
+    {"field_name": "insured_name",        "display_label": "Insured Name",         "mandatory": true,  "data_type": "string", "primary_sources": ["broker_cover_letter", "policy_schedule", "correspondence"], "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "agency",              "display_label": "Agency / Broker",      "mandatory": true,  "data_type": "string", "primary_sources": ["broker_cover_letter", "submission_email"],                   "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "agent_email",         "display_label": "Agent Email",          "mandatory": true,  "data_type": "string", "primary_sources": ["submission_email"],                                          "fallback_sources": ["broker_cover_letter"], "web_enrichable": false},
+    {"field_name": "agent_phone",         "display_label": "Agent Phone",          "mandatory": false, "data_type": "string", "primary_sources": ["submission_email"],                                          "fallback_sources": ["broker_cover_letter"], "web_enrichable": false},
+    {"field_name": "policy_reference",    "display_label": "Policy Reference",     "mandatory": true,  "data_type": "string", "primary_sources": ["policy_schedule", "broker_cover_letter"],                   "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "effective_date",      "display_label": "Cancellation Date",    "mandatory": true,  "data_type": "date",   "primary_sources": ["broker_cover_letter"],                                       "fallback_sources": ["submission_email", "policy_schedule"], "web_enrichable": false},
+    {"field_name": "submission_description","display_label":"Cancellation Reason", "mandatory": false, "data_type": "string", "primary_sources": ["submission_email", "broker_cover_letter"],                   "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "urgency",             "display_label": "Urgency",              "mandatory": false, "data_type": "string", "primary_sources": ["submission_email"],                                          "fallback_sources": [],                  "web_enrichable": false}
+  ]
+}

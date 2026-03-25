@@ -1,0 +1,12 @@
+{
+  "case_type": "bor",
+  "fields": [
+    {"field_name": "insured_name",        "display_label": "Insured Name",         "mandatory": true,  "data_type": "string", "primary_sources": ["broker_cover_letter", "correspondence"], "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "agency",              "display_label": "New Agency / Broker",  "mandatory": true,  "data_type": "string", "primary_sources": ["broker_cover_letter", "submission_email"], "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "agent_email",         "display_label": "New Agent Email",      "mandatory": true,  "data_type": "string", "primary_sources": ["submission_email"],                        "fallback_sources": ["broker_cover_letter"], "web_enrichable": false},
+    {"field_name": "agent_phone",         "display_label": "New Agent Phone",      "mandatory": false, "data_type": "string", "primary_sources": ["submission_email"],                        "fallback_sources": ["broker_cover_letter"], "web_enrichable": false},
+    {"field_name": "policy_reference",    "display_label": "Policy Reference",     "mandatory": true,  "data_type": "string", "primary_sources": ["broker_cover_letter", "correspondence"],  "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "effective_date",      "display_label": "BOR Effective Date",   "mandatory": true,  "data_type": "date",   "primary_sources": ["broker_cover_letter"],                     "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "submission_description","display_label":"BOR Reason",          "mandatory": false, "data_type": "string", "primary_sources": ["submission_email", "broker_cover_letter"], "fallback_sources": [],                  "web_enrichable": false}
+  ]
+}

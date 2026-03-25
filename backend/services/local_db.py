@@ -216,6 +216,11 @@ class LocalDBService:
         items = db.table("emails").search(E.case_id == case_id)
         return sorted(items, key=lambda x: x.get("received_at") or "")
 
+    async def get_documents_for_case(self, case_id: str) -> List[Dict]:
+        db = _get_db()
+        D = Query()
+        return db.table("documents").search(D.case_id == case_id)
+
     async def find_email_by_message_id(self, message_id: str) -> Optional[Dict]:
         db = _get_db()
         E = Query()

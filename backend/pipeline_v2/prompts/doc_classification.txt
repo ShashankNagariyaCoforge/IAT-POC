@@ -1,0 +1,19 @@
+You are classifying insurance document types.
+
+Given a short text excerpt from the document and the email subject, determine the document role.
+Choose exactly one role from the provided list.
+
+Use these signals:
+- claim_form: fields for date of loss, incident description, insured details
+- broker_cover_letter: written by broker/agent, introduces a submission
+- policy_schedule: policy number, inception/expiry dates, coverage details
+- invoice: amounts due, payment details, invoice numbers
+- survey_report: inspection or risk survey findings
+- legal_notice: formal legal language, regulatory references
+- id_document: personal identification, passport, driving license
+- photo_evidence: descriptions of photos or image evidence
+- medical_report: medical terminology, diagnoses, treatment
+- correspondence: general letter or email without a specific form structure
+- unknown: cannot determine
+
+Return ONLY valid JSON with no other text.

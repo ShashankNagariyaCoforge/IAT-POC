@@ -1,0 +1,12 @@
+{
+  "case_type": "regulatory_legal",
+  "fields": [
+    {"field_name": "insured_name",        "display_label": "Insured Name",        "mandatory": true,  "data_type": "string", "primary_sources": ["legal_notice", "correspondence"],                  "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "agency",              "display_label": "Agency / Broker",     "mandatory": false, "data_type": "string", "primary_sources": ["submission_email"],                                 "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "agent_email",         "display_label": "Agent Email",         "mandatory": false, "data_type": "string", "primary_sources": ["submission_email"],                                 "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "policy_reference",    "display_label": "Policy Reference",    "mandatory": false, "data_type": "string", "primary_sources": ["legal_notice", "correspondence"],                  "fallback_sources": ["submission_email"], "web_enrichable": false},
+    {"field_name": "submission_description","display_label":"Legal / Regulatory Description","mandatory": true,  "data_type": "string", "primary_sources": ["legal_notice", "submission_email"],     "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "urgency",             "display_label": "Urgency",             "mandatory": true,  "data_type": "string", "primary_sources": ["submission_email"],                                 "fallback_sources": [],                  "web_enrichable": false},
+    {"field_name": "effective_date",      "display_label": "Notice Date",         "mandatory": false, "data_type": "date",   "primary_sources": ["legal_notice"],                                     "fallback_sources": ["submission_email"], "web_enrichable": false}
+  ]
+}

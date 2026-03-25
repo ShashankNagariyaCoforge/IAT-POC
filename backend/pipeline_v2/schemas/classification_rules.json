@@ -1,0 +1,167 @@
+{
+  "instructions": "These rules define HOW to classify each case type. ALWAYS cross-reference email text with document evidence. Never classify purely on email wording — brokers often mislabel submissions.",
+
+  "iat_policy_number_patterns": [
+    "IAT-", "IAT/", "Policy No", "Policy Number", "Policy #", "Pol No", "Pol #"
+  ],
+
+  "case_types": {
+
+    "new_claim": {
+      "display_name": "New Business",
+      "description": "A risk that IAT has NOT previously insured. First-time submission for this insured with IAT specifically.",
+      "document_signals": {
+        "confirms": [
+          "broker_cover_letter introducing the risk for the first time",
+          "blank or empty application/claim forms (no pre-filled IAT policy data)",
+          "no policy schedule from IAT is present"
+        ],
+        "contradicts": [
+          "An existing IAT policy schedule is attached",
+          "Any document contains an IAT policy number",
+          "Renewal notice or expiry reminder from IAT"
+        ]
+      },
+      "email_signals": {
+        "suggests": ["new business", "new submission", "please quote", "quoting", "first time", "new risk", "new account", "new insured", "interested in", "can you provide a quote"],
+        "misleading_phrases_to_ignore": ["renewal — note: broker may call it renewal because the insured is renewing elsewhere, but it is still new_claim for IAT if no IAT policy exists"]
+      },
+      "override_rule": "CRITICAL: Even if the email uses the word 'renewal', classify as new_claim if NO existing IAT policy number can be found anywhere in the email or attached documents. A risk renewing with another carrier but being submitted to IAT for the first time is ALWAYS new_claim. The IAT policy number pattern is: IAT- or IAT/ prefix.",
+      "confidence_boost": "If no IAT policy number found anywhere AND documents are blank application forms → confidence should be 0.90+"
+    },
+
+    "renewal": {
+      "display_name": "Renewal",
+      "description": "Re-insuring an EXISTING IAT policy at or before its expiry date.",
+      "document_signals": {
+        "confirms": [
+          "Current IAT policy schedule attached (shows IAT policy number, inception/expiry dates)",
+          "Renewal invitation or expiry notice from IAT",
+          "Pre-filled application referencing an existing IAT policy number"
+        ],
+        "contradicts": [
+          "No IAT policy schedule or policy number found anywhere",
+          "Documents are blank application forms with no existing policy reference",
+          "Broker introduction letter that introduces the risk as new"
+        ]
+      },
+      "email_signals": {
+        "suggests": ["renewal", "renewing", "expiry", "expires", "upcoming renewal", "please renew", "renewal terms", "renewal date"],
+        "required_evidence": "Email alone is NOT sufficient. There must be at least one of: (a) an IAT policy number referenced, (b) an IAT policy schedule document attached, (c) expiry/inception dates matching an existing IAT policy."
+      },
+      "override_rule": "CRITICAL: Do NOT classify as renewal if the only evidence is the broker saying 'renewal' in the email but no IAT policy number or current IAT policy schedule can be found. Downgrade to new_claim in that case.",
+      "confidence_boost": "If IAT policy number present in documents AND policy schedule attached → confidence 0.92+"
+    },
+
+    "endorsement": {
+      "display_name": "Endorsement / Mid-Term Change",
+      "description": "A change to an existing live IAT policy (coverage adjustment, name change, address change, etc.).",
+      "document_signals": {
+        "confirms": [
+          "Endorsement request form",
+          "Letter requesting a specific change to existing policy",
+          "Current IAT policy schedule referenced"
+        ]
+      },
+      "email_signals": {
+        "suggests": ["endorsement", "mid-term change", "change request", "amend", "amendment", "add location", "remove location", "update coverage", "change in operations", "mta"]
+      },
+      "required_evidence": "Must reference an existing IAT policy number AND describe a specific change requested.",
+      "override_rule": "If the change described is major (more than 25% exposure increase, new line of business), consider new_claim instead."
+    },
+
+    "bor": {
+      "display_name": "Broker of Record Change",
+      "description": "Transfer of broker authority for an existing IAT policy from one agency to another.",
+      "document_signals": {
+        "confirms": [
+          "BOR letter or Broker of Record letter signed by insured",
+          "Authorization letter naming new broker"
+        ]
+      },
+      "email_signals": {
+        "suggests": ["broker of record", "bor", "transfer of broker", "change of broker", "new broker", "replace broker", "broker change"]
+      },
+      "override_rule": "BOR ALWAYS takes priority over other categories if a BOR letter is present, even if other submission content exists."
+    },
+
+    "general_query": {
+      "display_name": "General Query",
+      "description": "A question or information request not tied to a specific active submission. No documents requiring processing.",
+      "document_signals": {
+        "confirms": ["No substantive attachments, or only correspondence/email chains attached"]
+      },
+      "email_signals": {
+        "suggests": ["question", "query", "can you confirm", "could you clarify", "what is", "do you cover", "checking in", "following up on a question", "asking about"]
+      },
+      "override_rule": "If a substantive document (claim_form, policy_schedule, broker_cover_letter) is attached, this is likely NOT a general_query — re-evaluate."
+    },
+
+    "follow_up": {
+      "display_name": "Follow-up",
+      "description": "Chasing or updating a previously submitted case. The initial submission already exists.",
+      "document_signals": {
+        "confirms": ["Forwarded email chain showing original submission", "Correspondence referencing a previous submission date or reference number"]
+      },
+      "email_signals": {
+        "suggests": ["following up", "chasing", "any update", "please update", "re:", "fw:", "as discussed", "further to my email", "any progress", "waiting for", "outstanding"]
+      },
+      "override_rule": "If this looks like a follow-up BUT attaches new substantive documents not seen before, consider new_claim or renewal instead."
+    },
+
+    "complaint_escalation": {
+      "display_name": "Complaint / Escalation",
+      "description": "A formal complaint, dispute, or escalation requiring management attention.",
+      "document_signals": {
+        "confirms": ["Legal notice", "Formal complaint letter", "Regulatory correspondence"]
+      },
+      "email_signals": {
+        "suggests": ["complaint", "escalate", "unacceptable", "formal complaint", "dissatisfied", "dispute", "legal action", "ombudsman", "regulator", "fca", "solicitor", "lawyer"]
+      },
+      "override_rule": "complaint_escalation ALWAYS takes priority over general_query if complaint language is present. Never downgrade a complaint to general_query."
+    },
+
+    "regulatory_legal": {
+      "display_name": "Regulatory / Legal",
+      "description": "Communication from a regulator, legal firm, or compliance authority. Not a broker submission.",
+      "document_signals": {
+        "confirms": ["Legal notice", "Court document", "Regulatory filing", "Compliance letter"]
+      },
+      "email_signals": {
+        "suggests": ["fca", "regulation", "compliance", "court", "legal notice", "subpoena", "data subject access", "gdpr", "sar", "pursuant to", "legal obligation", "statutory notice"]
+      }
+    },
+
+    "documentation_evidence": {
+      "display_name": "Documentation / Evidence",
+      "description": "Supporting documents for an already-processed case. Not a new submission, just additional evidence or paperwork.",
+      "document_signals": {
+        "confirms": ["Photo evidence", "Medical report", "Survey report", "ID document", "Invoice submitted post-claim"]
+      },
+      "email_signals": {
+        "suggests": ["please find attached", "further documentation", "additional documents", "as requested", "supporting documents", "evidence", "as per your request"]
+      },
+      "override_rule": "Only use this if the documents are clearly supplementary to an existing case, not a new submission."
+    },
+
+    "spam_irrelevant": {
+      "display_name": "Spam / Irrelevant",
+      "description": "Not an insurance submission. Marketing, personal email, or completely off-topic.",
+      "document_signals": {
+        "confirms": ["No insurance documents at all"]
+      },
+      "email_signals": {
+        "suggests": ["unsubscribe", "newsletter", "promotion", "sale", "offer", "congratulations you've won", "click here", "verify your account"]
+      },
+      "override_rule": "Be conservative — only classify as spam if you are very sure (confidence > 0.90). When in doubt, use general_query."
+    }
+  },
+
+  "decision_process": [
+    "STEP 1 — Look for IAT policy number in ALL documents and email body. Pattern: starts with IAT- or IAT/. This single check resolves the new_claim vs renewal ambiguity.",
+    "STEP 2 — Check document types. The presence of a policy_schedule strongly confirms renewal. The presence of only claim_form + broker_cover_letter with no IAT policy number strongly confirms new_claim.",
+    "STEP 3 — Apply override rules. BOR overrides everything. complaint_escalation overrides general_query.",
+    "STEP 4 — Only then use email body language as a tiebreaker, not the primary signal.",
+    "STEP 5 — If still unsure, prefer new_claim over renewal, and general_query over spam_irrelevant."
+  ]
+}

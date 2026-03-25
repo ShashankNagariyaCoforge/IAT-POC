@@ -1,0 +1,6 @@
+{
+  "case_type": "spam_irrelevant",
+  "fields": [
+    {"field_name": "submission_description","display_label":"Content Summary","mandatory": false,"data_type": "string","primary_sources": ["submission_email"],"fallback_sources": [],"web_enrichable": false}
+  ]
+}

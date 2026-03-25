@@ -55,12 +55,17 @@ tenacity==9.0.0
 # MongoDB Support (Cosmos DB Mongo API)
 motor==3.6.1
 dnspython==2.7.0
+pyopenssl>=23.2.0
  
 # Demo DB
 tinydb==4.8.2
 
 # JWT validation
 PyJWT==2.10.1
+
+# Pipeline V2 — new dependencies
+rapidfuzz>=3.6.0
+trafilatura>=1.9.0
 
 # Testing
 pytest==8.3.5
