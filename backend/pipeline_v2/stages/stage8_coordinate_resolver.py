@@ -70,7 +70,7 @@ def _fuzzy_match_in_chunk(
             continue
         for i in range(len(chunk_words) - w_size + 1):
             window = chunk_words[i: i + w_size]
-            window_str = " ".join(_tokenize(w.word) for w in window)
+            window_str = " ".join(token for w in window for token in _tokenize(w.word))
             score = fuzz.ratio(query_str, window_str)
             if score > best_score:
                 best_score = score
