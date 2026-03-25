@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { X, Maximize2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -41,7 +41,11 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
     const [currentPage, setCurrentPage] = useState<number>(highlight?.page ?? 1);
     const [totalPages, setTotalPages] = useState<number>(0);
 
-    // When highlight changes, jump to that page
+    // When highlight changes (user clicks a different field), jump to that page
+    useEffect(() => {
+        if (highlight?.page) setCurrentPage(highlight.page);
+    }, [highlight?.page]);
+
     const targetPage = highlight ? highlight.page : currentPage;
 
     const handleDocumentLoad = useCallback(({ numPages }: { numPages: number }) => {
@@ -140,7 +144,7 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
                         </Document>
 
                         {/* Highlight overlay — shown only on the target page */}
-                        {highlightStyle && currentPage === highlight.page && canvasSize && (
+                        {highlightStyle && currentPage === highlight.page && (
                             <div
                                 style={{
                                     position: 'absolute',

@@ -103,17 +103,19 @@ export default function CaseActionScreen() {
         await fetchAll(); // Reload everything
     };
 
+    // UI techKey → V2 field_name aliases for the few that differ
+    const FIELD_KEY_ALIASES: Record<string, string> = {
+        'name':    'insured_name',
+        'address': 'insured_address',
+    };
+
     const handleFieldSelect = (label: string) => {
         // ── V2 path: use v2_traceability for precise bbox highlight ──────────
         const v2 = classification?.v2_traceability;
         if (v2) {
-            // Match by field_name (techKey) or display_label
-            const techKey = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const traceEntry: V2FieldTraceability | undefined =
-                v2[techKey] ??
-                Object.values(v2).find(
-                    (t) => (t as any).display_label?.toLowerCase() === label.toLowerCase()
-                ) as V2FieldTraceability | undefined;
+            // label is already the techKey (f.id) thanks to getField setting id: techKey
+            const resolvedKey = FIELD_KEY_ALIASES[label] ?? label;
+            const traceEntry: V2FieldTraceability | undefined = v2[resolvedKey];
 
             if (traceEntry?.bbox && traceEntry.page_width && traceEntry.page_height) {
                 const docUrl = `/api/cases/${caseId}/documents/${traceEntry.doc_id}/pdf`;
@@ -207,6 +209,7 @@ export default function CaseActionScreen() {
 
         return {
             label,
+            id: techKey,          // used by EditableFieldsPanel → onSelectField(f.id || f.label)
             value: finalValue,
             confidence: fieldConfidence,
             isCritical
