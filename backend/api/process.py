@@ -299,24 +299,25 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         ))
         
         logger.info(f"[Process] Launching Safety Analysis and AI Classification in parallel for case {case_id}")
-        
+
+        # Step 1: Run content safety check and classification in parallel
         safety_task = asyncio.create_task(safety_svc.analyze_text(masked_text))
         classification_task = asyncio.create_task(classifier.classify(masked_text, is_masked=(not skip_pii)))
-        
+
         safety_result, classification = await asyncio.gather(safety_task, classification_task)
-        
+
         safety_flagged_for_review = False
-        
+
         if safety_result:
             logger.info(f"[ContentSafety] Scores for case {case_id}: "
                         f"Hate={safety_result.hate_severity}, "
                         f"SelfHarm={safety_result.self_harm_severity}, "
                         f"Sexual={safety_result.sexual_severity}, "
                         f"Violence={safety_result.violence_severity}")
-            
+
             # Non-blocking safety update
             asyncio.create_task(db_service.update_case_safety(case_id, safety_result.model_dump()))
-            
+
             max_severity = max(
                 safety_result.hate_severity,
                 safety_result.self_harm_severity,
@@ -331,18 +332,33 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 logger.info(f"[ContentSafety] Case {case_id} flagged for review. Max Severity: {max_severity}")
                 safety_flagged_for_review = True
 
-        # AI Classification (already got result from gather above)
+        # Step 2: Extraction — separate focused LLM call now that we know the category
+        asyncio.create_task(db_service.update_case_status(
+            case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="extraction"
+        ))
+        logger.info(f"[Process] Step 2 — Extracting key fields for category='{classification.get('classification_category')}'")
+        extraction_result = await classifier.extract(
+            masked_text,
+            classification_category=classification.get("classification_category", "Unknown"),
+            is_masked=(not skip_pii),
+        )
+        # Merge extraction result into the classification dict
+        classification["key_fields"] = extraction_result.get("key_fields", {})
+        if "field_confidence" in extraction_result:
+            classification["key_fields"]["field_confidence"] = extraction_result["field_confidence"]
+
+        # Stamp result metadata
         classification["result_id"] = str(uuid.uuid4())
         classification["case_id"] = case_id
         classification["classified_at"] = datetime.utcnow().isoformat()
         classification["masked_text_blob_path"] = masked_blob_path
         classification["pii_report_blob_path"] = report_blob_path
-        
+
         # 6.1 Ensure documents list is populated from actual attachments
-        # This provides a reliable source of truth even if GPT extraction fails due to truncation.
+        # This provides a reliable source of truth even if LLM extraction fails due to truncation.
         if "key_fields" not in classification:
             classification["key_fields"] = {}
-            
+
         classification["key_fields"]["documents"] = [
             {
                 "fileName": d.get("filename") or d.get("file_name"),

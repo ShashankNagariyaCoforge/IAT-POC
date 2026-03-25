@@ -12,19 +12,18 @@ from models.case import ClassificationCategory
 
 logger = logging.getLogger(__name__)
 
-BASE_SYSTEM_PROMPT = """You are an expert insurance document classification AI. 
-You are analyzing a Conversation Thread between multiple parties (Brokers, Underwriters, Insureds). 
-The content may contain multiple emails and attachments, separated by [Source: ...]. 
-Your goal is to synthesize the entire thread to identify the final intent, latest names, dates, and terms. 
+# ── Prompt 1: Classification only ─────────────────────────────────────────────
+
+CLASSIFICATION_SYSTEM_PROMPT = """You are an expert insurance email triage AI.
+You are analyzing a conversation thread between multiple parties (Brokers, Underwriters, Insureds).
+The content may contain multiple emails and attachments, separated by [Source: ...].
+Your ONLY job in this step is to classify the thread — do NOT extract field values.
 
 THOUGHT PROCESS:
-Before providing the final JSON, you must follow these steps:
 1. Identify the core intent of the most recent communication in the thread.
 2. List all participants and resolve their roles (Underwriter, Broker, Insured, etc.).
-3. **Extraction Audit**: For every field in the extraction schema, locate the value and note which Source (Email # or Attachment Name) it came from.
-4. **Conflict Resolution**: If a field has conflicting values across sources, determine the most authoritative one (e.g., a formal PDF Policy usually beats an informal email mention).
-5. Compare your findings against the Classification Rules below.
-6. **Hallucination Check**: Ensure no values were "guessed" or "invented" just to fill the schema. 
+3. Compare your findings against the Classification Rules below.
+4. Determine the single best-fit category.
 
 Categories:
 1. New - New policy applications or first-time insurance requests
@@ -41,45 +40,70 @@ Classification Rules:
 - If a thread shows a change in the designated broker, classify it as BOR.
 - If a thread contains both a Complaint and a General Query, ALWAYS classify it as Complaint/Escalation.
 - If an email is following up on a New application, use Follow-up, NOT New.
-- If the latest reply just says "Thank you" or "Received", distinguish it from the core request but don't ignore the context of the conversion.
+- If the latest reply just says "Thank you" or "Received", distinguish it from the core request but don't ignore the context of the thread.
 
-Extraction Rules:
-- **Accuracy First**: Only extract values that are explicitly present or can be strongly inferred. 
-- **Multi-Source Synthesis**: You are provided with multiple email threads and document contents. If a field (like Policy Number) appears in both an email and a PDF, prefer the most formal one or the latest one if they conflict.
-- **Nested Objects**: For "agent" and "insured", fill in all sub-fields (email, phone, etc.) by looking across all available text parts.
-- **Agent Identification & Mandatory Information**: The "agent" (also called Broker or Producer) is the professional intermediary sending the submission. You MUST extract their **Agent Email** and **Agent Phone**. 
-- **Signature Scanning**: These contact details are almost always found in the **email signature block** (at the very bottom of the individual emails) of the sender. Scan the entire document/email thread to find these signatures. Do not return "NA" for `agent_email` or `agent_phone` if a signature block exists anywhere in the thread.
-
-Confidence Scoring Rules:
-- **Be Critical**: Provide a confidence score (0.0 to 1.0) for every field extracted in `key_fields`.
-- **Lower Confidence on Doubt**: If a value is inferred, blurry in a document, or comes from a conflicting source, you MUST lower the score below 0.7.
-- **Ambiguity**: If you are making an "educated guess" (e.g., date format is unclear), use 0.4 - 0.6.
-- **Null Fields**: If a field is not found (`null`), set its confidence in `field_confidence` to **0.0** or omit it entirely.
-- **High Certainty**: Only use 0.95+ for values that are explicitly and clearly present in the source text.
-
-Extraction Instructions:
-{extraction_instructions}
 {pii_masking_notice}
 
 Respond ONLY with valid JSON in this exact format:
 {{
-  "reasoning": "<Detailed step-by-step chain of thought: 1. Core intent. 2. Participant roles. 3. Classification justification. 4. Extraction Walk-through: explain where you found key data points and how you resolved any conflicting values between emails and documents.>",
+  "reasoning": "<Detailed step-by-step chain of thought: 1. Core intent. 2. Participant roles. 3. Classification justification.>",
   "classification_category": "<category name>",
   "confidence_score": <0.0 to 1.0>,
-  "summary": "<2-3 sentence summary>",
+  "summary": "<2-3 sentence summary of the thread>",
+  "requires_human_review": <true if confidence < 0.75 or category is Spam/Irrelevant, Complaint/Escalation, or Regulatory/Legal, else false>
+}}"""
+
+# ── Prompt 2: Extraction only ──────────────────────────────────────────────────
+
+EXTRACTION_SYSTEM_PROMPT = """You are an expert insurance data extraction AI.
+You are analyzing a conversation thread between multiple parties (Brokers, Underwriters, Insureds).
+The content may contain multiple emails and attachments, separated by [Source: ...].
+
+The thread has already been classified as: {classification_category}
+
+Your ONLY job is to extract the specific field values listed below.
+Do NOT re-classify. Do NOT add fields that are not in the schema.
+
+EXTRACTION RULES:
+- **Accuracy First**: Only extract values that are explicitly present or can be strongly inferred. Never guess.
+- **Multi-Source Synthesis**: If a field appears in both an email and a PDF, prefer the most formal or latest source.
+- **Nested Objects**: For "agent" and "insured", fill in all sub-fields by looking across all text parts.
+- **Agent Identification**: The agent (also called Broker or Producer) is the professional intermediary sending the submission.
+  Extract their Agent Email and Agent Phone from the email signature block at the bottom of emails.
+  Do NOT return "NA" for agent_email or agent_phone if a signature block exists anywhere in the thread.
+- **Signature Scanning**: Scan the entire document/email thread carefully for signature blocks containing contact details.
+- **Hallucination Check**: Ensure no values were guessed or invented just to fill the schema. If not found, use null.
+
+CONFIDENCE SCORING:
+- 0.95+ : Value is explicitly and clearly present in the source text
+- 0.75-0.94: Value is clearly present but from a less formal source
+- 0.50-0.74: Value is inferred or from a conflicting/ambiguous source
+- < 0.50: Educated guess — should be null instead unless strongly implied
+- 0.0 or omit: Field not found
+
+{extraction_instructions}
+
+{pii_masking_notice}
+
+Respond ONLY with valid JSON in this exact format:
+{{
   "key_fields": {{
 {key_fields_json}
   }},
   "field_confidence": {{
     "<field_key>": <0.0 to 1.0>,
     ...
-  }},
-  "requires_human_review": <true if confidence < 0.75 or any critical field confidence < 0.6, else false>
+  }}
 }}"""
 
 
 class Classifier:
-    """Azure OpenAI GPT-4o-mini classifier for insurance email triage."""
+    """Azure OpenAI GPT-4o classifier for insurance email triage.
+
+    Uses two separate LLM calls:
+    1. classify()  — determines category, confidence, summary (no field extraction)
+    2. extract()   — extracts key_fields given the classification context
+    """
 
     def __init__(self):
         self._client = AsyncAzureOpenAI(
@@ -100,16 +124,17 @@ class Classifier:
             logger.error(f"Failed to load extraction schema from {schema_path}: {e}")
             self._schema = {"fields": []}
 
-    def _generate_prompt(self, pii_masking_notice: str = "") -> str:
+    def _build_extraction_prompt(self, classification_category: str, pii_masking_notice: str = "") -> str:
+        """Build the extraction system prompt with field instructions and JSON schema."""
         instructions = []
         kf_lines = []
 
-        # Default complex fields
-        instructions.append("- insured: { \"name\": \"...\", \"address\": \"...\" }")
-        instructions.append("- agent: { \"agencyName\": \"...\", \"name\": \"...\", \"email\": \"...\", \"phone\": \"...\" }")
-        instructions.append("- coverages: An array of objects: { \"coverage\": \"...\", \"coverageDescription\": \"...\", \"limit\": \"...\", \"deductible\": \"...\" }")
-        instructions.append("- exposures: An array of objects: { \"exposureType\": \"...\", \"exposureDescription\": \"...\", \"value\": \"...\" }")
-        instructions.append("- documents: An array of objects indicating the attached documents found in the text.")
+        # Fixed complex fields
+        instructions.append('- insured: { "name": "...", "address": "..." }')
+        instructions.append('- agent: { "agencyName": "...", "name": "...", "email": "...", "phone": "..." }')
+        instructions.append('- coverages: An array of objects: { "coverage": "...", "coverageDescription": "...", "limit": "...", "deductible": "..." }')
+        instructions.append('- exposures: An array of objects: { "exposureType": "...", "exposureDescription": "...", "value": "..." }')
+        instructions.append('- documents: An array of objects indicating the attached documents found in the text.')
 
         kf_lines.append('    "name": "<Insured Business Name>",')
         kf_lines.append('    "insured": { "name": "<val>", "address": "<val>" },')
@@ -121,119 +146,129 @@ class Classifier:
         kf_lines.append('    "exposures": [ { "exposureType": "<val>", "exposureDescription": "<val>", "value": "<val>" } ],')
         kf_lines.append('    "documents": [ { "fileName": "<val>", "fileType": "<val>", "documentDescription": "<val>" } ],')
 
-        # Dynamically add rest of fields from schema
+        # Dynamic fields from schema
         simple_fields = []
         for f in self._schema.get("fields", []):
             if f["key"] in ["insured", "agent", "coverages", "exposures", "documents", "name"]:
                 continue
-            
-            # Key/Value description for AI
             simple_fields.append(f["key"])
             kf_lines.append(f'    "{f["key"]}": "<val>",')
-            
-            # Add enriched context for each field (additive)
             desc = f.get("description", "Standard extraction")
             aliases = ", ".join(f.get("aliases", []))
             alias_text = f" (aliases: {aliases})" if aliases else ""
             instructions.append(f"- {f['key']}: {desc}{alias_text}")
-        
+
         if simple_fields:
             instructions.append(f"- {', '.join(simple_fields)}: Standard string extraction as defined in the schema.")
 
-        # Add legacy/standard fields
+        # Legacy fields
         kf_lines.append('    "document_type": "<legacy type>",')
         kf_lines.append('    "urgency": "<low|medium|high>",')
         kf_lines.append('    "policy_reference": "<val>"')
 
-        return BASE_SYSTEM_PROMPT.format(
+        return EXTRACTION_SYSTEM_PROMPT.format(
+            classification_category=classification_category,
             extraction_instructions="\n".join(instructions),
             pii_masking_notice=pii_masking_notice,
-            key_fields_json="\n".join(kf_lines)
+            key_fields_json="\n".join(kf_lines),
         )
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def classify(self, masked_text: str, is_masked: bool = True) -> Dict:
+    async def classify(self, text: str, is_masked: bool = True) -> Dict:
         """
-        Classify an email/document using GPT-4o-mini.
+        Step 1: Classify the email thread (category, confidence, summary).
+        Does NOT extract key field values — that is done separately in extract().
 
-        Args:
-            masked_text: Text content of the email and its documents (optionally masked).
-            is_masked: Whether PII has been masked in the input text.
-
-        Returns:
-            Parsed classification result dictionary.
-
-        Raises:
-            ValueError: If GPT returns invalid JSON.
-            Exception: If API call fails after retries.
+        Returns a dict with: reasoning, classification_category, confidence_score,
+        summary, requires_human_review.
         """
-        logger.info(f"Sending {len(masked_text)} chars to GPT-4o-mini for classification.")
+        logger.info(f"[Classifier] Step 1 — Classification. Input: {len(text)} chars.")
+
+        pii_masking_notice = ""
+        if is_masked:
+            pii_masking_notice = "\nNOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders."
+
+        system_prompt = CLASSIFICATION_SYSTEM_PROMPT.format(pii_masking_notice=pii_masking_notice)
+
         try:
-            # Generate the dynamic prompt from the current schema
-            pii_masking_notice = ""
-            if is_masked:
-                pii_masking_notice = "\nNOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked, return the placeholder."
-            
-            system_prompt = self._generate_prompt(pii_masking_notice)
-            
             response = await self._client.chat.completions.create(
                 model=self._deployment,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Email content:\n\n{masked_text[:32000]}"},
+                    {"role": "user", "content": f"Email thread:\n\n{text[:32000]}"},
                 ],
                 temperature=0.1,
-                max_tokens=16384,
+                max_tokens=2048,
                 response_format={"type": "json_object"},
             )
-            raw_json = response.choices[0].message.content
-            result = json.loads(raw_json)
-            self._validate_result(result)
+            result = json.loads(response.choices[0].message.content)
+            self._validate_classification(result)
             logger.info(
-                f"Classification result: {result.get('classification_category')} "
-                f"(confidence: {result.get('confidence_score')})"
+                f"[Classifier] Step 1 done — category={result.get('classification_category')} "
+                f"confidence={result.get('confidence_score')}"
             )
-            # Map field_confidence to key_fields object for Pydantic
-            if "field_confidence" in result and "key_fields" in result:
-                result["key_fields"]["field_confidence"] = result["field_confidence"]
-            
             return result
         except json.JSONDecodeError as e:
-            logger.error(f"GPT returned invalid JSON: {e}")
-            raise ValueError(f"GPT classification returned invalid JSON: {e}")
+            logger.error(f"[Classifier] Step 1 returned invalid JSON: {e}")
+            raise ValueError(f"Classification returned invalid JSON: {e}")
         except Exception as e:
-            logger.error(f"Classification API call failed: {e}", exc_info=True)
+            logger.error(f"[Classifier] Step 1 API call failed: {e}", exc_info=True)
             raise
 
-    def _validate_result(self, result: dict) -> None:
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def extract(self, text: str, classification_category: str, is_masked: bool = True) -> Dict:
         """
-        Validate that GPT classification result contains required fields.
+        Step 2: Extract key fields from the email thread.
+        Receives the classification_category from Step 1 as context.
 
-        Args:
-            result: Parsed JSON from GPT response.
-
-        Raises:
-            ValueError: If required fields are missing or invalid.
+        Returns a dict with: key_fields, field_confidence.
         """
+        logger.info(f"[Classifier] Step 2 — Extraction for category='{classification_category}'. Input: {len(text)} chars.")
+
+        pii_masking_notice = ""
+        if is_masked:
+            pii_masking_notice = "\nNOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. If a value is masked, return the placeholder as-is."
+
+        system_prompt = self._build_extraction_prompt(classification_category, pii_masking_notice)
+
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._deployment,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Email thread:\n\n{text[:32000]}"},
+                ],
+                temperature=0.1,
+                max_tokens=8192,
+                response_format={"type": "json_object"},
+            )
+            result = json.loads(response.choices[0].message.content)
+            logger.info(f"[Classifier] Step 2 done — extracted {len(result.get('key_fields', {}))} fields.")
+            return result
+        except json.JSONDecodeError as e:
+            logger.error(f"[Classifier] Step 2 returned invalid JSON: {e}")
+            raise ValueError(f"Extraction returned invalid JSON: {e}")
+        except Exception as e:
+            logger.error(f"[Classifier] Step 2 API call failed: {e}", exc_info=True)
+            raise
+
+    def _validate_classification(self, result: dict) -> None:
+        """Validate that the classification result has required fields."""
         required = ["reasoning", "classification_category", "confidence_score", "summary"]
         for field in required:
             if field not in result:
                 raise ValueError(f"Classification result missing required field: {field}")
 
-        # Ensure confidence score is in valid range
         score = float(result["confidence_score"])
         if not (0.0 <= score <= 1.0):
             raise ValueError(f"Invalid confidence_score: {score}")
 
-        # Enforce requires_human_review based on threshold or sensitive categories
+        # Enforce requires_human_review
         is_low_confidence = score < self._confidence_threshold
         category = result.get("classification_category", "")
-        
-        # These categories ALWAYS require human eyes for safety/business reasons
         is_sensitive_category = category in [
             "Spam/Irrelevant",
             "Complaint/Escalation",
-            "Regulatory/Legal"
+            "Regulatory/Legal",
         ]
-        
         result["requires_human_review"] = is_low_confidence or is_sensitive_category
