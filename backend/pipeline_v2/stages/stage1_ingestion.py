@@ -5,11 +5,32 @@ Returns a structured IngestionResult for downstream stages.
 """
 
 import logging
+import re
 from typing import Any
 
 from pipeline_v2.models import IngestionResult
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_html(text: str) -> str:
+    """Strip HTML tags and decode common entities, returning plain text."""
+    if not text or "<" not in text:
+        return text
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(text, "html.parser")
+        # Remove script/style blocks entirely
+        for tag in soup(["script", "style", "head"]):
+            tag.decompose()
+        plain = soup.get_text(separator="\n")
+    except Exception:
+        # Fallback: regex strip
+        plain = re.sub(r"<[^>]+>", " ", text)
+    # Collapse whitespace
+    plain = re.sub(r"\n{3,}", "\n\n", plain)
+    plain = re.sub(r"[ \t]{2,}", " ", plain)
+    return plain.strip()
 
 
 async def run(case_id: str, db_service: Any) -> IngestionResult:
@@ -31,6 +52,8 @@ async def run(case_id: str, db_service: Any) -> IngestionResult:
     email_parts = []
     for em in sorted_emails:
         body = em.get("body") or em.get("body_masked", "")
+        # Strip HTML tags if the body is HTML
+        body = _strip_html(body)
         # Strip forwarded-message boilerplate
         for sep in ["-----Original Message-----", "________________________________", "From:"]:
             if sep in body:

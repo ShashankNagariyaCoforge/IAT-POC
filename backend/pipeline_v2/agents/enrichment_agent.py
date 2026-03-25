@@ -237,17 +237,29 @@ def _merge_higher_confidence(
 class EnrichmentAgent:
     def __init__(self, case_id: str = ""):
         self._case_id = case_id
+        # Populated after enrich() — available for caller to read
+        self.company_name: str = ""
+        self.attempted_urls: List[str] = []
+        self.crawl_failures: dict = {}   # url -> failure reason
+        self.google_used: bool = False
 
     async def enrich(
         self,
         fields_to_enrich: List[MergedField],
         email_body: str,
+        company_name_hint: str = "",
     ) -> List[EnrichmentFieldResult]:
         """
         Enrich missing fields using web sources.
         Mirrors V1 run_enrichment() logic exactly.
         Returns list of EnrichmentFieldResult for fields that were found.
+        company_name_hint: pass the insured_name already extracted from documents
+                           so enrichment works even when email body is blank/HTML.
         """
+        self.attempted_urls = []
+        self.crawl_failures = {}
+        self.google_used = False
+
         field_names = [f.field_name for f in fields_to_enrich]
         if not field_names:
             return []
@@ -255,6 +267,13 @@ class EnrichmentAgent:
         # ── Step 1: identify_entity — extract company name, website, direct fields ──
         entity_info = await _identify_entity(email_body, self._case_id)
         company_name: str = entity_info.get("company_name") or ""
+
+        # Fall back to hint from document extraction if AI couldn't identify from email
+        if not company_name and company_name_hint:
+            company_name = company_name_hint
+            logger.info(f"[EnrichmentAgent] company_name from document hint: '{company_name}'")
+
+        self.company_name = company_name
 
         # Seed merged_fields with anything extractable directly from the email text
         merged: Dict[str, EnrichmentFieldResult] = {}
@@ -280,6 +299,7 @@ class EnrichmentAgent:
 
         # Also include fixed regulatory sites from config
         all_urls = urls_in_email[:3] + v2_settings.enrichment_fixed_sites_list
+        self.attempted_urls = list(all_urls[:3])  # track what we tried
 
         def _remaining() -> List[str]:
             return [fn for fn in field_names if fn not in merged]
@@ -292,12 +312,15 @@ class EnrichmentAgent:
             extract_tasks = []
             valid_urls = []
             for url, content in zip(all_urls[:3], crawled):
-                if isinstance(content, Exception) or not content:
-                    continue
-                extract_tasks.append(
-                    _extract_from_content(content, _remaining(), company_name, url, self._case_id)
-                )
-                valid_urls.append(url)
+                if isinstance(content, Exception):
+                    self.crawl_failures[url] = str(content)
+                elif not content:
+                    self.crawl_failures[url] = "Empty response — site may block automated access"
+                else:
+                    extract_tasks.append(
+                        _extract_from_content(content, _remaining(), company_name, url, self._case_id)
+                    )
+                    valid_urls.append(url)
 
             if extract_tasks:
                 logger.info(
@@ -311,6 +334,7 @@ class EnrichmentAgent:
         # ── Step 4: Google search fallback for still-null fields ──────────────────
         still_null = _remaining()
         if still_null and company_name:
+            self.google_used = True
             logger.info(
                 f"[EnrichmentAgent] {len(still_null)} fields still missing — trying Google search"
             )
@@ -322,9 +346,12 @@ class EnrichmentAgent:
 
                 contents = []
                 for search_url in search_urls[:2]:
+                    self.attempted_urls.append(search_url)
                     content = await web_crawler.crawl_url(search_url)
                     if content:
                         contents.append(f"--- Source: {search_url} ---\n{content}")
+                    else:
+                        self.crawl_failures[search_url] = "Empty response — site may block automated access"
 
                 if contents:
                     combined = "\n\n".join(contents)
@@ -339,6 +366,7 @@ class EnrichmentAgent:
 
         # ── Step 5: Final broad fallback if still very empty (mirrors V1) ─────────
         if len(merged) < 3 and company_name:
+            self.google_used = True
             logger.info(
                 f"[EnrichmentAgent] Still < 3 fields found — broad 'company information' search"
             )
@@ -346,9 +374,12 @@ class EnrichmentAgent:
             broad_urls = await web_crawler.google_search(broad_query, n=3)
             contents = []
             for url in broad_urls[:2]:
+                self.attempted_urls.append(url)
                 content = await web_crawler.crawl_url(url)
                 if content:
                     contents.append(f"--- Source: {url} ---\n{content}")
+                else:
+                    self.crawl_failures[url] = "Empty response — site may block automated access"
             if contents:
                 combined = "\n\n".join(contents)
                 result = await _extract_from_content(

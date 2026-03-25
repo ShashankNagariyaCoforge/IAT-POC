@@ -350,22 +350,37 @@ def _build_summary(case_cls, merged_fields: List[MergedField]) -> str:
 def _build_enrichment_doc(
     case_id: str,
     merged_fields: List[MergedField],
-) -> Optional[Dict[str, Any]]:
+    enrichment_agent=None,
+) -> Dict[str, Any]:
     """
-    Build V1-compatible enrichment doc from fields that were web-enriched.
-    Returns None if no enrichment happened.
+    Build V1-compatible enrichment doc.
+    Always returns a doc so the UI panel can show enrichment status.
+    Includes attempted URLs and crawl failure info even when no fields were found.
     """
     enrichment_fields = [f for f in merged_fields if f.enrichment_url]
-    if not enrichment_fields:
-        return None
-
     source_urls = list({f.enrichment_url for f in enrichment_fields if f.enrichment_url})
 
+    # Pull agent metadata (URLs attempted, failures, company identified)
+    agent_company = ""
+    attempted_urls: List[str] = []
+    crawl_failures: Dict[str, str] = {}
+    google_used = False
+    if enrichment_agent is not None:
+        agent_company = getattr(enrichment_agent, "company_name", "") or ""
+        attempted_urls = getattr(enrichment_agent, "attempted_urls", [])
+        crawl_failures = getattr(enrichment_agent, "crawl_failures", {})
+        google_used = getattr(enrichment_agent, "google_used", False)
+
+    # Combine crawled source URLs with agent-tracked attempted URLs
+    all_source_urls = list(dict.fromkeys(source_urls + attempted_urls))  # preserve order, dedupe
+
     enrichment_data: Dict[str, Any] = {
-        "source_urls":        source_urls,
-        "company_name":       _fv(merged_fields, "insured_name"),
+        "source_urls":        all_source_urls,
+        "company_name":       agent_company or _fv(merged_fields, "insured_name"),
         "website":            None,
-        "enrichment_status":  "completed",
+        "enrichment_status":  "completed" if enrichment_fields else "attempted",
+        "google_search_used": google_used,
+        "crawl_failures":     crawl_failures,
     }
 
     # Map each enriched field into V1 EnrichedField shape {value, confidence, source}
@@ -432,6 +447,7 @@ async def _write_v1_db_records(
     duration: float,
     db_v1,
     parsed_docs: List = None,
+    enrichment_agent=None,
 ) -> str:
     """
     Write V1-compatible records to existing Cosmos collections so that:
@@ -518,14 +534,13 @@ async def _write_v1_db_records(
     except Exception as e:
         logger.error(f"[ProcessV2] Failed to update V1 case status: {e}")
 
-    # 3. Save enrichment results to V1 enrichment collection (if any web enrichment occurred)
-    enrichment_doc = _build_enrichment_doc(case_id, merged_fields)
-    if enrichment_doc:
-        try:
-            await db_v1.save_enrichment_result(enrichment_doc)
-            logger.info(f"[ProcessV2] Saved V1 enrichment result for case {case_id}")
-        except Exception as e:
-            logger.error(f"[ProcessV2] Failed to save V1 enrichment result: {e}")
+    # 3. Always save enrichment doc so the UI panel has data to display
+    enrichment_doc = _build_enrichment_doc(case_id, merged_fields, enrichment_agent)
+    try:
+        await db_v1.save_enrichment_result(enrichment_doc)
+        logger.info(f"[ProcessV2] Saved V1 enrichment result for case {case_id}")
+    except Exception as e:
+        logger.error(f"[ProcessV2] Failed to save V1 enrichment result: {e}")
 
     return result_id
 
@@ -847,12 +862,23 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
     await db_v2.update_case_status(case_id, "processing", "stage10_enrichment")
     stage_start      = time.time()
     enrichment_agent = EnrichmentAgent(case_id=case_id)
+    # Pass insured_name from merged fields as hint so enrichment works even
+    # when the email body is blank or stripped of useful content
+    _insured_name_hint = next(
+        (f.value for f in merged_fields if f.field_name == "insured_name" and f.value), ""
+    )
     merged_fields    = await stage10_enrichment.run(
-        merged_fields, ingestion.email_body, enrichment_agent
+        merged_fields, ingestion.email_body, enrichment_agent,
+        company_name_hint=_insured_name_hint,
     )
     await db_v2.log_stage(case_id, "stage10_enrichment", "success", time.time() - stage_start)
     enriched = [f for f in merged_fields if f.enrichment_url]
     plog.log_stage("10 — Web Enrichment",
+        company_identified=enrichment_agent.company_name or "(none)",
+        hint_used=_insured_name_hint or "(none)",
+        attempted_urls=enrichment_agent.attempted_urls or "none",
+        crawl_failures=enrichment_agent.crawl_failures or "none",
+        google_used=enrichment_agent.google_used,
         enriched_fields=[(f.field_name, f.value, f.enrichment_url) for f in enriched] or "none",
     )
 
@@ -889,6 +915,7 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
     result_id = await _write_v1_db_records(
         case_id, case_cls, merged_fields, doc_classifications,
         validation_flags, routing, duration, db_v1, parsed_docs=parsed_docs,
+        enrichment_agent=enrichment_agent,
     )
 
     logger.info(

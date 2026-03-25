@@ -4,16 +4,21 @@ Given a short text excerpt from the document and the email subject, determine th
 Choose exactly one role from the provided list.
 
 Use these signals:
-- claim_form: fields for date of loss, incident description, insured details
-- broker_cover_letter: written by broker/agent, introduces a submission
-- policy_schedule: policy number, inception/expiry dates, coverage details
+- claim_form: application or renewal application form (e.g. "Short Form Renewal Application", "New Business Application"), form with insured details, entity type, employee counts, financial questions — even if titled "renewal application" this is claim_form
+- broker_cover_letter: written by broker/agent, introduces a submission with narrative text
+- policy_schedule: official policy declarations page — policy number, inception/expiry dates, named insured, coverage sections and limits
 - invoice: amounts due, payment details, invoice numbers
-- survey_report: inspection or risk survey findings
+- survey_report: physical inspection or risk survey findings (NOT an application form)
 - legal_notice: formal legal language, regulatory references
 - id_document: personal identification, passport, driving license
 - photo_evidence: descriptions of photos or image evidence
 - medical_report: medical terminology, diagnoses, treatment
-- correspondence: general letter or email without a specific form structure
+- correspondence: loss run reports, claims history summaries, general letters without a form structure; if a document shows policy numbers with claim status/history (e.g. "No Claims Reported"), classify as correspondence
 - unknown: cannot determine
+
+IMPORTANT DISTINCTIONS:
+- A "Renewal Application" or "Short Form Application" is a claim_form (it is filled in by the insured)
+- A "Loss Run Report" or document showing policy numbers with claim history is correspondence (NOT survey_report)
+- survey_report is ONLY for physical inspection/risk assessment reports
 
 Return ONLY valid JSON with no other text.

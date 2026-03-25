@@ -19,6 +19,7 @@ async def run(
     merged_fields: List[MergedField],
     email_body: str,
     enrichment_agent,
+    company_name_hint: str = "",
 ) -> List[MergedField]:
     """
     Run web enrichment for missing web_enrichable fields.
@@ -38,7 +39,7 @@ async def run(
 
     try:
         enrichment_results = await asyncio.wait_for(
-            enrichment_agent.enrich(fields_to_enrich, email_body),
+            enrichment_agent.enrich(fields_to_enrich, email_body, company_name_hint=company_name_hint),
             timeout=float(v2_settings.v2_enrichment_timeout_seconds),
         )
     except asyncio.TimeoutError:
