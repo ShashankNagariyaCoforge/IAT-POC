@@ -42,7 +42,6 @@ async def _classify_one(doc: ParsedDocument, email_subject: str) -> DocumentClas
             stage_name="stage4_doc_classification",
             model="small",
             json_mode=True,
-            max_tokens=v2_settings.v2_max_tokens_doc_classification,
         )
         role = result.get("role", "unknown")
         if role not in roles:

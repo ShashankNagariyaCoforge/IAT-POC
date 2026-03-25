@@ -132,7 +132,6 @@ async def _extract_from_doc(
             stage_name="stage7_extraction",
             model="large",
             json_mode=True,
-            max_tokens=v2_settings.v2_max_tokens_extraction,
             case_id=case_id,
         )
     except LLMCallError as e:

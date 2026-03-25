@@ -56,7 +56,6 @@ async def resolve_conflict(field: MergedField, case_id: str = "") -> MergedField
             stage_name="reasoning_agent_conflict",
             model="small",
             json_mode=True,
-            max_tokens=300,
             case_id=case_id,
         )
         best_value = result.get("best_value")

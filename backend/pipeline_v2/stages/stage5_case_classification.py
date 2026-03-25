@@ -84,7 +84,7 @@ def _build_document_evidence(
     doc_text_map = {d.filename: d.full_text for d in parsed_docs}
 
     for filename, dc in doc_classifications.items():
-        snippet = (doc_text_map.get(filename, "") or "")[:400].replace("\n", " ").strip()
+        snippet = (doc_text_map.get(filename, "") or "")[:1500].replace("\n", " ").strip()
         lines.append(
             f"- {filename} [{dc.role}, confidence={dc.confidence:.2f}]\n"
             f"  Text preview: {snippet or '(no text extracted)'}"
@@ -133,21 +133,23 @@ async def run(
 
     user_msg = (
         f"Subject: {email_subject}\n\n"
-        f"Email body:\n{email_body[:3000]}\n\n"
+        f"Email body:\n{email_body[:8000]}\n\n"
         f"Attached documents (role + text preview for evidence check):\n{doc_evidence}\n\n"
         f"Available case types: {', '.join(case_types)}\n"
         f"Available lines of business: {', '.join(lobs)}\n\n"
         "Follow the CLASSIFICATION DECISION PROCESS above step by step.\n"
+        "IMPORTANT: Write 'reasoning' and 'iat_policy_number_found' FIRST in your JSON — "
+        "think through the evidence before committing to a case_type.\n"
         "Return JSON:\n"
         "{\n"
-        '  "case_type": "<one of the available case types>",\n'
+        '  "reasoning": "<think step by step: what documents are attached, is there an IAT policy number anywhere, does any override rule apply>",\n'
+        '  "iat_policy_number_found": <true|false>,\n'
+        '  "classification_evidence": "<exact text or document name that drove the decision>",\n'
+        '  "case_type": "<one of the available case types — decide AFTER reasoning above>",\n'
         '  "line_of_business": "<one of the available lines of business>",\n'
         '  "broker_submitted": <true|false>,\n'
         '  "urgency": "<normal|urgent|critical>",\n'
-        '  "confidence": <0.0-1.0>,\n'
-        '  "iat_policy_number_found": <true|false>,\n'
-        '  "classification_evidence": "<what specific evidence (document type, text, policy number) drove this decision>",\n'
-        '  "reasoning": "<2-3 sentences explaining final decision, especially any override rules applied>"\n'
+        '  "confidence": <0.0-1.0>\n'
         "}"
     )
 
@@ -158,7 +160,6 @@ async def run(
             stage_name="stage5_case_classification",
             model="large",   # Use large model — classification accuracy is critical
             json_mode=True,
-            max_tokens=v2_settings.v2_max_tokens_classification,
             case_id=case_id,
         )
 

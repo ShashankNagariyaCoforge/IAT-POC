@@ -33,14 +33,15 @@ async def call_llm(
     stage_name: str,
     model: str = "large",           # "large" | "small"
     json_mode: bool = True,
-    max_tokens: int = 2000,
+    max_tokens: Optional[int] = None,   # None = no limit, model uses its own maximum
     case_id: Optional[str] = None,
-    timeout: float = 60.0,
+    timeout: float = 120.0,
 ) -> dict:
     """
     Call Azure OpenAI with retry (3 attempts, exponential backoff).
     Returns parsed JSON dict if json_mode=True, else {"text": raw_response}.
     Raises LLMCallError after all retries fail.
+    max_tokens=None means no artificial limit — the model generates until done.
     """
     client = _make_client()
     # V2-specific deployment → fall back to base AZURE_OPENAI_DEPLOYMENT
@@ -57,8 +58,9 @@ async def call_llm(
             {"role": "user", "content": user_message},
         ],
         "temperature": 0.0,
-        "max_tokens": max_tokens,
     }
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
 
@@ -81,9 +83,8 @@ async def call_llm(
             )
             if finish_reason == "length":
                 logger.warning(
-                    f"[LLM][{stage_name}] Response hit max_tokens={max_tokens} — "
-                    f"output was truncated. Fields near end of JSON may be missing. "
-                    f"Consider raising v2_max_tokens_extraction in config."
+                    f"[LLM][{stage_name}] Response was truncated (finish_reason=length). "
+                    f"Some output fields may be missing."
                 )
             return json.loads(raw) if json_mode else {"text": raw}
 

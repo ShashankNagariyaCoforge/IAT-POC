@@ -88,7 +88,6 @@ async def run(
             stage_name="stage11_validation",
             model="small",
             json_mode=True,
-            max_tokens=v2_settings.v2_max_tokens_validation,
             case_id=case_id,
         )
     except LLMCallError as e:

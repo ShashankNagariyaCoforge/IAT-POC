@@ -139,7 +139,6 @@ async def _identify_entity(email_body: str, case_id: str = "") -> dict:
             stage_name="enrichment_identify_entity",
             model="small",
             json_mode=True,
-            max_tokens=600,
             case_id=case_id,
         )
         logger.info(
@@ -187,7 +186,6 @@ async def _extract_from_content(
                 stage_name="enrichment_extract",
                 model="small",
                 json_mode=True,
-                max_tokens=3000,
                 case_id=case_id,
             )
             break
