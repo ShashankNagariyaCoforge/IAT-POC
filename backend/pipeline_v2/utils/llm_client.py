@@ -15,6 +15,11 @@ from config import settings as base_settings
 
 logger = logging.getLogger(__name__)
 
+# Imported lazily to avoid circular imports
+def _plog():
+    from pipeline_v2.utils.pipeline_logger import plog
+    return plog
+
 
 class LLMCallError(Exception):
     pass
@@ -86,7 +91,18 @@ async def call_llm(
                     f"[LLM][{stage_name}] Response was truncated (finish_reason=length). "
                     f"Some output fields may be missing."
                 )
-            return json.loads(raw) if json_mode else {"text": raw}
+            parsed = json.loads(raw) if json_mode else {"text": raw}
+            # Log full input + output to debug file
+            _plog().log_llm(
+                stage_name=stage_name,
+                system_prompt=kwargs["messages"][0]["content"],
+                user_message=kwargs["messages"][1]["content"],
+                response=parsed,
+                tokens=tokens,
+                finish_reason=finish_reason or "",
+                duration=duration,
+            )
+            return parsed
 
         except asyncio.TimeoutError as e:
             last_err = e

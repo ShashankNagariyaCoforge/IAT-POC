@@ -49,6 +49,7 @@ from pipeline_v2.stages import (
     stage12_routing,
 )
 from pipeline_v2.utils.cosmos_client_v2 import CosmosClientV2
+from pipeline_v2.utils.pipeline_logger import plog
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -684,12 +685,22 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
     db_v1   = _get_v1_db()
     db_v2   = CosmosClientV2()
 
+    # ── Start debug log (overwrites log.txt) ──────────────────────────────────
+    plog.start_case(case_id)
+
     await db_v2.update_case_status(case_id, "processing", "stage1_ingestion")
 
     # ── Stage 1: Ingestion ─────────────────────────────────────────────────────
     stage_start = time.time()
     ingestion   = await stage1_ingestion.run(case_id, db_v1)
     await db_v2.log_stage(case_id, "stage1_ingestion", "success", time.time() - stage_start)
+    plog.log_stage("1 — Ingestion",
+        email_subject=ingestion.email_subject,
+        email_sender=getattr(ingestion, "email_sender", ""),
+        email_body_length=f"{len(ingestion.email_body)} chars",
+        email_body_preview=ingestion.email_body[:1000],
+        attachments=[getattr(a, "filename", str(a)) for a in (ingestion.attachments or [])],
+    )
 
     # ── Stage 2: Parsing + OCR (parallel per doc) ─────────────────────────────
     await db_v2.update_case_status(case_id, "processing", "stage2_parsing")
@@ -697,12 +708,32 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
     parsed_docs = await stage2_parsing.run(ingestion)
     await db_v2.log_stage(case_id, "stage2_parsing", "success", time.time() - stage_start,
                           metadata={"doc_count": len(parsed_docs)})
+    plog.log_stage("2 — Parsing / OCR",
+        doc_count=len(parsed_docs),
+        documents=[
+            {
+                "filename": d.filename,
+                "pages": d.page_count,
+                "text_length": len(d.full_text or ""),
+                "text_preview": (d.full_text or "")[:500],
+            }
+            for d in parsed_docs
+        ],
+    )
 
     # ── Stage 3: Chunking ──────────────────────────────────────────────────────
     stage_start = time.time()
     chunk_map   = stage3_chunking.run(parsed_docs)
     await db_v2.log_stage(case_id, "stage3_chunking", "success", time.time() - stage_start,
                           metadata={"chunk_count": len(chunk_map)})
+    plog.log_stage("3 — Chunking",
+        total_chunks=len(chunk_map),
+        chunks_per_doc={
+            doc.filename: sum(1 for c in chunk_map.values() if c.document_name == doc.filename)
+            for doc in parsed_docs
+        },
+        chunk_ids=list(chunk_map.keys()),
+    )
 
     # ── Stage 4: Document type identification (parallel, small model) ──────────
     await db_v2.update_case_status(case_id, "processing", "stage4_doc_classification")
@@ -711,6 +742,12 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
         parsed_docs, ingestion.email_subject
     )
     await db_v2.log_stage(case_id, "stage4_doc_classification", "success", time.time() - stage_start)
+    plog.log_stage("4 — Document Classification",
+        results={
+            fn: {"role": dc.role, "confidence": dc.confidence, "reasoning": dc.reasoning}
+            for fn, dc in doc_classifications.items()
+        },
+    )
 
     # ── Stage 5: Case classification (large model) ─────────────────────────────
     await db_v2.update_case_status(case_id, "processing", "stage5_case_classification")
@@ -720,12 +757,22 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
         parsed_docs=parsed_docs,
     )
     await db_v2.log_stage(case_id, "stage5_case_classification", "success", time.time() - stage_start)
+    plog.log_stage("5 — Case Classification",
+        case_type=case_cls.case_type,
+        line_of_business=case_cls.line_of_business,
+        confidence=case_cls.confidence,
+        review_required=case_cls.review_required,
+        urgency=case_cls.urgency,
+        reasoning=case_cls.reasoning,
+    )
 
     # ── GATE: Low confidence → skip extraction, route to human review ──────────
     if case_cls.review_required:
         logger.info(f"[ProcessV2] case={case_id} confidence gate → full_human_review")
+        plog.log_stage("GATE — Human Review (confidence too low, skipping extraction)")
         routing  = stage12_routing.run([], [], case_cls.confidence)
         duration = time.time() - start
+        plog.end_case(duration, routing.route)
 
         await _save_v2_results(
             case_id, case_cls, [], doc_classifications, chunk_map,
@@ -744,6 +791,15 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
 
     # ── Stage 6: Load extraction schema ───────────────────────────────────────
     schema = stage6_schema_loader.run(case_cls.case_type)
+    plog.log_stage("6 — Schema Loading",
+        case_type=case_cls.case_type,
+        schema_file=f"{case_cls.case_type}.json",
+        field_count=len(schema.fields),
+        fields=[
+            {"name": f.field_name, "mandatory": f.mandatory, "primary_sources": f.primary_sources}
+            for f in schema.fields
+        ],
+    )
 
     # ── Stage 7: Per-document extraction (parallel, large model) ──────────────
     await db_v2.update_case_status(case_id, "processing", "stage7_extraction")
@@ -752,16 +808,37 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
         parsed_docs, doc_classifications, chunk_map, schema, ingestion.email_body, case_id
     )
     await db_v2.log_stage(case_id, "stage7_extraction", "success", time.time() - stage_start)
+    # Log per-document extraction results
+    plog.log_stage("7 — Extraction (summary)",
+        sources=list(raw_extractions.keys()),
+    )
+    from pipeline_v2.stages.stage7_extraction import _relevant_fields
+    for source, fields_list in raw_extractions.items():
+        doc_role = doc_classifications.get(source)
+        role_str = doc_role.role if doc_role else "submission_email"
+        relevant = _relevant_fields(schema, role_str)
+        plog.log_extraction(source, relevant, fields_list)
 
     # ── Stage 8: Coordinate resolution (pure Python, rapidfuzz) ───────────────
     stage_start = time.time()
     resolved    = stage8_coordinate_resolver.run(raw_extractions, chunk_map)
     await db_v2.log_stage(case_id, "stage8_coordinate_resolver", "success", time.time() - stage_start)
+    bbox_count = sum(
+        1 for doc_res in resolved.values()
+        for _, loc in doc_res if loc and loc.bbox
+    )
+    plog.log_stage("8 — Coordinate Resolution",
+        fields_with_bbox=bbox_count,
+        fields_without_bbox=sum(
+            1 for doc_res in resolved.values() for _, loc in doc_res
+        ) - bbox_count,
+    )
 
     # ── Stage 9: Merge + conflict detection ───────────────────────────────────
     stage_start   = time.time()
     merged_fields = stage9_merge.run(resolved, schema)
     await db_v2.log_stage(case_id, "stage9_merge", "success", time.time() - stage_start)
+    plog.log_merge(merged_fields)
 
     # ── Reasoning agent: resolve conflicts (large model) ──────────────────────
     merged_fields = await resolve_conflicts(merged_fields, case_id)
@@ -774,16 +851,32 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
         merged_fields, ingestion.email_body, enrichment_agent
     )
     await db_v2.log_stage(case_id, "stage10_enrichment", "success", time.time() - stage_start)
+    enriched = [f for f in merged_fields if f.enrichment_url]
+    plog.log_stage("10 — Web Enrichment",
+        enriched_fields=[(f.field_name, f.value, f.enrichment_url) for f in enriched] or "none",
+    )
 
     # ── Stage 11: Validation (small model) ────────────────────────────────────
     await db_v2.update_case_status(case_id, "processing", "stage11_validation")
     stage_start     = time.time()
     validation_flags = await stage11_validation.run(merged_fields, schema, case_id)
     await db_v2.log_stage(case_id, "stage11_validation", "success", time.time() - stage_start)
+    plog.log_stage("11 — Validation",
+        flag_count=len(validation_flags),
+        flags=[
+            {"field": f.field_name, "type": f.flag_type, "severity": f.severity, "desc": f.description}
+            for f in validation_flags
+        ] or "no flags",
+    )
 
     # ── Stage 12: Routing decision (pure Python) ───────────────────────────────
     routing  = stage12_routing.run(merged_fields, validation_flags, case_cls.confidence)
     duration = time.time() - start
+    plog.log_stage("12 — Routing",
+        route=routing.route,
+        reasons=routing.reasons,
+        flagged_fields=routing.flagged_fields,
+    )
 
     # ── Persist to V2 collections ─────────────────────────────────────────────
     await _save_v2_results(
@@ -802,6 +895,7 @@ async def _run_pipeline(case_id: str) -> Dict[str, Any]:
         f"[ProcessV2] case={case_id} category={_CASE_TYPE_TO_CATEGORY.get(case_cls.case_type)} "
         f"route={routing.route} duration={duration:.1f}s"
     )
+    plog.end_case(duration, routing.route)
 
     return _build_response(
         case_id, case_cls, merged_fields, validation_flags, routing,
