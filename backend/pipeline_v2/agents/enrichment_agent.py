@@ -135,7 +135,7 @@ async def _identify_entity(email_body: str, case_id: str = "") -> dict:
     try:
         result = await call_llm(
             system_prompt="You are a business data extraction assistant. Return ONLY valid JSON.",
-            user_message=f"{_IDENTIFY_PROMPT}\n\nContent:\n{email_body[:6000]}",
+            user_message=f"{_IDENTIFY_PROMPT}\n\nContent:\n{email_body[:32000]}",
             stage_name="enrichment_identify_entity",
             model="small",
             json_mode=True,
@@ -187,7 +187,7 @@ async def _extract_from_content(
                 stage_name="enrichment_extract",
                 model="small",
                 json_mode=True,
-                max_tokens=1500,
+                max_tokens=3000,
                 case_id=case_id,
             )
             break

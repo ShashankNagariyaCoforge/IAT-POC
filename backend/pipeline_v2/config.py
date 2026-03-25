@@ -72,15 +72,21 @@ class V2Settings(BaseSettings):
     v2_chunk_overlap_sentences: int = 1
 
     # LLM token limits (max output tokens per stage call)
-    # Raise extraction limit high — truncated JSON output = silently dropped fields
-    v2_max_tokens_extraction: int = 8000       # stage7: 29 fields × ~150 tokens + overhead
+    # 39 fields × ~200 tokens per field (value + raw_text + chunk_id) = ~8K output tokens minimum.
+    # Set headroom above that so Azure OpenAI never hits the cap and silently drops trailing fields.
+    v2_max_tokens_extraction: int = 32000      # stage7: 39 fields × ~200 tokens each + headroom
     v2_max_tokens_classification: int = 600    # stage5: single JSON object, small
     v2_max_tokens_doc_classification: int = 200 # stage4: 3-field JSON, very small
-    v2_max_tokens_validation: int = 2000       # stage11: flag list, allow room
+    v2_max_tokens_validation: int = 4000       # stage11: flag list per field, raised from 2000
 
     # Extraction chunk limit — how many chars of document chunks sent to LLM per doc
     # GPT-4o context is 128K tokens; 100K chars ≈ 25K tokens, leaving headroom for fields + prompt
     v2_extraction_chunk_char_limit: int = 100000  # was 24000 — old value missed pages 4+
+
+    # Email body extraction limit — how many chars of email body to include in the extraction prompt.
+    # Previously hardcoded to 8000 (≈2K tokens) which silently dropped fields in long emails.
+    # 100K chars matches the document chunk limit — same budget for email as for PDF docs.
+    v2_email_body_char_limit: int = 100000
 
     # Logging
     v2_log_level: str = "INFO"

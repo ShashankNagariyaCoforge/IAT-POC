@@ -213,7 +213,7 @@ async def run(
             page_number=1,
             section_heading="Email Body",
             approximate_position="top_third",
-            text=email_body[:8000],
+            text=email_body[:v2_settings.v2_email_body_char_limit],
             word_map=[],
         )
         email_chunk_map = dict(chunk_map)

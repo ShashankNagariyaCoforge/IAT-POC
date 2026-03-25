@@ -72,12 +72,19 @@ async def call_llm(
                 timeout=timeout,
             )
             raw = response.choices[0].message.content
+            finish_reason = response.choices[0].finish_reason
             duration = time.time() - start
             tokens = response.usage.total_tokens if response.usage else 0
             logger.info(
                 f"[LLM][{stage_name}] model={deployment} tokens={tokens} "
-                f"duration={duration:.1f}s case={case_id or '-'}"
+                f"finish_reason={finish_reason} duration={duration:.1f}s case={case_id or '-'}"
             )
+            if finish_reason == "length":
+                logger.warning(
+                    f"[LLM][{stage_name}] Response hit max_tokens={max_tokens} — "
+                    f"output was truncated. Fields near end of JSON may be missing. "
+                    f"Consider raising v2_max_tokens_extraction in config."
+                )
             return json.loads(raw) if json_mode else {"text": raw}
 
         except asyncio.TimeoutError as e:
