@@ -258,7 +258,13 @@ export default function CaseActionScreen() {
                     'Limit': c.limit || '',
                     'Deductible': c.deductible || '',
                     'Coverage Description': c.coverageDescription || ''
-                })) || []
+                })) || [],
+                rowTraceability: kf?.coverages?.map((_, i) => ({
+                    'Coverage':            v1trace[`coverages.${i}.coverage`]            ?? null,
+                    'Limit':               v1trace[`coverages.${i}.limit`]               ?? null,
+                    'Deductible':          v1trace[`coverages.${i}.deductible`]          ?? null,
+                    'Coverage Description':v1trace[`coverages.${i}.coverageDescription`] ?? null,
+                })) || [],
             },
             {
                 type: 'table',
@@ -268,7 +274,12 @@ export default function CaseActionScreen() {
                     'Exposure Type': e.exposureType || '',
                     'Value': e.value || '',
                     'Exposure Description': e.exposureDescription || ''
-                })) || []
+                })) || [],
+                rowTraceability: kf?.exposures?.map((_, i) => ({
+                    'Exposure Type':        v1trace[`exposures.${i}.exposureType`]        ?? null,
+                    'Value':               v1trace[`exposures.${i}.value`]               ?? null,
+                    'Exposure Description':v1trace[`exposures.${i}.exposureDescription`] ?? null,
+                })) || [],
             }
         ],
         'Financial Terms': [

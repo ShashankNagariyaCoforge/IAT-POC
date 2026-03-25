@@ -19,6 +19,8 @@ export interface TableItem {
     label: string;
     headers: string[];
     rows: Record<string, string>[];
+    /** Per-cell traceability: rowTraceability[rowIndex][header] */
+    rowTraceability?: Array<Record<string, V1FieldTraceability | null>>;
 }
 
 export type PanelItem = FieldItem | TableItem;
@@ -136,17 +138,36 @@ export function EditableFieldsPanel({
                                                             </thead>
                                                             <tbody className="bg-white">
                                                                 {item.rows.map((row, rIdx) => (
-                                                                    <tr
-                                                                        key={rIdx}
-                                                                        className="border-b border-slate-100 hover:bg-indigo-50/50 cursor-pointer transition-colors"
-                                                                        onClick={() => {
-                                                                            const labels = Object.entries(row).map(([k]) => `${item.label} [${rIdx + 1}]: ${k}`);
-                                                                            onSelectGroup?.(labels);
-                                                                        }}
-                                                                    >
-                                                                        {item.headers.map(h => (
-                                                                            <td key={h} className="px-3 py-2 text-slate-700 font-semibold">{row[h] || row[h.toLowerCase()] || row[h.replace(/ /g, '_').toLowerCase()] || '—'}</td>
-                                                                        ))}
+                                                                    <tr key={rIdx} className="border-b border-slate-100">
+                                                                        {item.headers.map(h => {
+                                                                            const cellVal = row[h] || row[h.toLowerCase()] || row[h.replace(/ /g, '_').toLowerCase()] || '—';
+                                                                            const cellTrace = item.rowTraceability?.[rIdx]?.[h] ?? null;
+                                                                            const isDoc = cellTrace?.source === 'document';
+                                                                            const isEmail = cellTrace?.source === 'email';
+                                                                            const isClickable = !!cellTrace && (isDoc || isEmail);
+                                                                            return (
+                                                                                <td
+                                                                                    key={h}
+                                                                                    className={`px-3 py-2 text-slate-700 font-semibold group/cell relative ${isClickable ? 'cursor-pointer hover:bg-indigo-50/70' : ''}`}
+                                                                                    onClick={() => {
+                                                                                        if (isClickable) {
+                                                                                            onSelectField?.(`${item.label} [${rIdx + 1}]: ${h}`, cellTrace);
+                                                                                        }
+                                                                                    }}
+                                                                                    title={isEmail && cellTrace ? cellTrace.raw_text : undefined}
+                                                                                >
+                                                                                    <span className="flex items-center gap-1.5">
+                                                                                        {cellVal}
+                                                                                        {isDoc && (
+                                                                                            <FileText size={8} className="text-indigo-400 shrink-0 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                                                                        )}
+                                                                                        {isEmail && (
+                                                                                            <Mail size={8} className="text-sky-400 shrink-0 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+                                                                                        )}
+                                                                                    </span>
+                                                                                </td>
+                                                                            );
+                                                                        })}
                                                                     </tr>
                                                                 ))}
                                                             </tbody>

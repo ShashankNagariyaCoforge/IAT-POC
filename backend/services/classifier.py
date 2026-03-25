@@ -83,6 +83,21 @@ TRACEABILITY RULES (critical — follow exactly):
     OR the string "email" if you found it in a [Source: Email from ...] section.
 - If a field is null (not found), omit it from field_traceability entirely.
 
+FOR ARRAY FIELDS (coverages, exposures) — use dot notation per element per sub-field:
+  "coverages.0.coverage": {{ "raw_text": "...", "source_document": "..." }},
+  "coverages.0.limit":    {{ "raw_text": "...", "source_document": "..." }},
+  "coverages.0.deductible": {{ "raw_text": "...", "source_document": "..." }},
+  "coverages.0.coverageDescription": {{ "raw_text": "...", "source_document": "..." }},
+  "coverages.1.coverage": {{ "raw_text": "...", "source_document": "..." }},
+  ... (one entry per extracted sub-field per array element, 0-indexed)
+
+  "exposures.0.exposureType":        {{ "raw_text": "...", "source_document": "..." }},
+  "exposures.0.value":               {{ "raw_text": "...", "source_document": "..." }},
+  "exposures.0.exposureDescription": {{ "raw_text": "...", "source_document": "..." }},
+  ... (same pattern for each exposure element)
+
+  Only include entries for sub-fields that actually have an extracted value.
+
 CONFIDENCE SCORING:
 - 0.95+ : Value is explicitly and clearly present in the source text
 - 0.75-0.94: Value is clearly present but from a less formal source
