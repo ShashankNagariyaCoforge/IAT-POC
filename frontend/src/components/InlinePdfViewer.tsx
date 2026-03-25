@@ -1,17 +1,79 @@
-import { X, Maximize2, Download } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Maximize2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+).toString();
+
+export interface BboxHighlight {
+    page: number;
+    bbox: [number, number, number, number]; // [x1, y1, x2, y2] in document units
+    page_width: number;
+    page_height: number;
+    unit?: string;
+}
 
 interface Props {
     url: string;
     name?: string;
     onClose: () => void;
     onFullscreen?: () => void;
+    /** When provided, switches to react-pdf mode with an interactive bbox overlay */
+    highlight?: BboxHighlight | null;
 }
 
 /**
- * Inline PDF viewer — slides in to replace the left column panel.
- * Uses a native iframe for simplicity. For zoom/page control, onFullscreen opens PdfViewerModal.
+ * Inline PDF viewer with two modes:
+ *   - No highlight → plain iframe (fast, full PDF)
+ *   - highlight set → react-pdf single-page render + absolute bbox overlay div
  */
-export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen }: Props) {
+export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen, highlight }: Props) {
+    const [numPages, setNumPages] = useState<number>(0);
+    const [currentPage, setCurrentPage] = useState<number>(highlight?.page ?? 1);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerWidth, setContainerWidth] = useState<number>(0);
+
+    // Jump to the target page whenever highlight changes
+    useEffect(() => {
+        if (highlight?.page) setCurrentPage(highlight.page);
+    }, [highlight]);
+
+    // Measure container width so react-pdf scales to fill the panel
+    useEffect(() => {
+        if (!highlight) return;
+        const el = containerRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) setContainerWidth(entry.contentRect.width);
+        });
+        ro.observe(el);
+        // Initial measurement
+        setContainerWidth(el.clientWidth);
+        return () => ro.disconnect();
+    }, [highlight]);
+
+    // Percentage-based overlay style — works at any zoom / container width
+    const overlayStyle = (() => {
+        if (!highlight?.bbox || !highlight.page_width || !highlight.page_height) return null;
+        const [x1, y1, x2, y2] = highlight.bbox;
+        return {
+            position: 'absolute' as const,
+            pointerEvents: 'none' as const,
+            left:   `${(x1 / highlight.page_width)  * 100}%`,
+            top:    `${(y1 / highlight.page_height) * 100}%`,
+            width:  `${((x2 - x1) / highlight.page_width)  * 100}%`,
+            height: `${((y2 - y1) / highlight.page_height) * 100}%`,
+            border: '2px solid #6366f1',
+            background: 'rgba(99, 102, 241, 0.18)',
+            borderRadius: '3px',
+            zIndex: 10,
+        };
+    })();
+
     return (
         <div style={{
             background: '#ffffff', borderRadius: '16px',
@@ -31,43 +93,80 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen 
                     <polyline points="14 2 14 8 20 8" />
                 </svg>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {name}
+                    {name}{highlight ? ` — page ${currentPage}` : ''}
                 </span>
+
+                {/* Page navigation — only in highlight (react-pdf) mode */}
+                {highlight && numPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}
+                            style={{ padding: '2px 4px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
+                            <ChevronLeft size={13} />
+                        </button>
+                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                            {currentPage} / {numPages}
+                        </span>
+                        <button onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))} disabled={currentPage >= numPages}
+                            style={{ padding: '2px 4px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
+                            <ChevronRight size={13} />
+                        </button>
+                    </div>
+                )}
+
                 {onFullscreen && (
-                    <button
-                        onClick={onFullscreen}
-                        title="Fullscreen"
-                        style={{ padding: '4px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}
-                    >
+                    <button onClick={onFullscreen} title="Fullscreen"
+                        style={{ padding: '4px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
                         <Maximize2 size={13} />
                     </button>
                 )}
-                <a
-                    href={url}
-                    download={name}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <a href={url} download={name} target="_blank" rel="noopener noreferrer"
                     style={{ padding: '4px', borderRadius: '6px', color: '#94a3b8', display: 'flex', textDecoration: 'none' }}
-                    title="Open / Download"
-                >
+                    title="Open / Download">
                     <Download size={13} />
                 </a>
-                <button
-                    onClick={onClose}
-                    title="Close"
-                    style={{ padding: '4px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}
-                >
+                <button onClick={onClose} title="Close"
+                    style={{ padding: '4px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
                     <X size={14} />
                 </button>
             </div>
 
-            {/* PDF iframe */}
-            <div style={{ flex: 1, overflow: 'hidden', background: '#e2e8f0' }}>
-                <iframe
-                    src={`${url}#toolbar=0&navpanes=0&scrollbar=1`}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                    title={name}
-                />
+            {/* Content */}
+            <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e2e8f0', position: 'relative' }}>
+                {highlight ? (
+                    // react-pdf mode — single page with bbox overlay
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '12px' }}>
+                        <Document
+                            file={url}
+                            onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                            loading={
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#94a3b8', fontSize: 13 }}>
+                                    Loading…
+                                </div>
+                            }
+                        >
+                            {/* position:relative gives % coordinates a reference frame */}
+                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <Page
+                                    pageNumber={currentPage}
+                                    width={containerWidth > 24 ? containerWidth - 24 : undefined}
+                                    renderTextLayer={false}
+                                    renderAnnotationLayer={false}
+                                />
+                                {/* Draw highlight only on the target page */}
+                                {currentPage === highlight.page && overlayStyle && (
+                                    <div style={overlayStyle} />
+                                )}
+                            </div>
+                        </Document>
+                    </div>
+                ) : (
+                    // iframe mode — full PDF browse
+                    <iframe
+                        src={`${url}#toolbar=0&navpanes=0&scrollbar=1`}
+                        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                        title={name}
+                    />
+                )}
             </div>
         </div>
     );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight } from 'lucide-react';
+import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight, FileText, Mail } from 'lucide-react';
+import type { V1FieldTraceability } from '../types';
 
 export interface FieldItem {
     label: string;
@@ -10,6 +11,7 @@ export interface FieldItem {
     isCritical?: boolean;
     error?: string;
     type?: 'field' | 'table_cell';
+    traceability?: V1FieldTraceability | null;
 }
 
 export interface TableItem {
@@ -25,7 +27,7 @@ interface Props {
     groupedFields: Record<string, PanelItem[]>;
     onSave: (fields: { field_name: string; value: string }[]) => Promise<void>;
     isReadOnly?: boolean;
-    onSelectField?: (label: string) => void;
+    onSelectField?: (label: string, traceability?: V1FieldTraceability | null) => void;
     onSelectGroup?: (labels: string[]) => void;
     onFinalSubmit?: () => void;
     finalSubmitLabel?: string;
@@ -163,13 +165,39 @@ export function EditableFieldsPanel({
                                             <div
                                                 key={f.label}
                                                 className={`space-y-1.5 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white border border-transparent ${onSelectField ? 'hover:border-indigo-200 hover:shadow-sm' : ''}`}
-                                                onClick={() => onSelectField?.(f.id || f.label)}
+                                                onClick={() => onSelectField?.(f.id || f.label, f.traceability)}
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer">
                                                             {f.label} {f.isCritical && <span className="text-red-500 ml-0.5">*</span>}
                                                         </label>
+
+                                                        {/* Source badge — DOC or EMAIL */}
+                                                        {f.traceability && (
+                                                            f.traceability.source === 'document' ? (
+                                                                <span
+                                                                    title={
+                                                                        f.traceability.source === 'document' && f.traceability.document_name
+                                                                            ? `${f.traceability.document_name}${f.traceability.page ? ` • page ${f.traceability.page}` : ''}`
+                                                                            : 'Found in document'
+                                                                    }
+                                                                    className="inline-flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 border-indigo-100 uppercase tracking-tight cursor-pointer select-none"
+                                                                >
+                                                                    <FileText size={8} />
+                                                                    DOC
+                                                                </span>
+                                                            ) : (
+                                                                <span
+                                                                    title={f.traceability.raw_text || 'Found in email'}
+                                                                    className="inline-flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded border bg-sky-50 text-sky-600 border-sky-100 uppercase tracking-tight cursor-default select-none"
+                                                                >
+                                                                    <Mail size={8} />
+                                                                    EMAIL
+                                                                </span>
+                                                            )
+                                                        )}
+
                                                         {(f.confidence !== undefined || ['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim())) && (
                                                             <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'bg-rose-50 text-rose-600 border-rose-100' : (f.confidence !== undefined && f.confidence >= 0.8
                                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
@@ -201,7 +229,7 @@ export function EditableFieldsPanel({
                                                     <textarea
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                        onFocus={() => onSelectField?.(f.id || f.label)}
+                                                        onFocus={() => onSelectField?.(f.id || f.label, f.traceability)}
                                                         readOnly={isReadOnly}
                                                         rows={6}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
@@ -215,7 +243,7 @@ export function EditableFieldsPanel({
                                                         type="text"
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                        onFocus={() => onSelectField?.(f.id || f.label)}
+                                                        onFocus={() => onSelectField?.(f.id || f.label, f.traceability)}
                                                         readOnly={isReadOnly}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
                                                             f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :

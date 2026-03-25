@@ -180,6 +180,25 @@ export interface ExtractedTable {
     doc_id: string;
 }
 
+export interface V1FieldTraceabilityDoc {
+    source: 'document';
+    doc_id: string;
+    document_name: string;
+    raw_text: string;
+    page: number | null;
+    bbox: [number, number, number, number] | null; // [x1, y1, x2, y2]
+    page_width: number | null;
+    page_height: number | null;
+    unit: string | null;
+}
+
+export interface V1FieldTraceabilityEmail {
+    source: 'email';
+    raw_text: string;
+}
+
+export type V1FieldTraceability = V1FieldTraceabilityDoc | V1FieldTraceabilityEmail;
+
 export interface ClassificationResult {
     result_id: string;
     case_id: string;
@@ -194,6 +213,7 @@ export interface ClassificationResult {
     annotated_docs?: Record<string, string>;
     downstream_notification_sent: boolean;
     downstream_notification_at: string | null;
+    v1_traceability?: Record<string, V1FieldTraceability>;
 }
 
 export interface TimelineEvent {

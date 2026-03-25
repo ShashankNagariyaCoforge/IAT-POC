@@ -57,3 +57,5 @@ Thumbs.db
 # Azure credentials (safety net)
 *.pfx
 *.p12
+
+CLAUDE.md

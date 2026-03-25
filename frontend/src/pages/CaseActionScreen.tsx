@@ -6,7 +6,8 @@ import {
     FileText, Eye, RefreshCw, Loader2, Download, FileJson
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
-import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance } from '../types';
+import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance, V1FieldTraceability } from '../types';
+import type { BboxHighlight } from '../components/InlinePdfViewer';
 import { usePipeline } from '../contexts/PipelineContext';
 import { AgentPipelinePanel } from '../components/AgentPipelinePanel';
 import { IngestionStatsCard } from '../components/IngestionStatsCard';
@@ -38,6 +39,7 @@ export default function CaseActionScreen() {
     const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
     const [activePdfName, setActivePdfName] = useState<string | null>(null);
     const [selectedInstances, setSelectedInstances] = useState<ExtractionInstance[]>([]);
+    const [activeHighlight, setActiveHighlight] = useState<BboxHighlight | null>(null);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
     const [showJson, setShowJson] = useState(false);
 
@@ -101,21 +103,50 @@ export default function CaseActionScreen() {
         await fetchAll(); // Reload everything
     };
 
-    const handleFieldSelect = (label: string) => {
-        console.log('[DEBUG] Field selected:', label);
-        if (!classification?.extraction_results) {
-            console.warn('[DEBUG] No extraction results found in classification object');
+    const handleFieldSelect = (label: string, traceability?: V1FieldTraceability | null) => {
+        // ── V1 traceability path (preferred) ───────────────────────────────
+        // Check passed traceability first, then fall back to looking it up by label
+        const trace = traceability ?? classification?.v1_traceability?.[label];
+
+        if (trace) {
+            if (trace.source === 'document' && trace.bbox && trace.page_width && trace.page_height) {
+                // Resolve doc URL from doc_id
+                const docId = trace.doc_id;
+                const docUrl = `/api/cases/${caseId}/documents/${docId}/pdf`;
+                const docEntry = docs.find(d => d.document_id === docId);
+                setActiveHighlight({
+                    page: trace.page ?? 1,
+                    bbox: trace.bbox,
+                    page_width: trace.page_width,
+                    page_height: trace.page_height,
+                    unit: trace.unit ?? 'inch',
+                });
+                setActivePdfUrl(docUrl);
+                setActivePdfName(docEntry?.file_name ?? trace.document_name);
+                setSelectedInstances([]);
+                return;
+            }
+            if (trace.source === 'document' && trace.doc_id) {
+                // Doc source but no bbox — open PDF at page without highlight
+                const docUrl = `/api/cases/${caseId}/documents/${trace.doc_id}/pdf`;
+                const docEntry = docs.find(d => d.document_id === trace.doc_id);
+                setActiveHighlight(null);
+                setActivePdfUrl(docUrl);
+                setActivePdfName(docEntry?.file_name ?? trace.document_name);
+                setSelectedInstances([]);
+                return;
+            }
+            // Email source — nothing to open, badge tooltip already shows context
             return;
         }
 
+        // ── Legacy extraction_results path (fallback) ───────────────────────
+        if (!classification?.extraction_results) return;
         const result = classification.extraction_results.find(r => r.field.toLowerCase() === label.toLowerCase());
         if (result && result.instances.length > 0) {
-            console.log(`[DEBUG] Found ${result.instances.length} instances for:`, label);
             setSelectedInstances(result.instances);
+            setActiveHighlight(null);
             setActivePdfUrl(null);
-        } else {
-            console.warn('[DEBUG] No matches found for label:', label);
-            console.log('[DEBUG] Available fields:', classification.extraction_results.map(r => r.field));
         }
     };
 
@@ -153,6 +184,8 @@ export default function CaseActionScreen() {
     const kf = classification?.key_fields;
     const conf = kf?.field_confidence || {};
 
+    const v1trace = classification?.v1_traceability ?? {};
+
     const getField = (label: string, value: string | undefined | null, techKey?: string, isCritical: boolean = false): FieldItem => {
         const isNullish = !value ||
             value.toString().trim() === '' ||
@@ -170,11 +203,15 @@ export default function CaseActionScreen() {
             }
         }
 
+        // Look up traceability by techKey first, then label
+        const traceability = (techKey && v1trace[techKey]) ? v1trace[techKey] : v1trace[label] ?? null;
+
         return {
             label,
             value: finalValue,
             confidence: fieldConfidence,
-            isCritical
+            isCritical,
+            traceability,
         };
     };
 
@@ -341,9 +378,10 @@ export default function CaseActionScreen() {
                             />
                         </div>
 
-                        {/* Inline PDF Viewer (annotated or original) */}
+                        {/* Inline PDF Viewer */}
                         <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstances.length > 0) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
                             {selectedInstances.length > 0 ? (() => {
+                                // Legacy path: no v1_traceability bbox, fall back to annotated PDF
                                 const annotatedDocs = classification?.annotated_docs || {};
                                 const docId = selectedInstances[0].doc_id;
                                 const fieldUrl = annotatedDocs[docId]
@@ -366,7 +404,8 @@ export default function CaseActionScreen() {
                                 <InlinePdfViewer
                                     url={activePdfUrl}
                                     name={activePdfName!}
-                                    onClose={() => setActivePdfUrl(null)}
+                                    highlight={activeHighlight}
+                                    onClose={() => { setActivePdfUrl(null); setActiveHighlight(null); }}
                                     onFullscreen={() => setShowFullscreenPdf(true)}
                                 />
                             )}
