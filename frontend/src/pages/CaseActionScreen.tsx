@@ -15,7 +15,7 @@ import { InlinePdfViewer } from '../components/InlinePdfViewer';
 
 import { PdfViewerModal } from '../components/PdfViewerModal';
 import { JsonDisplayModal } from '../components/JsonDisplayModal';
-import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
+import { EditableFieldsPanel, PanelItem, FieldItem, FieldSourceTag } from '../components/EditableFieldsPanel';
 import { EnrichmentPanel } from '../components/EnrichmentPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
 import { format } from 'date-fns';
@@ -118,10 +118,6 @@ export default function CaseActionScreen() {
             const traceEntry: V2FieldTraceability | undefined = v2[resolvedKey];
 
             if (traceEntry?.bbox && traceEntry.page_width && traceEntry.page_height) {
-                const docUrl = `/api/cases/${caseId}/documents/${traceEntry.doc_id}/pdf`;
-                const doc = docs.find(
-                    (d) => d.document_id === traceEntry.doc_id || d.file_name === traceEntry.document_name
-                );
                 setActiveHighlight({
                     page:             traceEntry.page_number ?? 1,
                     bbox:             traceEntry.bbox,
@@ -207,12 +203,35 @@ export default function CaseActionScreen() {
             }
         }
 
+        // Determine source traceability badge
+        let sourceTag: FieldSourceTag | undefined = undefined;
+        const v2 = classification?.v2_traceability;
+        if (v2 && techKey) {
+            const resolvedKey = FIELD_KEY_ALIASES[techKey] ?? techKey;
+            const trace = v2[resolvedKey];
+            if (trace) {
+                if (trace.extraction_source === 'web_enrichment') {
+                    sourceTag = { type: 'web', snippet: trace.raw_text ?? undefined };
+                } else if (trace.bbox) {
+                    // Has bbox → document; click-to-highlight already handles it, no extra badge
+                    sourceTag = undefined;
+                } else {
+                    // No bbox but has traceability → email body
+                    sourceTag = { type: 'email', snippet: trace.raw_text ?? undefined };
+                }
+            } else if (Object.keys(v2).length > 0) {
+                // v2 pipeline ran but no trace for this field → likely from email body
+                sourceTag = { type: 'email' };
+            }
+        }
+
         return {
             label,
             id: techKey,          // used by EditableFieldsPanel → onSelectField(f.id || f.label)
             value: finalValue,
             confidence: fieldConfidence,
-            isCritical
+            isCritical,
+            sourceTag,
         };
     };
 

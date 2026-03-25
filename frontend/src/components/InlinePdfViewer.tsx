@@ -37,7 +37,7 @@ interface Props {
  */
 export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen, highlight }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
+    const [_canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
     const [currentPage, setCurrentPage] = useState<number>(highlight?.page ?? 1);
     const [totalPages, setTotalPages] = useState<number>(0);
 

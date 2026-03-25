@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight } from 'lucide-react';
+import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight, Mail, FileText, Globe } from 'lucide-react';
+
+export interface FieldSourceTag {
+    type: 'email' | 'document' | 'web';
+    snippet?: string; // verbatim raw_text for tooltip
+}
 
 export interface FieldItem {
     label: string;
@@ -10,6 +15,7 @@ export interface FieldItem {
     isCritical?: boolean;
     error?: string;
     type?: 'field' | 'table_cell';
+    sourceTag?: FieldSourceTag;
 }
 
 export interface TableItem {
@@ -178,6 +184,33 @@ export function EditableFieldsPanel({
                                                                     : 'bg-rose-50 text-rose-600 border-rose-100'
                                                             )}`}>
                                                                 confidence score: {['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'N/A' : `${(f.confidence! * 100).toFixed(0)}%`}
+                                                            </div>
+                                                        )}
+                                                        {f.sourceTag && (
+                                                            <div className="relative group/src">
+                                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 cursor-default select-none ${
+                                                                    f.sourceTag.type === 'email'
+                                                                        ? 'bg-sky-50 text-sky-600 border-sky-100'
+                                                                        : f.sourceTag.type === 'web'
+                                                                            ? 'bg-violet-50 text-violet-600 border-violet-100'
+                                                                            : 'bg-slate-50 text-slate-500 border-slate-200'
+                                                                }`}>
+                                                                    {f.sourceTag.type === 'email' && <Mail size={8} />}
+                                                                    {f.sourceTag.type === 'web'   && <Globe size={8} />}
+                                                                    {f.sourceTag.type === 'document' && <FileText size={8} />}
+                                                                    {f.sourceTag.type === 'email' ? 'Email' : f.sourceTag.type === 'web' ? 'Web' : 'Doc'}
+                                                                </span>
+                                                                {f.sourceTag.snippet && (
+                                                                    <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover/src:block z-50 w-72 pointer-events-none">
+                                                                        <div className="bg-slate-800 text-white text-[10px] rounded-lg shadow-xl p-2.5 leading-relaxed">
+                                                                            <p className="font-bold text-slate-300 mb-1 uppercase tracking-wider text-[9px]">
+                                                                                {f.sourceTag.type === 'email' ? 'From email body' : f.sourceTag.type === 'web' ? 'From web' : 'From document'}
+                                                                            </p>
+                                                                            <p className="italic text-slate-200 line-clamp-3">"{f.sourceTag.snippet}"</p>
+                                                                        </div>
+                                                                        <div className="w-2 h-2 bg-slate-800 rotate-45 ml-3 -mt-1" />
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
