@@ -128,10 +128,11 @@
             "aliases": [
                 "underwriter",
                 "account manager",
+                "assigned underwriter",
                 "uw",
                 "am"
             ],
-            "description": "The assigned Underwriter or Account Manager"
+            "description": "The IAT Underwriter or Account Manager handling this account. Extract in priority order: (1) most recent IAT-domain sender in the email thread if an IAT person has replied, (2) Assigned Underwriter/Account Manager field on a policy schedule or declarations page for renewals, (3) named IAT person in the broker's opening email greeting. Do NOT extract generic inboxes, team names, or the broker's own account manager."
         },
         {
             "key": "naics_code",

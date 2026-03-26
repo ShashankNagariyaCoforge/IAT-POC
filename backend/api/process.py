@@ -220,6 +220,9 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         doc_tasks = [process_document_item(doc) for doc in documents]
         doc_results = await asyncio.gather(*doc_tasks)
 
+        # filename → first 400 chars of extracted text (for doc classification)
+        doc_snippets: dict = {}
+
         for doc_id, layout_result, doc_bytes, text_content in doc_results:
             if doc_id:
                 if layout_result:
@@ -228,7 +231,15 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                     doc_bytes_map[doc_id] = doc_bytes
             if text_content:
                 text_parts.append(text_content)
-        
+                # Collect snippet for doc classification (strip the [Source:] label)
+                body = text_content.split("\n", 1)[1] if "\n" in text_content else text_content
+                # Retrieve filename from the [Source: Attachment <filename>] label
+                src_line = text_content.split("\n", 1)[0]
+                if "Attachment" in src_line:
+                    fname = src_line.split("Attachment", 1)[1].strip().rstrip("]")
+                    if fname:
+                        doc_snippets[fname] = body[:400]
+
         combined_raw_text = "\n\n---\n\n".join(text_parts)
 
         # 2b. Launch enrichment in parallel (does not depend on PII/classification)
@@ -344,13 +355,17 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
             case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="classification"
         ))
         
-        logger.info(f"[Process] Launching Safety Analysis and AI Classification in parallel for case {case_id}")
+        logger.info(f"[Process] Launching Safety, Thread Classification and Document Classification in parallel for case {case_id}")
 
-        # Step 1: Run content safety check and classification in parallel
+        # Step 1: Run safety check, thread classification, and document classification in parallel
         safety_task = asyncio.create_task(safety_svc.analyze_text(masked_text))
         classification_task = asyncio.create_task(classifier.classify(masked_text, is_masked=(not skip_pii)))
+        doc_classification_task = asyncio.create_task(classifier.classify_documents(doc_snippets))
 
-        safety_result, classification = await asyncio.gather(safety_task, classification_task)
+        safety_result, classification, doc_type_map = await asyncio.gather(
+            safety_task, classification_task, doc_classification_task
+        )
+        logger.info(f"[Process] Doc classification results: {doc_type_map}")
 
         safety_flagged_for_review = False
 
@@ -382,16 +397,32 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         asyncio.create_task(db_service.update_case_status(
             case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="extraction"
         ))
-        logger.info(f"[Process] Step 2 — Extracting key fields for category='{classification.get('classification_category')}'")
+        logger.info(
+            f"[Process] Step 2 — Extracting key fields for category='{classification.get('classification_category')}' "
+            f"submission_type='{classification.get('submission_type', 'Unknown')}' "
+            f"iat_policy={classification.get('iat_policy_detected', False)} "
+            f"expiring_carrier='{classification.get('expiring_carrier')}'"
+        )
         extraction_result = await classifier.extract(
             masked_text,
             classification_category=classification.get("classification_category", "Unknown"),
             is_masked=(not skip_pii),
+            submission_type=classification.get("submission_type", "Unknown"),
+            iat_policy_detected=bool(classification.get("iat_policy_detected", False)),
+            expiring_carrier=classification.get("expiring_carrier"),
+            doc_type_map=doc_type_map,
         )
         # Merge extraction result into the classification dict
         classification["key_fields"] = extraction_result.get("key_fields", {})
         if "field_confidence" in extraction_result:
             classification["key_fields"]["field_confidence"] = extraction_result["field_confidence"]
+
+        # Promote classification-level fields into key_fields so the UI can display them
+        kf = classification["key_fields"]
+        if not kf.get("submission_type") and classification.get("submission_type"):
+            kf["submission_type"] = classification["submission_type"]
+        if not kf.get("urgency") and classification.get("urgency"):
+            kf["urgency"] = classification["urgency"]
 
         # ── V1 Traceability: resolve raw_text → bbox for each field ──────────
         field_traceability_raw = extraction_result.get("field_traceability", {})
@@ -496,11 +527,17 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         if "key_fields" not in classification:
             classification["key_fields"] = {}
 
+        from services.classifier import DOC_TYPE_LABELS
         classification["key_fields"]["documents"] = [
             {
                 "fileName": d.get("filename") or d.get("file_name"),
-                "fileType": d.get("content_type") or "PDF",
-                "documentDescription": "Attachment"
+                "fileType": doc_type_map.get(
+                    d.get("filename") or d.get("file_name") or "", "other"
+                ),
+                "documentDescription": DOC_TYPE_LABELS.get(
+                    doc_type_map.get(d.get("filename") or d.get("file_name") or "", "other"),
+                    "Other Document"
+                ),
             }
             for d in documents
         ]
