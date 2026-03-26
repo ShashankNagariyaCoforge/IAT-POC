@@ -194,16 +194,24 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                                 </div>
                                 <p className="text-sm font-semibold text-slate-800 mb-2 break-words">{f.value || '—'}</p>
                                 <ConfidenceBar confidence={f.confidence} isNA={!f.value || ['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim())} />
-                                {f.source && f.source !== 'google_search' && (
-                                    <a
-                                        href={f.source}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[9px] text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <ExternalLink size={9} /> Source
-                                    </a>
-                                )}
+                                <div className="mt-1.5">
+                                    {f.source && f.source.startsWith('http') ? (
+                                        <a
+                                            href={f.source}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[9px] text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5 truncate max-w-full"
+                                        >
+                                            <ExternalLink size={9} className="shrink-0" />
+                                            {new URL(f.source).hostname}
+                                        </a>
+                                    ) : (
+                                        <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                                            <svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 2h8v8H2z"/><path d="M4 5h4M4 7h3"/></svg>
+                                            Submission Documents
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -230,7 +238,7 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                         {showSources && (
                             <div className="mt-2 space-y-1">
                                 {enrichmentData.source_urls
-                                    .filter(u => u !== 'google_search')
+                                    .filter(u => u !== 'google_search' && u !== 'source_text' && u.startsWith('http'))
                                     .map((url, i) => (
                                         <a
                                             key={i}
