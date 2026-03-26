@@ -5,6 +5,7 @@ import re
 import uuid
 import os
 from datetime import datetime
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from services.extraction_service import find_field_worker
@@ -23,6 +24,33 @@ from models.case import CaseStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# ── Per-process log file ───────────────────────────────────────────────────────
+LOG_FILE = Path(__file__).resolve().parent.parent / "logs" / "process.log"
+_file_handler: logging.FileHandler | None = None
+
+def _start_process_log(case_id: str) -> None:
+    """Attach a plain-text FileHandler to root logger, overwriting previous run."""
+    global _file_handler
+    _stop_process_log()  # Remove any leftover handler from previous call
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fh = logging.FileHandler(LOG_FILE, mode="w", encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(
+        fmt="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    logging.getLogger().addHandler(fh)
+    _file_handler = fh
+    logging.getLogger().info(f"=== Process started for case_id={case_id} ===")
+
+def _stop_process_log() -> None:
+    """Detach and close the file handler."""
+    global _file_handler
+    if _file_handler:
+        logging.getLogger().removeHandler(_file_handler)
+        _file_handler.close()
+        _file_handler = None
 
 def _get_cosmos():
     if settings.demo_mode:
@@ -49,6 +77,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
 
     # 1. Update status to processing so UI reflects it immediately
     await db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="fetch_content")
+    _start_process_log(case_id)
 
     try:
         classifier = Classifier()
@@ -706,12 +735,16 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 pipeline_step="completed"
             )
             
+        logger.info(f"=== Process completed successfully for case_id={case_id} ===")
+        _stop_process_log()
         print(f"SUCCESS [Process]: Total case {case_id} processed successfully.")
         return {"message": f"Successfully processed case {case_id}"}
-        
+
     except Exception as e:
-        print(f"CRITICAL ERROR [Process]: Failed processing case {case_id}: {e}")
         logger.error(f"[Process] Failed processing case {case_id}: {e}", exc_info=True)
+        logger.info(f"=== Process FAILED for case_id={case_id} ===")
+        _stop_process_log()
+        print(f"CRITICAL ERROR [Process]: Failed processing case {case_id}: {e}")
         # Attempt to set status to FAILED in DB
         try:
             db_service = _get_cosmos()

@@ -421,15 +421,15 @@ class EnrichmentService:
         logger.info(f"[Enrichment] Pipeline company name: '{company_name}'")
 
         # Initialize merged_fields with what AI found directly in text
+        # source=None means "found in submission documents/emails" (not a web URL)
         merged_fields: Dict[str, EnrichedField] = {}
         ai_extracted = entity_info.get("extracted_fields", {})
         for field_name, info in ai_extracted.items():
             if field_name in EnrichmentResult.field_keys() and info and info.get("value"):
                 merged_fields[field_name] = EnrichedField(
-                    name=field_name,
                     value=str(info["value"]),
                     confidence=float(info.get("confidence", 0.7)),
-                    source="source_text"
+                    source=None,  # No URL — sourced from submission documents/emails
                 )
 
         # Step 2: Identify URLs
@@ -442,14 +442,14 @@ class EnrichmentService:
             # Normalise AI-returned site to homepage root (strip /path?params the LLM may add)
             ai_site = self.normalise_to_homepage(ai_site)
             if ai_site not in urls:
-                urls.insert(0, ai_site) # Prioritize AI identified website
-            
+                urls.insert(0, ai_site)  # Prioritize AI identified website
+
         if not company_name and not urls:
             logger.warning("[Enrichment] No company name or URLs found. Enrichment aborted.")
             return EnrichmentResult(enrichment_status="no_data_found").model_dump()
 
         # Step 3: Crawl URLs and extract fields
-        source_urls = ["source_text"] if merged_fields else []
+        source_urls = []  # Only real web URLs go here
 
         # 3a. Crawl URLs in parallel (limit to first 3)
         if urls:
