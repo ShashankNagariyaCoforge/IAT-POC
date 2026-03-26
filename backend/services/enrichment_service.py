@@ -100,6 +100,33 @@ class EnrichmentService:
     # ─── URL Extraction ─────────────────────────────────────────────────────
 
     @staticmethod
+    def clean_url(url: str) -> str:
+        """Strip trailing punctuation and normalise a URL to its homepage root.
+
+        Handles:
+        - Trailing punctuation left by email body text: . , ) > " ' ] >
+        - Extra paths/params from AI-returned websites (e.g. /about?ref=x)
+          → kept as-is so deep pages are still crawlable when extracted from text,
+          but AI-provided homepage URLs are normalised to scheme+domain only
+          (call with homepage=True for that behaviour).
+        """
+        # Strip common trailing punctuation that email parsers leave attached
+        url = url.rstrip('.,)>"\']')
+        return url
+
+    @staticmethod
+    def normalise_to_homepage(url: str) -> str:
+        """Reduce a URL to just its scheme + domain (strip path, query, fragment)."""
+        from urllib.parse import urlparse
+        try:
+            p = urlparse(url)
+            if p.scheme and p.netloc:
+                return f"{p.scheme}://{p.netloc}"
+        except Exception:
+            pass
+        return url
+
+    @staticmethod
     def extract_urls(text: str) -> List[str]:
         """Extract HTTP/HTTPS URLs from text content."""
         url_pattern = re.compile(
@@ -108,16 +135,20 @@ class EnrichmentService:
             r'(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
             re.IGNORECASE
         )
-        urls = list(set(url_pattern.findall(text)))
+        raw_urls = list(set(url_pattern.findall(text)))
+        # Strip trailing punctuation left by email body formatting
+        raw_urls = [EnrichmentService.clean_url(u) for u in raw_urls]
+        # Decode any Proofpoint URL Defense wrapped URLs
+        raw_urls = [EnrichmentService.decode_proofpoint_url(u) for u in raw_urls]
         # Filter out common non-useful URLs
         skip_patterns = [
             'mailto:', 'javascript:', '.png', '.jpg', '.gif', '.svg',
             'fonts.googleapis', 'cdn.', 'analytics.', 'tracking.',
             'facebook.com', 'twitter.com', 'linkedin.com/share',
-            'youtube.com', 'instagram.com'
+            'youtube.com', 'instagram.com', 'urldefense.com',
         ]
         filtered = [
-            url for url in urls
+            url for url in raw_urls
             if not any(skip in url.lower() for skip in skip_patterns)
         ]
         return filtered[:10]
@@ -169,41 +200,70 @@ class EnrichmentService:
                 return str(name)
         return ""
 
-    # ─── Web Crawling (Crawl4AI) ────────────────────────────────────────────
+    # ─── Proofpoint URL Defense Decoder ─────────────────────────────────────
+
+    @staticmethod
+    def decode_proofpoint_url(url: str) -> str:
+        """Decode a Proofpoint URL Defense wrapped URL to get the real URL.
+
+        Handles formats:
+          v3: https://urldefense.com/v3/__https://real.url/__
+          v2: https://urldefense.proofpoint.com/v2/url?u=...
+        """
+        if "urldefense.com/v3/__" in url:
+            # Extract everything between the first __ and the trailing __
+            match = re.search(r'urldefense\.com/v3/__(.+?)(?:__|\Z)', url)
+            if match:
+                real = match.group(1)
+                # Proofpoint v3 encodes : as -3A and / chars — undo common encodings
+                real = real.replace("-3A", ":").replace("-2F", "/").replace("-2E", ".")
+                if not real.startswith(("http://", "https://")):
+                    real = "https://" + real
+                return real
+        elif "urldefense.proofpoint.com/v2/url" in url:
+            match = re.search(r'[?&]u=([^&]+)', url)
+            if match:
+                from urllib.parse import unquote
+                real = unquote(match.group(1)).replace("-", ".").replace("_", "/")
+                if not real.startswith(("http://", "https://")):
+                    real = "https://" + real
+                return real
+        return url
+
+    # ─── Web Crawling ────────────────────────────────────────────────────────
 
     async def crawl_website(self, url: str) -> str:
-        """Crawl a website using Crawl4AI and return markdown content."""
+        """Crawl a website — tries Crawl4AI first, falls back to httpx."""
         if not url:
             return ""
-            
+
+        # Decode Proofpoint URL Defense wrapping before crawling
+        url = self.decode_proofpoint_url(url)
+
         # Ensure URL has protocol
         if not url.startswith(("http://", "https://")):
             url = f"https://{url}"
 
         try:
             from crawl4ai import AsyncWebCrawler
-
             async with AsyncWebCrawler(verbose=False) as crawler:
                 result = await crawler.arun(url=url)
                 if result.success and result.markdown:
                     markdown = result.markdown[:MAX_CONTENT_FOR_AI]
-                    logger.info(f"[Enrichment] Crawled {url}: {len(markdown)} chars")
+                    logger.info(f"[Enrichment] Crawl4AI crawled {url}: {len(markdown)} chars")
                     return markdown
                 else:
-                    logger.warning(f"[Enrichment] Crawl4AI returned no content for {url}")
-                    return ""
-        except NotImplementedError:
-            logger.warning(f"[Enrichment] Crawl4AI failed with NotImplementedError (Windows Event Loop issue). Falling back to httpx for {url}")
-            return await self._fallback_crawl(url)
+                    logger.warning(f"[Enrichment] Crawl4AI returned no content for {url}, trying httpx fallback")
+                    return await self._fallback_crawl(url)
         except ImportError:
             logger.warning("[Enrichment] crawl4ai not installed, falling back to httpx")
             return await self._fallback_crawl(url)
         except Exception as e:
-            logger.warning(f"[Enrichment] Crawl4AI failed for {url}: {e}")
+            logger.warning(f"[Enrichment] Crawl4AI failed for {url}: {e!r}, falling back to httpx")
             return await self._fallback_crawl(url)
 
     async def _fallback_crawl(self, url: str) -> str:
-        """Fallback crawling with httpx + BeautifulSoup."""
+        """Crawl with httpx + BeautifulSoup (no browser required)."""
         import httpx
         from bs4 import BeautifulSoup
 
@@ -211,7 +271,7 @@ class EnrichmentService:
             async with httpx.AsyncClient(
                 timeout=CRAWL_TIMEOUT,
                 follow_redirects=True,
-                verify=False, # Bypass SSL verification for better success rate on corporate sites
+                verify=False,
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -228,9 +288,10 @@ class EnrichmentService:
                 for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
                     tag.decompose()
                 text = soup.get_text(separator="\n", strip=True)
+                logger.info(f"[Enrichment] httpx crawled {url}: {len(text)} chars")
                 return text[:MAX_CONTENT_FOR_AI]
         except Exception as e:
-            logger.warning(f"[Enrichment] Fallback crawl failed for {url}: {e}")
+            logger.warning(f"[Enrichment] httpx crawl failed for {url}: {e}")
             return ""
 
     # ─── AI Field Extraction ────────────────────────────────────────────────
@@ -295,40 +356,41 @@ class EnrichmentService:
     # ─── Google Search Fallback ─────────────────────────────────────────────
 
     async def search_and_crawl(self, company_name: str, field_name: str) -> str:
-        """Google search for a specific field, crawl the top result."""
+        """DuckDuckGo search for a specific field, crawl the top results."""
         try:
-            from googlesearch import search as google_search
+            from duckduckgo_search import DDGS
 
-            # Try a specific query or fallback to broad query
             if field_name == "company information":
-                query = f"{company_name} business overview"
+                query = f"{company_name} business overview insurance"
             else:
                 query = f"{company_name} {field_name.replace('_', ' ')}"
-                
-            logger.info(f"[Enrichment] Searching Google: '{query}'")
 
-            # Run synchronous google search in a thread
-            urls = await asyncio.to_thread(
-                lambda: list(google_search(query, num_results=5))
-            )
+            logger.info(f"[Enrichment] DuckDuckGo search: '{query}'")
+
+            # Run synchronous DDGS search in a thread
+            def _search():
+                with DDGS() as ddgs:
+                    return [r["href"] for r in ddgs.text(query, max_results=5) if r.get("href")]
+
+            urls = await asyncio.to_thread(_search)
 
             if not urls:
-                logger.info(f"[Enrichment] No Google results for '{query}'")
+                logger.info(f"[Enrichment] No search results for '{query}'")
                 return ""
 
-            logger.info(f"[Enrichment] Google returned {len(urls)} results. Crawling top 2 for '{field_name}'")
-            
+            logger.info(f"[Enrichment] Search returned {len(urls)} results. Crawling top 2 for '{field_name}'")
+
             # Combine content from top 2 results for better context
             contents = []
             for top_url in urls[:2]:
                 content = await self.crawl_website(top_url)
                 if content:
                     contents.append(f"--- Source: {top_url} ---\n{content}")
-            
+
             return "\n\n".join(contents)
 
         except Exception as e:
-            logger.warning(f"[Enrichment] Google search failed for '{company_name} {field_name}': {e}")
+            logger.warning(f"[Enrichment] Search failed for '{company_name} {field_name}': {e}")
             return ""
 
     # ─── Main Orchestrator ──────────────────────────────────────────────────
@@ -371,8 +433,11 @@ class EnrichmentService:
         urls = self.extract_urls(combined_text)
         ai_site = entity_info.get("website")
         if ai_site:
+            ai_site = self.clean_url(ai_site)
             if not ai_site.startswith(("http://", "https://")):
                 ai_site = f"https://{ai_site}"
+            # Normalise AI-returned site to homepage root (strip /path?params the LLM may add)
+            ai_site = self.normalise_to_homepage(ai_site)
             if ai_site not in urls:
                 urls.insert(0, ai_site) # Prioritize AI identified website
             
