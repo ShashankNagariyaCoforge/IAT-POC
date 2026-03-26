@@ -230,10 +230,18 @@ class EnrichmentService:
                 return real
         return url
 
+    # Domains that always block scrapers — skip them entirely
+    _BLOCKED_DOMAINS = {
+        "linkedin.com", "zoominfo.com", "bloomberg.com",
+        "glassdoor.com", "facebook.com", "instagram.com",
+    }
+
     # ─── Web Crawling ────────────────────────────────────────────────────────
 
     async def crawl_website(self, url: str) -> str:
-        """Crawl a website — tries Crawl4AI first, falls back to httpx."""
+        """Crawl a website — uses httpx on Windows (Crawl4AI/Playwright can't spawn
+        subprocesses there), Crawl4AI on other platforms with httpx fallback."""
+        import sys
         if not url:
             return ""
 
@@ -243,6 +251,17 @@ class EnrichmentService:
         # Ensure URL has protocol
         if not url.startswith(("http://", "https://")):
             url = f"https://{url}"
+
+        # Skip domains that always block scrapers
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc.lstrip("www.")
+        if any(blocked in domain for blocked in self._BLOCKED_DOMAINS):
+            logger.info(f"[Enrichment] Skipping blocked domain: {domain}")
+            return ""
+
+        # On Windows, Crawl4AI's Playwright cannot spawn subprocesses — go straight to httpx
+        if sys.platform == "win32":
+            return await self._fallback_crawl(url)
 
         try:
             from crawl4ai import AsyncWebCrawler
@@ -259,7 +278,6 @@ class EnrichmentService:
             logger.warning(f"[Enrichment] Crawl4AI timed out after {CRAWL_TIMEOUT}s for {url}, falling back to httpx")
             return await self._fallback_crawl(url)
         except ImportError:
-            logger.warning("[Enrichment] crawl4ai not installed, falling back to httpx")
             return await self._fallback_crawl(url)
         except Exception as e:
             logger.warning(f"[Enrichment] Crawl4AI failed for {url}: {e!r}, falling back to httpx")
@@ -364,13 +382,13 @@ class EnrichmentService:
             from ddgs import DDGS
 
             if field_name == "company information":
-                query = f"{company_name} business overview insurance"
+                query = f'"{company_name}" company business profile USA'
             else:
-                query = f"{company_name} {field_name.replace('_', ' ')}"
+                # Quote company name to force exact match and reduce wrong-company results
+                query = f'"{company_name}" {field_name.replace("_", " ")} USA'
 
             logger.info(f"[Enrichment] DuckDuckGo search: '{query}'")
 
-            # Run synchronous DDGS search in a thread
             def _search():
                 with DDGS() as ddgs:
                     return [r["href"] for r in ddgs.text(query, max_results=5) if r.get("href")]
@@ -383,13 +401,13 @@ class EnrichmentService:
 
             logger.info(f"[Enrichment] Search returned {len(urls)} results. Crawling top 2 for '{field_name}'")
 
-            # Combine content from top 2 results for better context
-            contents = []
-            for top_url in urls[:2]:
-                content = await self.crawl_website(top_url)
-                if content:
-                    contents.append(f"--- Source: {top_url} ---\n{content}")
-
+            # Crawl top 2 in parallel
+            crawl_tasks = [self.crawl_website(u) for u in urls[:2]]
+            results = await asyncio.gather(*crawl_tasks)
+            contents = [
+                f"--- Source: {u} ---\n{c}"
+                for u, c in zip(urls[:2], results) if c
+            ]
             return "\n\n".join(contents)
 
         except Exception as e:
@@ -486,16 +504,20 @@ class EnrichmentService:
         ]
 
         if null_fields and company_name:
-            logger.info(f"[Enrichment] {len(null_fields)} null fields, trying Google search")
-            # Try top 3 missing fields
-            for field_name in null_fields[:3]:
-                search_content = await self.search_and_crawl(company_name, field_name)
-                if search_content:
-                    search_fields = await self.extract_fields_from_content(
-                        search_content, company_name, "google_search"
-                    )
+            logger.info(f"[Enrichment] {len(null_fields)} null fields, running parallel search for top 3")
+            # Run all 3 searches in parallel instead of sequentially
+            search_tasks = [self.search_and_crawl(company_name, fn) for fn in null_fields[:3]]
+            search_contents = await asyncio.gather(*search_tasks)
+
+            extract_tasks = [
+                self.extract_fields_from_content(sc, company_name, "web_search")
+                for sc in search_contents if sc
+            ]
+            if extract_tasks:
+                extract_results = await asyncio.gather(*extract_tasks)
+                for search_fields in extract_results:
                     if search_fields:
-                        source_urls.append("google_search")
+                        source_urls.append("web_search")
                         for key, field in search_fields.items():
                             existing = merged_fields.get(key)
                             if (existing is None or existing.value is None) and field.value:

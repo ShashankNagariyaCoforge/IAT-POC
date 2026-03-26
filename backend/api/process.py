@@ -29,6 +29,22 @@ router = APIRouter()
 LOG_FILE = Path(__file__).resolve().parent.parent / "logs" / "process.log"
 _file_handler: logging.FileHandler | None = None
 
+
+# Loggers that are noisy background tasks — suppress from the process log file
+_SUPPRESS_IN_FILE = {
+    "pymongo.client", "pymongo.connection", "pymongo.topology",
+    "services.cosmos_db",
+    "services.email_fetcher", "services.email_poller",
+    "services.graph_client",
+    "services.content_safety",   # periodic re-init noise
+    "primp",                     # low-level HTTP noise from ddgs
+}
+
+class _SuppressBackgroundFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.name not in _SUPPRESS_IN_FILE
+
+
 def _start_process_log(case_id: str) -> None:
     """Attach a plain-text FileHandler to root logger, overwriting previous run."""
     global _file_handler
@@ -40,6 +56,7 @@ def _start_process_log(case_id: str) -> None:
         fmt="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     ))
+    fh.addFilter(_SuppressBackgroundFilter())
     logging.getLogger().addHandler(fh)
     _file_handler = fh
     logging.getLogger().info(f"=== Process started for case_id={case_id} ===")
