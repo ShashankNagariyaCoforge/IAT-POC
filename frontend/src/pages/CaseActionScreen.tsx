@@ -386,6 +386,7 @@ export default function CaseActionScreen() {
                                 caseId={caseId!}
                                 initialRevealIndex={cachedContext?.revealIndex || 0}
                                 onRevealIndexChange={(idx) => caseId && setSnapshot(caseId, { revealIndex: idx })}
+                                onStatusChange={(status) => { if (status.is_terminal) fetchAll(); }}
                             />
                         </div>
 

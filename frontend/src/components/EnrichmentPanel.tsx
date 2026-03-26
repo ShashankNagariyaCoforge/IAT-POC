@@ -226,19 +226,20 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                 )}
 
                 {/* Source URLs collapsible */}
-                {enrichmentData.source_urls && enrichmentData.source_urls.length > 0 && (
+                {(() => {
+                    const validUrls = (enrichmentData.source_urls ?? []).filter(u => u !== 'google_search' && u !== 'source_text' && u.startsWith('http'));
+                    return validUrls.length > 0 ? (
                     <div className="mt-4 border-t border-slate-100 pt-3">
                         <button
                             onClick={() => setShowSources(!showSources)}
                             className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
                         >
                             {showSources ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                            {enrichmentData.source_urls.length} source URL{enrichmentData.source_urls.length !== 1 ? 's' : ''}
+                            {validUrls.length} source URL{validUrls.length !== 1 ? 's' : ''}
                         </button>
                         {showSources && (
                             <div className="mt-2 space-y-1">
-                                {enrichmentData.source_urls
-                                    .filter(u => u !== 'google_search' && u !== 'source_text' && u.startsWith('http'))
+                                {validUrls
                                     .map((url, i) => (
                                         <a
                                             key={i}
@@ -254,7 +255,8 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                             </div>
                         )}
                     </div>
-                )}
+                    ) : null;
+                })()}
             </div>
         </div>
     );
