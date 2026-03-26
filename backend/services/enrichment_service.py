@@ -247,7 +247,7 @@ class EnrichmentService:
         try:
             from crawl4ai import AsyncWebCrawler
             async with AsyncWebCrawler(verbose=False) as crawler:
-                result = await crawler.arun(url=url)
+                result = await asyncio.wait_for(crawler.arun(url=url), timeout=CRAWL_TIMEOUT)
                 if result.success and result.markdown:
                     markdown = result.markdown[:MAX_CONTENT_FOR_AI]
                     logger.info(f"[Enrichment] Crawl4AI crawled {url}: {len(markdown)} chars")
@@ -255,6 +255,9 @@ class EnrichmentService:
                 else:
                     logger.warning(f"[Enrichment] Crawl4AI returned no content for {url}, trying httpx fallback")
                     return await self._fallback_crawl(url)
+        except asyncio.TimeoutError:
+            logger.warning(f"[Enrichment] Crawl4AI timed out after {CRAWL_TIMEOUT}s for {url}, falling back to httpx")
+            return await self._fallback_crawl(url)
         except ImportError:
             logger.warning("[Enrichment] crawl4ai not installed, falling back to httpx")
             return await self._fallback_crawl(url)
@@ -358,7 +361,7 @@ class EnrichmentService:
     async def search_and_crawl(self, company_name: str, field_name: str) -> str:
         """DuckDuckGo search for a specific field, crawl the top results."""
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
 
             if field_name == "company information":
                 query = f"{company_name} business overview insurance"

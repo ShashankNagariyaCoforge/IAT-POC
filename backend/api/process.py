@@ -665,13 +665,13 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         # 6.8 Await and save enrichment results (was launched in parallel at step 2b)
         asyncio.create_task(db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="enrichment"))
         try:
-            enrichment_result = await enrichment_task
+            enrichment_result = await asyncio.wait_for(enrichment_task, timeout=120)
             # Retroactively update company_name from classification if enrichment didn't find one
             if enrichment_result and not enrichment_result.get("company_name"):
                 company_from_cls = classification.get("key_fields", {}).get("name", "")
                 if company_from_cls:
                     enrichment_result["company_name"] = company_from_cls
-            
+
             enrichment_doc = {
                 "case_id": case_id,
                 "result_id": str(uuid.uuid4()),
@@ -680,6 +680,9 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
             }
             await db_service.save_enrichment_result(enrichment_doc)
             logger.info(f"[Process] Enrichment results saved for case {case_id}")
+        except asyncio.TimeoutError:
+            logger.warning(f"[Process] Enrichment timed out after 120s for case {case_id} — continuing without enrichment")
+            enrichment_task.cancel()
         except Exception as enrich_err:
             logger.warning(f"[Process] Enrichment failed (non-fatal) for case {case_id}: {enrich_err}")
 
