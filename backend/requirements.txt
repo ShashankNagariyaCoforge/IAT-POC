@@ -29,6 +29,7 @@ python-docx==1.1.2
 Pillow>=10.0.0
 opencv-python-headless>=4.8.0
 reportlab>=4.2.5
+openpyxl>=3.1.0
 
 # Web Crawling
 playwright==1.50.0

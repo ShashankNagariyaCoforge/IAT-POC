@@ -80,10 +80,21 @@ Respond ONLY with valid JSON in this exact format:
 
 # Maximum content length sent to OpenAI
 MAX_CONTENT_FOR_AI = 12000
-# Maximum number of null fields to search via Google
-MAX_SEARCH_FIELDS = 3
 # Request timeout for crawling
 CRAWL_TIMEOUT = 30
+
+# Fields that realistically appear on public websites (company profiles, registries, job sites).
+# All other enrichment fields (policy limits, deductibles, litigation dates, etc.) are private
+# insurance data that will never appear on the web — skip DuckDuckGo search for those.
+WEB_SEARCHABLE_FIELDS = [
+    "entity_type",
+    "entity_structure",
+    "years_in_business",
+    "number_of_employees",
+    "territory_code",
+    "employee_location",
+    "naics_code",
+]
 
 
 class EnrichmentService:
@@ -485,16 +496,20 @@ If not found, use null for either field."""
                             if existing is None or (field.value and field.confidence > existing.confidence):
                                 merged_fields[key] = field
 
-        # Step 4: Identify null fields and try Google search fallback
-        null_fields = [
-            k for k in EnrichmentResult.field_keys()
+        # Step 4: Search for web-findable fields that are still null.
+        # Only fields in WEB_SEARCHABLE_FIELDS are worth querying — policy-specific fields
+        # (limits, deductibles, litigation dates, etc.) never appear on public websites.
+        fields_to_search = [
+            k for k in WEB_SEARCHABLE_FIELDS
             if k not in merged_fields or merged_fields[k].value is None
         ]
 
-        if null_fields and company_name:
-            logger.info(f"[Enrichment] {len(null_fields)} null fields, running parallel search for top 3")
-            # Run all 3 searches in parallel instead of sequentially
-            search_tasks = [self.search_and_crawl(company_name, fn) for fn in null_fields[:3]]
+        if fields_to_search and company_name:
+            logger.info(
+                f"[Enrichment] {len(fields_to_search)} web-searchable fields still null, "
+                f"running parallel DuckDuckGo search: {fields_to_search}"
+            )
+            search_tasks = [self.search_and_crawl(company_name, fn) for fn in fields_to_search]
             search_tuples = await asyncio.gather(*search_tasks)
 
             extract_tasks = [

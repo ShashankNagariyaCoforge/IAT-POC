@@ -231,6 +231,110 @@ async def get_case_document_annotated_pdf(case_id: str, document_id: str):
         return await get_case_document_pdf(case_id, document_id)
 
 
+@router.get("/cases/{case_id}/documents/{document_id}/view")
+async def get_case_document_view(case_id: str, document_id: str):
+    """
+    Generic document viewer endpoint.
+    - PDF / images → served with correct content-type (for iframe / react-pdf)
+    - XLSX / XLS   → converted to a styled HTML table for inline display
+    - DOCX         → served as-is (browser will download; future: convert to PDF)
+    """
+    cosmos = _get_cosmos()
+    docs = await cosmos.get_documents_for_case(case_id)
+    doc = next((d for d in docs if d.get("document_id") == document_id), None)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    blob_path = doc.get("blob_path")
+    if not blob_path:
+        raise HTTPException(status_code=404, detail="Blob path not found")
+
+    filename = (doc.get("file_name") or doc.get("filename") or blob_path or "").lower()
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else ""
+
+    from services.blob_storage import BlobStorageService
+    blob = BlobStorageService()
+    container = settings.blob_container_raw_emails
+
+    try:
+        raw_bytes = await blob.download_bytes(container, blob_path)
+    except Exception as e:
+        logger.error(f"Failed to download document {blob_path}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download document")
+
+    # ── XLSX / XLS → HTML table ──────────────────────────────────────────────
+    if ext in ("xlsx", "xls"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+            tabs_html = []
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                rows = list(ws.iter_rows(values_only=True))
+                if not rows:
+                    continue
+                header = rows[0]
+                data_rows = rows[1:]
+                th_cells = "".join(
+                    f"<th>{(str(c) if c is not None else '')}</th>" for c in header
+                )
+                tr_rows = "".join(
+                    "<tr>" + "".join(
+                        f"<td>{(str(c) if c is not None else '')}</td>" for c in row
+                    ) + "</tr>"
+                    for row in data_rows
+                )
+                tabs_html.append(
+                    f"<h3 class='sheet-name'>{sheet_name}</h3>"
+                    f"<div class='tbl-wrap'><table><thead><tr>{th_cells}</tr></thead>"
+                    f"<tbody>{tr_rows}</tbody></table></div>"
+                )
+
+            html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          font-size: 12px; margin: 0; padding: 12px; background: #f8fafc; color: #1e293b; }}
+  .sheet-name {{ font-size: 13px; font-weight: 700; color: #475569; margin: 16px 0 6px; }}
+  .tbl-wrap {{ overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0;
+               box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 24px; }}
+  table {{ border-collapse: collapse; min-width: 100%; background: #fff; }}
+  thead tr {{ background: #f1f5f9; }}
+  th {{ padding: 7px 12px; text-align: left; font-weight: 700; font-size: 11px;
+        color: #64748b; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }}
+  td {{ padding: 6px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }}
+  tr:last-child td {{ border-bottom: none; }}
+  tr:hover td {{ background: #f8fafc; }}
+</style>
+</head>
+<body>{''.join(tabs_html) if tabs_html else '<p style="color:#94a3b8">No data found in spreadsheet.</p>'}</body>
+</html>"""
+            return Response(content=html, media_type="text/html")
+        except Exception as e:
+            logger.error(f"Failed to convert xlsx {blob_path}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to render spreadsheet: {e}")
+
+    # ── Images → serve directly ──────────────────────────────────────────────
+    image_types = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+                   "tiff": "image/tiff", "tif": "image/tiff", "bmp": "image/bmp",
+                   "gif": "image/gif", "webp": "image/webp"}
+    if ext in image_types:
+        return Response(content=raw_bytes, media_type=image_types[ext])
+
+    # ── DOCX → serve for download (browser handles it) ──────────────────────
+    if ext == "docx":
+        return Response(
+            content=raw_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"inline; filename=\"{filename}\""},
+        )
+
+    # ── Default → PDF ────────────────────────────────────────────────────────
+    return Response(content=raw_bytes, media_type="application/pdf")
+
+
 @router.get("/cases/{case_id}/documents/{document_id}/pages/{page_number}/image")
 async def get_case_document_page_image(case_id: str, document_id: str, page_number: int):
     """
