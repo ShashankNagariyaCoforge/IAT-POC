@@ -70,6 +70,24 @@ class KeyFields(BaseModel):
     policy_reference: Optional[str] = None
     field_confidence: Dict[str, float] = Field(default_factory=dict, description="Confidence score (0.0-1.0) for each field")
 
+    # Secondary-extraction / enrichment fields (sourced from docs or web)
+    entity_structure: Optional[str] = None
+    years_in_business: Optional[str] = None
+    number_of_employees: Optional[str] = None
+    territory_code: Optional[str] = None
+    limit_of_liability: Optional[str] = None
+    deductible: Optional[str] = None
+    class_mass_action_deductible_retention: Optional[str] = None
+    pending_or_prior_litigation_date: Optional[str] = None
+    duty_to_defend_limit: Optional[str] = None
+    defense_outside_limit: Optional[str] = None
+    employment_category: Optional[str] = None
+    ec_number_of_employees: Optional[str] = None
+    employee_compensation: Optional[str] = None
+    number_of_employees_in_each_band: Optional[str] = None
+    employee_location: Optional[str] = None
+    number_of_employees_in_each_location: Optional[str] = None
+
 
 class ClassificationResult(BaseModel):
     """Cosmos DB document for the 'classification_results' container."""

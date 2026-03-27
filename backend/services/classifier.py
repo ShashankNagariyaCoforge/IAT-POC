@@ -461,6 +461,96 @@ Respond ONLY with valid JSON in this exact format:
 }}"""
 
 
+# ── Enrichment field keys (16 fields not in main extraction schema) ────────────
+
+ENRICHMENT_FIELD_KEYS = [
+    "entity_structure",
+    "years_in_business",
+    "number_of_employees",
+    "territory_code",
+    "limit_of_liability",
+    "deductible",
+    "class_mass_action_deductible_retention",
+    "pending_or_prior_litigation_date",
+    "duty_to_defend_limit",
+    "defense_outside_limit",
+    "employment_category",
+    "ec_number_of_employees",
+    "employee_compensation",
+    "number_of_employees_in_each_band",
+    "employee_location",
+    "number_of_employees_in_each_location",
+]
+
+# ── Prompt 2b: Secondary extraction for enrichment-targeted fields ─────────────
+
+SECONDARY_EXTRACTION_SYSTEM_PROMPT = """You are an expert insurance data extraction AI working for IAT Insurance Group.
+You are analyzing a submission thread to extract SPECIFIC fields typically found in detailed applications or supplemental forms.
+
+The content contains sections labeled [Source: ...] — each label identifies the source.
+Labels look like: [Source: Email from broker@abc.com] or [Source: Attachment claim_form.pdf]
+
+CLASSIFICATION CONTEXT:
+  Submission Type : {submission_type}
+
+Extract ONLY the fields listed below. For each field:
+- Return the EXACT verbatim phrase from the source (10-25 surrounding words of context).
+- Return the source_document name (filename or "email").
+- Return confidence 0.0-1.0 (0.95+ = explicitly stated, 0.75-0.94 = clearly present, < 0.75 = inferred).
+- If a field cannot be found in the text, omit it from the response entirely.
+
+FIELDS TO EXTRACT:
+- entity_structure: Organizational hierarchy (e.g., "wholly owned subsidiary of X", "standalone entity", "parent company with 3 subsidiaries").
+- years_in_business: Years operating or founding year (e.g., "15 years", "founded in 2008", "in business since 1995").
+- number_of_employees: Total employee headcount (e.g., "45 full-time employees", "approximately 120 FTEs").
+- territory_code: US state/region codes where the insured operates (e.g., "TX, CA, FL", "nationwide").
+- limit_of_liability: Maximum liability limit requested or expiring (e.g., "$1,000,000 per occurrence / $2,000,000 aggregate").
+- deductible: Deductible amount (e.g., "$10,000 per claim", "$25,000 per occurrence retention").
+- class_mass_action_deductible_retention: Class action or mass action deductible/retention (e.g., "$500,000 class action retention").
+- pending_or_prior_litigation_date: Date of pending or prior litigation (e.g., "prior litigation resolved 2019", "pending suit filed March 2023").
+- duty_to_defend_limit: Duty-to-defend sublimit if separate (e.g., "$250,000 duty to defend sublimit").
+- defense_outside_limit: Whether defense costs are outside the policy limit — extract as Yes/No or the exact clause language.
+- employment_category: Type/category of employees (e.g., "W-2 employees only", "mix of W-2 and 1099 contractors").
+- ec_number_of_employees: Employee count for Employment Compensation coverage line specifically.
+- employee_compensation: Total employee compensation/payroll (e.g., "$2,500,000 annual payroll", "$1.8M total compensation").
+- number_of_employees_in_each_band: Employee distribution by compensation band (e.g., "10 employees < $100K, 5 employees > $100K").
+- employee_location: Office or work locations for employees (e.g., "Dallas TX, Austin TX, Phoenix AZ").
+- number_of_employees_in_each_location: Employee count per location (e.g., "Dallas: 30, Austin: 15, Phoenix: 8").
+
+{pii_masking_notice}
+
+Respond ONLY with valid JSON:
+{{
+  "key_fields": {{
+    "entity_structure": "<value or null>",
+    "years_in_business": "<value or null>",
+    "number_of_employees": "<value or null>",
+    "territory_code": "<value or null>",
+    "limit_of_liability": "<value or null>",
+    "deductible": "<value or null>",
+    "class_mass_action_deductible_retention": "<value or null>",
+    "pending_or_prior_litigation_date": "<value or null>",
+    "duty_to_defend_limit": "<value or null>",
+    "defense_outside_limit": "<value or null>",
+    "employment_category": "<value or null>",
+    "ec_number_of_employees": "<value or null>",
+    "employee_compensation": "<value or null>",
+    "number_of_employees_in_each_band": "<value or null>",
+    "employee_location": "<value or null>",
+    "number_of_employees_in_each_location": "<value or null>"
+  }},
+  "field_confidence": {{
+    "<field_key>": <0.0 to 1.0>
+  }},
+  "field_traceability": {{
+    "<field_key>": {{
+      "raw_text": "<exact verbatim phrase 10-25 words>",
+      "source_document": "<filename.pdf or email>"
+    }}
+  }}
+}}
+Only include entries in field_confidence and field_traceability for fields that have actual extracted values."""
+
 # ── Document type taxonomy ─────────────────────────────────────────────────────
 
 DOC_TYPE_LABELS: Dict[str, str] = {
@@ -805,6 +895,60 @@ class Classifier:
             raise ValueError(f"Extraction returned invalid JSON: {e}")
         except Exception as e:
             logger.error(f"[Classifier] Step 2 API call failed: {e}", exc_info=True)
+            raise
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def extract_enrichment_fields(
+        self,
+        text: str,
+        is_masked: bool = True,
+        submission_type: str = "Unknown",
+    ) -> Dict:
+        """
+        Secondary extraction: extract the 16 enrichment-targeted fields from the submission.
+        Runs in parallel with main extract() after classification is known.
+        Returns the same dict structure as extract(): key_fields, field_confidence, field_traceability.
+        """
+        logger.info(
+            f"[Classifier] Secondary extraction — enrichment fields. "
+            f"submission_type='{submission_type}'. Input: {len(text)} chars."
+        )
+
+        pii_masking_notice = ""
+        if is_masked:
+            pii_masking_notice = (
+                "\nNOTE: All PII has been masked. [NAME], [SSN], [DOB] etc. are placeholders. "
+                "If a value is a masked placeholder, return it as-is."
+            )
+
+        system_prompt = SECONDARY_EXTRACTION_SYSTEM_PROMPT.format(
+            submission_type=submission_type,
+            pii_masking_notice=pii_masking_notice,
+        )
+
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._deployment,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Email thread:\n\n{text[:32000]}"},
+                ],
+                temperature=0.1,
+                max_tokens=3000,
+                response_format={"type": "json_object"},
+            )
+            result = json.loads(response.choices[0].message.content)
+            found = [k for k, v in result.get("key_fields", {}).items() if v]
+            logger.info(
+                f"[Classifier] Secondary extraction done — "
+                f"found {len(found)} fields: {', '.join(found) or 'none'}"
+            )
+            return result
+        except json.JSONDecodeError as e:
+            logger.error(f"[Classifier] Secondary extraction returned invalid JSON: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"[Classifier] Secondary extraction API call failed: {e}", exc_info=True)
             raise
 
     def _validate_classification(self, result: dict) -> None:

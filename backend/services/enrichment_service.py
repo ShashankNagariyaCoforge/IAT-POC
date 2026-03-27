@@ -154,20 +154,13 @@ class EnrichmentService:
         return filtered[:10]
 
     async def identify_entity(self, text: str) -> Dict[str, Any]:
-        """Use AI to identify company name, website, and any enrichment fields from text."""
-        prompt = f"""
-        Identify the primary insurance applicant (Company/Business Name), their website,
-        and any of the following fields found DIRECTLY in the text below. 
-        Fields: {", ".join(EnrichmentResult.field_keys())}
-
-        Return ONLY valid JSON in this format: 
-        {{
-            "company_name": "...", 
-            "website": "...", 
-            "extracted_fields": {{ "field_name": {{ "value": "...", "confidence": 0.9 }}, ... }}
-        }}
-        If not found, use null.
+        """Use AI to identify the insured company name and their website from submission text.
+        Field extraction from documents is now handled by the secondary extraction pipeline.
         """
+        prompt = """Identify the primary insurance applicant (the insured business name) and
+their company website URL from the submission text below.
+Return ONLY valid JSON: {"company_name": "...", "website": "..."}
+If not found, use null for either field."""
         try:
             response = await self._client.chat.completions.create(
                 model=self._deployment,
@@ -177,15 +170,15 @@ class EnrichmentService:
                     {"role": "user", "content": f"{prompt}\n\nContent:\n{text[:6000]}"}
                 ],
                 temperature=0.0,
-                max_tokens=600,
+                max_tokens=150,
             )
             raw = response.choices[0].message.content
             data = json.loads(raw)
-            logger.info(f"[Enrichment] AI Entity Identification: {data.get('company_name')} (Found {len(data.get('extracted_fields', {}))} fields in text)")
+            logger.info(f"[Enrichment] Entity identified: company='{data.get('company_name')}' website='{data.get('website')}'")
             return data
         except Exception as e:
-            logger.warning(f"[Enrichment] AI Entity Identification failed: {e}")
-            return {"company_name": None, "website": None, "extracted_fields": {}}
+            logger.warning(f"[Enrichment] Entity identification failed: {e}")
+            return {"company_name": None, "website": None}
 
     @staticmethod
     def extract_company_name(text: str, key_fields: Optional[Dict] = None) -> str:
@@ -438,17 +431,9 @@ class EnrichmentService:
         
         logger.info(f"[Enrichment] Pipeline company name: '{company_name}'")
 
-        # Initialize merged_fields with what AI found directly in text
-        # source=None means "found in submission documents/emails" (not a web URL)
+        # Web-only enrichment: only fields discovered from real HTTP URLs go here.
+        # Document/email-sourced fields are handled by the secondary extraction pipeline.
         merged_fields: Dict[str, EnrichedField] = {}
-        ai_extracted = entity_info.get("extracted_fields", {})
-        for field_name, info in ai_extracted.items():
-            if field_name in EnrichmentResult.field_keys() and info and info.get("value"):
-                merged_fields[field_name] = EnrichedField(
-                    value=str(info["value"]),
-                    confidence=float(info.get("confidence", 0.7)),
-                    source=None,  # No URL — sourced from submission documents/emails
-                )
 
         # Step 2: Identify URLs
         urls = self.extract_urls(combined_text)

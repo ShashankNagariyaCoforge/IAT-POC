@@ -242,12 +242,13 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
 
         combined_raw_text = "\n\n---\n\n".join(text_parts)
 
-        # 2b. Launch enrichment in parallel (does not depend on PII/classification)
+        # 2b. Launch web enrichment early — it only needs URLs + company name from raw text,
+        #     not PII-masked text, so it can start immediately in parallel with masking.
         enrichment_svc = EnrichmentService()
         enrichment_task = asyncio.create_task(
             enrichment_svc.run_enrichment(combined_raw_text)
         )
-        logger.info(f"[Process] Enrichment task launched in background for case {case_id}")
+        logger.info(f"[Process] Web enrichment task launched in background for case {case_id}")
 
         # 3. PII Masking (Optional)
         if not skip_pii:
@@ -393,26 +394,55 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 logger.info(f"[ContentSafety] Case {case_id} flagged for review. Max Severity: {max_severity}")
                 safety_flagged_for_review = True
 
-        # Step 2: Extraction — separate focused LLM call now that we know the category
+        # Step 2: Extraction — run main extraction, secondary (enrichment) extraction,
+        #         and await the already-running web enrichment in parallel.
         asyncio.create_task(db_service.update_case_status(
             case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="extraction"
         ))
+        _submission_type = classification.get("submission_type", "Unknown")
         logger.info(
-            f"[Process] Step 2 — Extracting key fields for category='{classification.get('classification_category')}' "
-            f"submission_type='{classification.get('submission_type', 'Unknown')}' "
+            f"[Process] Step 2 — Launching main extraction + secondary extraction in parallel. "
+            f"category='{classification.get('classification_category')}' "
+            f"submission_type='{_submission_type}' "
             f"iat_policy={classification.get('iat_policy_detected', False)} "
             f"expiring_carrier='{classification.get('expiring_carrier')}'"
         )
-        extraction_result = await classifier.extract(
+
+        _main_ext_task = asyncio.create_task(classifier.extract(
             masked_text,
             classification_category=classification.get("classification_category", "Unknown"),
             is_masked=(not skip_pii),
-            submission_type=classification.get("submission_type", "Unknown"),
+            submission_type=_submission_type,
             iat_policy_detected=bool(classification.get("iat_policy_detected", False)),
             expiring_carrier=classification.get("expiring_carrier"),
             doc_type_map=doc_type_map,
+        ))
+        _secondary_ext_task = asyncio.create_task(classifier.extract_enrichment_fields(
+            masked_text,
+            is_masked=(not skip_pii),
+            submission_type=_submission_type,
+        ))
+
+        # Await all three in parallel; treat failures as non-fatal
+        _parallel_results = await asyncio.gather(
+            _main_ext_task,
+            _secondary_ext_task,
+            asyncio.wait_for(enrichment_task, timeout=240),
+            return_exceptions=True,
         )
-        # Merge extraction result into the classification dict
+        extraction_result    = _parallel_results[0] if not isinstance(_parallel_results[0], Exception) else {}
+        secondary_result     = _parallel_results[1] if not isinstance(_parallel_results[1], Exception) else {}
+        enrichment_web_result = _parallel_results[2] if not isinstance(_parallel_results[2], Exception) else None
+
+        if isinstance(_parallel_results[0], Exception):
+            logger.error(f"[Process] Main extraction failed: {_parallel_results[0]}", exc_info=True)
+        if isinstance(_parallel_results[1], Exception):
+            logger.warning(f"[Process] Secondary extraction failed (non-fatal): {_parallel_results[1]}")
+        if isinstance(_parallel_results[2], (asyncio.TimeoutError, Exception)):
+            logger.warning(f"[Process] Web enrichment failed/timed out (non-fatal): {_parallel_results[2]}")
+            enrichment_task.cancel()
+
+        # Merge main extraction into classification
         classification["key_fields"] = extraction_result.get("key_fields", {})
         if "field_confidence" in extraction_result:
             classification["key_fields"]["field_confidence"] = extraction_result["field_confidence"]
@@ -424,8 +454,61 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         if not kf.get("urgency") and classification.get("urgency"):
             kf["urgency"] = classification["urgency"]
 
+        # ── Enrichment comparison: secondary extraction vs web ────────────────
+        # For each of the 16 enrichment-targeted fields:
+        #   - Doc wins  → value found in documents with confidence >= threshold,
+        #                 OR web had nothing → merge into key_fields + traceability
+        #   - Web wins  → only web found it (or web was more confident) → keep in
+        #                 enrichment panel, null out from key_fields
+        from services.classifier import ENRICHMENT_FIELD_KEYS
+
+        _FIELD_THRESHOLD = 0.75
+        sec_kf    = secondary_result.get("key_fields", {}) if secondary_result else {}
+        sec_conf  = secondary_result.get("field_confidence", {}) if secondary_result else {}
+        sec_trace = secondary_result.get("field_traceability", {}) if secondary_result else {}
+
+        # Build a mutable copy of the web enrichment data (flat dict of field → EnrichedField dict or None)
+        _web_data: dict = {}
+        if enrichment_web_result and isinstance(enrichment_web_result, dict):
+            _web_data = dict(enrichment_web_result)  # already model_dump()
+
+        secondary_field_traceability: dict = {}  # traceability entries for doc-sourced enrichment fields
+
+        for _fk in ENRICHMENT_FIELD_KEYS:
+            doc_val  = sec_kf.get(_fk)
+            doc_conf = float(sec_conf.get(_fk, 0.0))
+            web_field = _web_data.get(_fk)
+            web_val  = web_field.get("value") if isinstance(web_field, dict) else None
+
+            doc_wins = bool(doc_val) and (doc_conf >= _FIELD_THRESHOLD or not web_val)
+
+            if doc_wins:
+                # Merge into key_fields — shown in top extraction block
+                kf[_fk] = doc_val
+                kf.setdefault("field_confidence", {})[_fk] = doc_conf
+                trace = sec_trace.get(_fk)
+                if trace:
+                    secondary_field_traceability[_fk] = trace
+                # Null out from web enrichment result so it doesn't appear in web panel
+                if _fk in _web_data:
+                    _web_data[_fk] = None
+            # else: web wins — stays in _web_data for enrichment panel, not in key_fields
+
+        # entity_type and naics_code are from main extraction — remove from web panel if found
+        for _fk in ("entity_type", "naics_code"):
+            if kf.get(_fk) and _fk in _web_data:
+                _web_data[_fk] = None
+
+        logger.info(
+            f"[Process] Enrichment comparison: "
+            f"{sum(1 for v in secondary_field_traceability.values() if v)} doc-sourced fields merged into key_fields, "
+            f"{sum(1 for k in ENRICHMENT_FIELD_KEYS if isinstance(_web_data.get(k), dict) and _web_data[k].get('value'))} web-only fields kept in enrichment panel"
+        )
+
         # ── V1 Traceability: resolve raw_text → bbox for each field ──────────
         field_traceability_raw = extraction_result.get("field_traceability", {})
+        # Merge secondary extraction traceability so bbox resolver picks it up
+        field_traceability_raw.update(secondary_field_traceability)
         if field_traceability_raw:
             from services.traceability_service import resolve_bbox
 
@@ -745,29 +828,28 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         # Non-blocking save
         asyncio.create_task(db_service.save_classification_result(classification))
 
-        # 6.8 Await and save enrichment results (was launched in parallel at step 2b)
+        # 6.8 Save enrichment results (already awaited in parallel with extraction above)
         asyncio.create_task(db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="enrichment"))
         try:
-            enrichment_result = await asyncio.wait_for(enrichment_task, timeout=120)
-            # Retroactively update company_name from classification if enrichment didn't find one
-            if enrichment_result and not enrichment_result.get("company_name"):
-                company_from_cls = classification.get("key_fields", {}).get("name", "")
-                if company_from_cls:
-                    enrichment_result["company_name"] = company_from_cls
+            if _web_data:
+                # Backfill company_name from classification if enrichment didn't find one
+                if not _web_data.get("company_name"):
+                    company_from_cls = classification.get("key_fields", {}).get("name", "")
+                    if company_from_cls:
+                        _web_data["company_name"] = company_from_cls
 
-            enrichment_doc = {
-                "case_id": case_id,
-                "result_id": str(uuid.uuid4()),
-                "enrichment": enrichment_result,
-                "enriched_at": datetime.utcnow().isoformat(),
-            }
-            await db_service.save_enrichment_result(enrichment_doc)
-            logger.info(f"[Process] Enrichment results saved for case {case_id}")
-        except asyncio.TimeoutError:
-            logger.warning(f"[Process] Enrichment timed out after 120s for case {case_id} — continuing without enrichment")
-            enrichment_task.cancel()
+                enrichment_doc = {
+                    "case_id": case_id,
+                    "result_id": str(uuid.uuid4()),
+                    "enrichment": _web_data,
+                    "enriched_at": datetime.utcnow().isoformat(),
+                }
+                await db_service.save_enrichment_result(enrichment_doc)
+                logger.info(f"[Process] Enrichment results saved for case {case_id}")
+            else:
+                logger.info(f"[Process] No web enrichment data to save for case {case_id}")
         except Exception as enrich_err:
-            logger.warning(f"[Process] Enrichment failed (non-fatal) for case {case_id}: {enrich_err}")
+            logger.warning(f"[Process] Enrichment save failed (non-fatal) for case {case_id}: {enrich_err}")
 
         # 7. Final Status Update
         if not safety_flagged_for_review:
