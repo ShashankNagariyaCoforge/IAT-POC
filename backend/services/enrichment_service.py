@@ -397,15 +397,18 @@ If not found, use null for either field."""
             # Crawl top 2 in parallel
             crawl_tasks = [self.crawl_website(u) for u in urls[:2]]
             results = await asyncio.gather(*crawl_tasks)
-            contents = [
-                f"--- Source: {u} ---\n{c}"
-                for u, c in zip(urls[:2], results) if c
-            ]
-            return "\n\n".join(contents)
+            contents = []
+            first_url = ""
+            for u, c in zip(urls[:2], results):
+                if c:
+                    if not first_url:
+                        first_url = u
+                    contents.append(f"--- Source: {u} ---\n{c}")
+            return "\n\n".join(contents), first_url
 
         except Exception as e:
             logger.warning(f"[Enrichment] Search failed for '{company_name} {field_name}': {e}")
-            return ""
+            return "", ""
 
     # ─── Main Orchestrator ──────────────────────────────────────────────────
 
@@ -492,17 +495,19 @@ If not found, use null for either field."""
             logger.info(f"[Enrichment] {len(null_fields)} null fields, running parallel search for top 3")
             # Run all 3 searches in parallel instead of sequentially
             search_tasks = [self.search_and_crawl(company_name, fn) for fn in null_fields[:3]]
-            search_contents = await asyncio.gather(*search_tasks)
+            search_tuples = await asyncio.gather(*search_tasks)
 
             extract_tasks = [
-                self.extract_fields_from_content(sc, company_name, "web_search")
-                for sc in search_contents if sc
+                self.extract_fields_from_content(sc, company_name, src_url)
+                for sc, src_url in search_tuples if sc
             ]
+            extract_source_urls = [src_url for sc, src_url in search_tuples if sc]
             if extract_tasks:
                 extract_results = await asyncio.gather(*extract_tasks)
-                for search_fields in extract_results:
+                for src_url, search_fields in zip(extract_source_urls, extract_results):
                     if search_fields:
-                        source_urls.append("web_search")
+                        if src_url:
+                            source_urls.append(src_url)
                         for key, field in search_fields.items():
                             existing = merged_fields.get(key)
                             if (existing is None or existing.value is None) and field.value:
@@ -511,11 +516,14 @@ If not found, use null for either field."""
         # Final fallback: Broad search if still very empty
         if len(merged_fields) < 3 and company_name:
             logger.info(f"[Enrichment] Still mostly empty. Final broad search for '{company_name}'")
-            search_content = await self.search_and_crawl(company_name, "company information")
+            search_content, search_src_url = await self.search_and_crawl(company_name, "company information")
             if search_content:
-                search_fields = await self.extract_fields_from_content(search_content, company_name, "google_search")
+                search_fields = await self.extract_fields_from_content(
+                    search_content, company_name, search_src_url or ""
+                )
                 if search_fields:
-                    source_urls.append("google_search")
+                    if search_src_url:
+                        source_urls.append(search_src_url)
                     for k, v in search_fields.items():
                         if k not in merged_fields or v.confidence > merged_fields[k].confidence:
                             merged_fields[k] = v
