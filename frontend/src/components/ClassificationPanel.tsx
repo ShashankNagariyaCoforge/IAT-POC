@@ -60,7 +60,11 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                         <CategoryBadge category={classification.classification_category} />
                     </div>
                     <div>
-                        <p style={labelStyle}>Confidence Score</p>
+                        <p style={labelStyle}>Summary</p>
+                        <p style={{ ...valueStyle, lineHeight: 1.6 }}>{classification.summary}</p>
+                    </div>
+                    <div>
+                        <p style={labelStyle}>confidence score</p>
                         <div style={{ maxWidth: '240px' }}>
                             <ConfidenceMeter score={classification.confidence_score} />
                         </div>
@@ -76,10 +80,6 @@ export function ClassificationPanel({ caseId, classification }: ClassificationPa
                             <span style={{ color: '#92400e', fontSize: '13px' }}>Human review required</span>
                         </div>
                     )}
-                    <div>
-                        <p style={labelStyle}>Summary</p>
-                        <p style={{ ...valueStyle, lineHeight: 1.6 }}>{classification.summary}</p>
-                    </div>
                 </div>
 
                 {/* Right column */}

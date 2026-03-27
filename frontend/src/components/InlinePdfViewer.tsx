@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Maximize2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Maximize2, Download, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -36,6 +36,11 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
     const [currentPage, setCurrentPage] = useState<number>(highlight?.page ?? 1);
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = useState<number>(0);
+    const [zoom, setZoom] = useState<number>(1.0);
+
+    const ZOOM_STEP = 0.25;
+    const ZOOM_MIN  = 0.5;
+    const ZOOM_MAX  = 3.0;
 
     // Jump to the target page whenever highlight changes
     useEffect(() => {
@@ -113,6 +118,27 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
                     </div>
                 )}
 
+                {/* Zoom controls — shown in both modes */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <button
+                        onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+                        disabled={zoom <= ZOOM_MIN}
+                        title="Zoom out"
+                        style={{ padding: '3px', background: 'none', border: 'none', cursor: zoom <= ZOOM_MIN ? 'default' : 'pointer', color: zoom <= ZOOM_MIN ? '#cbd5e1' : '#64748b', display: 'flex', borderRadius: '4px' }}>
+                        <ZoomOut size={13} />
+                    </button>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', minWidth: '32px', textAlign: 'center', userSelect: 'none' }}>
+                        {Math.round(zoom * 100)}%
+                    </span>
+                    <button
+                        onClick={() => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+                        disabled={zoom >= ZOOM_MAX}
+                        title="Zoom in"
+                        style={{ padding: '3px', background: 'none', border: 'none', cursor: zoom >= ZOOM_MAX ? 'default' : 'pointer', color: zoom >= ZOOM_MAX ? '#cbd5e1' : '#64748b', display: 'flex', borderRadius: '4px' }}>
+                        <ZoomIn size={13} />
+                    </button>
+                </div>
+
                 {onFullscreen && (
                     <button onClick={onFullscreen} title="Fullscreen"
                         style={{ padding: '4px', borderRadius: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
@@ -148,7 +174,7 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
                             <div style={{ position: 'relative', display: 'inline-block' }}>
                                 <Page
                                     pageNumber={currentPage}
-                                    width={containerWidth > 24 ? containerWidth - 24 : undefined}
+                                    width={containerWidth > 24 ? (containerWidth - 24) * zoom : undefined}
                                     renderTextLayer={false}
                                     renderAnnotationLayer={false}
                                 />

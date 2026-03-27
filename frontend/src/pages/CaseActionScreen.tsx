@@ -449,26 +449,56 @@ export default function CaseActionScreen() {
                 <div className="col-span-8 flex flex-col gap-6">
 
                     {/* Document Bundle */}
-                    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden flex-shrink-0">
                         <div className="px-6 py-4 border-b bg-slate-50/50 flex items-center gap-2">
                             <FileText size={16} className="text-slate-400" />
                             <h2 className="text-lg font-bold text-slate-800">Document Submission Bundle</h2>
+                            <span className="ml-auto text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{docs.length} file{docs.length !== 1 ? 's' : ''}</span>
                         </div>
-                        <div className="p-4 bg-slate-50/30">
-                            <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                        <div className="p-4 bg-slate-50/30 overflow-y-auto max-h-[340px] custom-scrollbar">
+                            <div className="grid grid-cols-3 gap-3">
                                 {docs.map((doc, i) => {
                                     const annotatedDocs = classification?.annotated_docs || {};
-                                    const url = annotatedDocs[doc.document_id]
-                                        ? `/api/cases/${caseId}/documents/${doc.document_id}/annotated`
-                                        : `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
+                                    // Use /view for xlsx/images so they render correctly; annotated/pdf for PDFs
+                                    const filename = doc.file_name || (doc as any).filename || '';
+                                    const extRaw = filename.split('.').pop()?.toLowerCase() || '';
+                                    const needsViewEndpoint = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp'].includes(extRaw);
+                                    const url = needsViewEndpoint
+                                        ? `/api/cases/${caseId}/documents/${doc.document_id}/view`
+                                        : annotatedDocs[doc.document_id]
+                                            ? `/api/cases/${caseId}/documents/${doc.document_id}/annotated`
+                                            : `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
                                     const isSelected = activePdfUrl === url;
+                                    // Look up doc type label from key_fields.documents
+                                    const docMeta = kf?.documents?.find((d: any) => d.fileName === filename);
+                                    const docTypeLabel = docMeta?.documentDescription || null;
+                                    const extUp = extRaw.toUpperCase() || 'FILE';
+
+                                    // Extension-specific icon colours & SVG
+                                    const iconConfig: Record<string, { bg: string; border: string; text: string; icon: JSX.Element }> = {
+                                        pdf:  { bg: 'bg-red-50',    border: 'border-red-100',    text: 'text-red-500',    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg> },
+                                        xlsx: { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg> },
+                                        xls:  { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg> },
+                                        docx: { bg: 'bg-blue-50',    border: 'border-blue-100',    text: 'text-blue-600',   icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg> },
+                                        doc:  { bg: 'bg-blue-50',    border: 'border-blue-100',    text: 'text-blue-600',   icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg> },
+                                        jpg:  { bg: 'bg-purple-50',  border: 'border-purple-100',  text: 'text-purple-500', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                                        jpeg: { bg: 'bg-purple-50',  border: 'border-purple-100',  text: 'text-purple-500', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                                        png:  { bg: 'bg-purple-50',  border: 'border-purple-100',  text: 'text-purple-500', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                                        tiff: { bg: 'bg-purple-50',  border: 'border-purple-100',  text: 'text-purple-500', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                                        tif:  { bg: 'bg-purple-50',  border: 'border-purple-100',  text: 'text-purple-500', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                                        eml:  { bg: 'bg-amber-50',   border: 'border-amber-100',   text: 'text-amber-600',  icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+                                        msg:  { bg: 'bg-amber-50',   border: 'border-amber-100',   text: 'text-amber-600',  icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+                                        txt:  { bg: 'bg-slate-50',   border: 'border-slate-200',   text: 'text-slate-400',  icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/><line x1="9" y1="9" x2="11" y2="9"/></svg> },
+                                    };
+                                    const ic = iconConfig[extRaw] || { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-400', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> };
+
                                     return (
                                         <div
                                             key={i}
                                             onClick={() => {
-                                                setSelectedInstances([]); // Clear annotation when selecting a full doc
+                                                setSelectedInstances([]);
                                                 setActivePdfUrl(url);
-                                                setActivePdfName(doc.file_name);
+                                                setActivePdfName(filename);
                                             }}
                                             className={`relative p-3 rounded-xl border text-left transition cursor-pointer group flex flex-col gap-2 ${isSelected
                                                 ? 'border-indigo-400 bg-indigo-50/60 shadow-md ring-2 ring-indigo-100'
@@ -476,16 +506,22 @@ export default function CaseActionScreen() {
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <div className="w-8 h-8 bg-red-50 text-red-500 border border-red-100 rounded-lg flex items-center justify-center font-black text-[10px] tracking-wider shrink-0">
-                                                    PDF
+                                                <div className={`w-8 h-8 ${ic.bg} ${ic.text} border ${ic.border} rounded-lg flex items-center justify-center shrink-0`}>
+                                                    {ic.icon}
                                                 </div>
                                                 <span className={`p-1 rounded-md transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>
                                                     <Eye size={14} />
                                                 </span>
                                             </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-700 truncate">{doc.file_name || (doc as any).filename}</p>
-                                                <p className="text-[10px] text-slate-400 mt-0.5">Doc #{i + 1}</p>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-slate-700 break-words leading-snug line-clamp-2" title={filename}>
+                                                    {filename}
+                                                </p>
+                                                {docTypeLabel ? (
+                                                    <p className="text-[9px] text-indigo-500 font-semibold mt-1 truncate">{docTypeLabel}</p>
+                                                ) : (
+                                                    <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{extUp}</p>
+                                                )}
                                             </div>
                                         </div>
                                     );
