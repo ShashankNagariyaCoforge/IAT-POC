@@ -275,13 +275,13 @@ export function EditableFieldsPanel({
                                                                 }`}
                                                         />
                                                         {f.tooltip && (
-                                                            <div className="absolute left-0 bottom-full mb-2 z-50 hidden group-hover/tooltip:block w-72 pointer-events-none">
+                                                            <div className="absolute left-0 top-full mt-1.5 z-50 hidden group-hover/tooltip:block w-96 pointer-events-none">
+                                                                {/* Arrow pointing up */}
+                                                                <div className="w-2.5 h-2.5 bg-slate-800 rotate-45 ml-4 -mb-1.5" />
                                                                 <div className="bg-slate-800 text-white text-xs rounded-xl px-3 py-2.5 shadow-xl leading-relaxed">
                                                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">AI Summary</p>
-                                                                    {f.tooltip}
+                                                                    <p className="line-clamp-4">{f.tooltip}</p>
                                                                 </div>
-                                                                {/* Arrow */}
-                                                                <div className="w-2.5 h-2.5 bg-slate-800 rotate-45 ml-4 -mt-1.5" />
                                                             </div>
                                                         )}
                                                     </div>
