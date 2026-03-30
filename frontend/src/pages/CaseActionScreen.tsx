@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
-    ChevronLeft, ExternalLink, Activity, CheckCircle2,
+    ChevronLeft, ExternalLink, Activity, CheckCircle2, AlertTriangle,
     FileText, Eye, RefreshCw, Loader2, Download, FileJson
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
@@ -42,6 +42,7 @@ export default function CaseActionScreen() {
     const [activeHighlight, setActiveHighlight] = useState<BboxHighlight | null>(null);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
     const [showJson, setShowJson] = useState(false);
+    const [processingStalled, setProcessingStalled] = useState(false);
 
     const fetchAll = async () => {
         if (!caseId) return;
@@ -78,6 +79,36 @@ export default function CaseActionScreen() {
         fetchAll();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [caseId]);
+
+    // Staleness detection: if case stays PROCESSING for >8 min, mark as stalled
+    // Also periodically re-fetch caseData so a backend FAILED update is picked up
+    const TERMINAL_STATUSES = ['PROCESSED', 'CLASSIFIED', 'FAILED', 'BLOCKED_SAFETY', 'NEEDS_REVIEW_SAFETY', 'PENDING_REVIEW'];
+    useEffect(() => {
+        const STALE_MS = 8 * 60 * 1000; // 8 minutes
+        const POLL_MS  = 30 * 1000;     // re-check every 30 s
+
+        if (!caseData || TERMINAL_STATUSES.includes(caseData.status)) {
+            setProcessingStalled(false);
+            return;
+        }
+
+        const check = () => {
+            const ref = (caseData as any).updated_at || (caseData as any).created_at;
+            if (ref) {
+                const elapsed = Date.now() - new Date(ref).getTime();
+                if (elapsed > STALE_MS) {
+                    setProcessingStalled(true);
+                    return;
+                }
+            }
+            // Re-fetch so we pick up any FAILED status set by the backend
+            fetchAll();
+        };
+
+        const timer = setInterval(check, POLL_MS);
+        return () => clearInterval(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [caseData?.status]);
 
     const handleSaveFields = async (updates: { field_name: string; value: string }[]) => {
         if (!caseId) return;
@@ -230,6 +261,9 @@ export default function CaseActionScreen() {
             getField('IAT Product', kf?.iat_product, 'iat_product'),
             getField('UW / AM', kf?.uw_am, 'uw_am'),
         ],
+        'AI Summary': [
+            { label: 'Executive Summary', value: classification?.summary || 'Processing...' },
+        ],
         'Counterparty Details': [
             getField('Insured: Name', kf?.insured?.name || kf?.name, 'name'),
             getField('Applicant Name', kf?.applicant_name, 'applicant_name'),
@@ -307,9 +341,6 @@ export default function CaseActionScreen() {
             getField('Employee Location(s)', (kf as any)?.employee_location, 'employee_location'),
             getField('Employees per Location', (kf as any)?.number_of_employees_in_each_location, 'number_of_employees_in_each_location'),
         ],
-        'AI Summary': [
-            { label: 'Executive Summary', value: classification?.summary || 'Processing...' },
-        ]
     };
 
     // Merge HITL overrides
@@ -561,35 +592,55 @@ export default function CaseActionScreen() {
                     )}
 
                     {/* Reconciliation Footer Banner */}
-                    <div className={`p-6 rounded-2xl border flex items-center justify-between transition-all ${!isTerminal ? 'bg-slate-50' : 'bg-emerald-50 border-emerald-200 shadow-lg'}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-full ${!isTerminal ? 'bg-slate-200 animate-spin' : 'bg-emerald-500 text-white'}`}>
-                                {!isTerminal ? <Activity size={24} /> : <CheckCircle2 size={24} />}
+                    {isTerminal ? (
+                        <div className="p-6 rounded-2xl border flex items-center justify-between bg-emerald-50 border-emerald-200 shadow-lg transition-all">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-full bg-emerald-500 text-white">
+                                    <CheckCircle2 size={24} />
+                                </div>
+                                <div>
+                                    <p className="font-black text-slate-800">Engine Recommendation: Auto-Process Approved</p>
+                                    <p className="text-xs text-slate-500">Data reconciled across {docs.length} documents.</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="font-black text-slate-800">
-                                    {!isTerminal
-                                        ? 'Cross-Document Reconciliation...'
-                                        : 'Engine Recommendation: Auto-Process Approved'
-                                    }
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                    {!isTerminal
-                                        ? `Processing ${docs.length} documents for reconciliation.`
-                                        : `Data reconciled across ${docs.length} documents.`
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                        {isTerminal && (
                             <button
                                 onClick={() => navigate(`/cases/${caseId}/snapshot`)}
                                 className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-md bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 cursor-pointer"
                             >
                                 View PAS Snapshot <ExternalLink size={16} />
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    ) : processingStalled ? (
+                        <div className="p-6 rounded-2xl border flex items-center justify-between bg-amber-50 border-amber-200 transition-all">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-full bg-amber-100 text-amber-600">
+                                    <AlertTriangle size={24} />
+                                </div>
+                                <div>
+                                    <p className="font-black text-slate-800">Processing appears to have stalled</p>
+                                    <p className="text-xs text-slate-500">
+                                        The pipeline has not reported completion. This may indicate a backend error.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => { setProcessingStalled(false); fetchAll(); }}
+                                className="px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition bg-amber-600 text-white hover:bg-amber-700 active:scale-95 cursor-pointer"
+                            >
+                                <RefreshCw size={15} /> Refresh
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="p-6 rounded-2xl border flex items-center gap-4 bg-slate-50 transition-all">
+                            <div className="p-3 rounded-full bg-slate-200 animate-spin">
+                                <Activity size={24} />
+                            </div>
+                            <div>
+                                <p className="font-black text-slate-800">Cross-Document Reconciliation...</p>
+                                <p className="text-xs text-slate-500">Processing {docs.length} documents for reconciliation.</p>
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </main>

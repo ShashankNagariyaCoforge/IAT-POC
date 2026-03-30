@@ -881,10 +881,11 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         logger.info(f"=== Process FAILED for case_id={case_id} ===")
         _stop_process_log()
         print(f"CRITICAL ERROR [Process]: Failed processing case {case_id}: {e}")
-        # Attempt to set status to FAILED in DB
+        # Attempt to set status to FAILED in DB — always try, never silently swallow
         try:
-            db_service = _get_cosmos()
-            await db_service.update_case_status(case_id, CaseStatus.FAILED, pii_skipped=skip_pii)
-        except:
-            pass
+            _fail_db = _get_cosmos()
+            await _fail_db.update_case_status(case_id, CaseStatus.FAILED, pii_skipped=skip_pii)
+            logger.info(f"[Process] Successfully set case {case_id} to FAILED status")
+        except Exception as fail_err:
+            logger.error(f"[Process] CRITICAL: could not set FAILED status for case {case_id}: {fail_err}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
