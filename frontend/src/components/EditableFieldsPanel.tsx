@@ -12,6 +12,7 @@ export interface FieldItem {
     error?: string;
     type?: 'field' | 'table_cell';
     traceability?: V1FieldTraceability | null;
+    tooltip?: string; // hover tooltip shown over the field value
 }
 
 export interface TableItem {
@@ -260,18 +261,30 @@ export function EditableFieldsPanel({
                                                             }`}
                                                     />
                                                 ) : (
-                                                    <input
-                                                        type="text"
-                                                        value={currentVal || ''}
-                                                        onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                        onFocus={() => onSelectField?.(f.id || f.label, f.traceability)}
-                                                        readOnly={isReadOnly}
-                                                        className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
-                                                            f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
-                                                                isEdited ? 'bg-amber-50/50 border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-700 font-semibold' :
-                                                                    'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-slate-700 font-semibold'
-                                                            }`}
-                                                    />
+                                                    <div className={f.tooltip ? 'relative group/tooltip' : undefined}>
+                                                        <input
+                                                            type="text"
+                                                            value={currentVal || ''}
+                                                            onChange={(e) => handleFieldChange(f.label, e.target.value)}
+                                                            onFocus={() => onSelectField?.(f.id || f.label, f.traceability)}
+                                                            readOnly={isReadOnly}
+                                                            className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
+                                                                f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
+                                                                    isEdited ? 'bg-amber-50/50 border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-700 font-semibold' :
+                                                                        'bg-white border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-slate-700 font-semibold'
+                                                                }`}
+                                                        />
+                                                        {f.tooltip && (
+                                                            <div className="absolute left-0 bottom-full mb-2 z-50 hidden group-hover/tooltip:block w-72 pointer-events-none">
+                                                                <div className="bg-slate-800 text-white text-xs rounded-xl px-3 py-2.5 shadow-xl leading-relaxed">
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">AI Summary</p>
+                                                                    {f.tooltip}
+                                                                </div>
+                                                                {/* Arrow */}
+                                                                <div className="w-2.5 h-2.5 bg-slate-800 rotate-45 ml-4 -mt-1.5" />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
 
                                                 {isFocus && f.original && (

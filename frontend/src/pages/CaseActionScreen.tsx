@@ -60,14 +60,10 @@ export default function CaseActionScreen() {
             setDocs(normalizedDocs);
             setClassification(cls.classification);
 
-            // Auto-select first PDF if nothing is active — prefer annotated version
+            // Auto-select first document (always use clean /pdf — annotated green-box version is retired)
             if (normalizedDocs.length > 0 && !activePdfUrl) {
                 const firstDocId = normalizedDocs[0].document_id;
-                const annotatedDocs = cls.classification?.annotated_docs || {};
-                const firstUrl = annotatedDocs[firstDocId]
-                    ? `/api/cases/${caseId}/documents/${firstDocId}/annotated`
-                    : `/api/cases/${caseId}/documents/${firstDocId}/pdf`;
-                setActivePdfUrl(firstUrl);
+                setActivePdfUrl(`/api/cases/${caseId}/documents/${firstDocId}/pdf`);
                 setActivePdfName(normalizedDocs[0].file_name);
             }
         } finally {
@@ -254,7 +250,7 @@ export default function CaseActionScreen() {
             getField('Submission Description', kf?.submission_description, 'submission_description'),
         ],
         'Classification Insights': [
-            getField('Category', classification?.classification_category, 'classification_category'),
+            { ...getField('Category', classification?.classification_category, 'classification_category'), tooltip: classification?.summary || undefined },
             getField('Document Type', kf?.document_type, 'document_type'),
             getField('Submission Type', kf?.submission_type, 'submission_type'),
             getField('Segment', kf?.segment, 'segment'),
@@ -444,12 +440,9 @@ export default function CaseActionScreen() {
                         {/* Inline PDF Viewer */}
                         <div className={`transition-all duration-500 ${(activePdfUrl || selectedInstances.length > 0) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-[20px] pointer-events-none absolute inset-0'}`}>
                             {selectedInstances.length > 0 ? (() => {
-                                // Legacy path: no v1_traceability bbox, fall back to annotated PDF
-                                const annotatedDocs = classification?.annotated_docs || {};
+                                // Legacy path: show clean PDF (annotated green-box version is retired)
                                 const docId = selectedInstances[0].doc_id;
-                                const fieldUrl = annotatedDocs[docId]
-                                    ? `/api/cases/${caseId}/documents/${docId}/annotated`
-                                    : `/api/cases/${caseId}/documents/${docId}/pdf`;
+                                const fieldUrl = `/api/cases/${caseId}/documents/${docId}/pdf`;
                                 const doc = docs.find(d => d.document_id === docId);
                                 return (
                                     <InlinePdfViewer
@@ -489,16 +482,13 @@ export default function CaseActionScreen() {
                         <div className="p-4 bg-slate-50/30 overflow-y-auto max-h-[340px] custom-scrollbar">
                             <div className="grid grid-cols-3 gap-3">
                                 {docs.map((doc, i) => {
-                                    const annotatedDocs = classification?.annotated_docs || {};
-                                    // Use /view for xlsx/images so they render correctly; annotated/pdf for PDFs
+                                    // Use /view for xlsx/images so they render correctly; /pdf for all others
                                     const filename = doc.file_name || (doc as any).filename || '';
                                     const extRaw = filename.split('.').pop()?.toLowerCase() || '';
                                     const needsViewEndpoint = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp'].includes(extRaw);
                                     const url = needsViewEndpoint
                                         ? `/api/cases/${caseId}/documents/${doc.document_id}/view`
-                                        : annotatedDocs[doc.document_id]
-                                            ? `/api/cases/${caseId}/documents/${doc.document_id}/annotated`
-                                            : `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
+                                        : `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
                                     const isSelected = activePdfUrl === url;
                                     // Look up doc type label from key_fields.documents
                                     const docMeta = kf?.documents?.find((d: any) => d.fileName === filename);
