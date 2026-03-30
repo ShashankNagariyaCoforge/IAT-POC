@@ -280,7 +280,7 @@ export function EditableFieldsPanel({
                                                                 <div className="w-2.5 h-2.5 bg-slate-800 rotate-45 ml-4 -mb-1.5" />
                                                                 <div className="bg-slate-800 text-white text-xs rounded-xl px-3 py-2.5 shadow-xl leading-relaxed">
                                                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">AI Summary</p>
-                                                                    <p className="line-clamp-4">{f.tooltip}</p>
+                                                                    <p>{f.tooltip}</p>
                                                                 </div>
                                                             </div>
                                                         )}
