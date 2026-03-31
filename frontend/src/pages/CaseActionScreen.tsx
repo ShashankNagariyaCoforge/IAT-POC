@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     ChevronLeft, ExternalLink, Activity, CheckCircle2, AlertTriangle,
-    FileText, Eye, RefreshCw, Loader2, Download, FileJson
+    FileText, Eye, RefreshCw, Loader2, Download, FileJson, LogOut
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import type { Case, Document as CaseDoc, ClassificationResult, ExtractionInstance, V1FieldTraceability } from '../types';
@@ -251,7 +251,6 @@ export default function CaseActionScreen() {
         ],
         'Classification Insights': [
             { ...getField('Category', classification?.classification_category, 'classification_category'), tooltip: classification?.summary || undefined },
-            getField('Document Type', kf?.document_type, 'document_type'),
             getField('Submission Type', kf?.submission_type, 'submission_type'),
             getField('Segment', kf?.segment, 'segment'),
             getField('IAT Product', kf?.iat_product, 'iat_product'),
@@ -379,6 +378,13 @@ export default function CaseActionScreen() {
                 <div className="flex items-center gap-3">
                     <button onClick={fetchAll} className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                         <RefreshCw size={18} />
+                    </button>
+                    <button
+                        onClick={() => { localStorage.removeItem('dev_bypass'); instance.logoutRedirect().catch(() => window.location.reload()); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition-colors"
+                        title="Log out"
+                    >
+                        <LogOut size={14} /> Logout
                     </button>
                     <button
                         onClick={() => window.open(`/api/cases/${caseId}/download-masked`, '_blank')}

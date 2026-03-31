@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
     Inbox, LayoutDashboard, Search,
-    Paperclip, ChevronLeft, ChevronRight, Activity, Loader2, BrainCircuit
+    Paperclip, ChevronLeft, ChevronRight, Activity, Loader2, BrainCircuit, LogOut
 } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import type { Case, Email, Document as CaseDoc } from '../types';
@@ -156,9 +156,18 @@ export default function CommandCenterPage() {
                         <img src="/assets/iat-logo.png" alt="IAT" className="h-6" />
                         <h1 className="text-xl font-black text-slate-900 tracking-tight">Command Center</h1>
                     </div>
-                    <div className="flex bg-slate-100 p-1 rounded-lg">
-                        <button onClick={() => setActiveTab('inbox')} className="px-4 py-1.5 text-sm font-bold rounded-md text-slate-500 hover:text-slate-900">Inbox</button>
-                        <button className="px-4 py-1.5 text-sm font-bold rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60">Dashboard</button>
+                    <div className="flex items-center gap-3">
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                            <button onClick={() => setActiveTab('inbox')} className="px-4 py-1.5 text-sm font-bold rounded-md text-slate-500 hover:text-slate-900">Inbox</button>
+                            <button className="px-4 py-1.5 text-sm font-bold rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60">Dashboard</button>
+                        </div>
+                        <button
+                            onClick={() => { localStorage.removeItem('dev_bypass'); instance.logoutRedirect().catch(() => window.location.reload()); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition-colors"
+                            title="Log out"
+                        >
+                            <LogOut size={14} /> Logout
+                        </button>
                     </div>
                 </header>
                 <div className="flex-1 overflow-auto">

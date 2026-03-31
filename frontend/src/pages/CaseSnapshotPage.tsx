@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useMsal } from '@azure/msal-react';
 import { format } from 'date-fns';
-import { ChevronLeft, Lock, Calendar, History, CheckCircle2, XCircle, FileJson } from 'lucide-react';
+import { ChevronLeft, Lock, Calendar, History, CheckCircle2, XCircle, FileJson, LogOut } from 'lucide-react';
 import { JsonDisplayModal } from '../components/JsonDisplayModal';
 import { AuditTrailPanel } from '../components/AuditTrailPanel';
 
@@ -21,6 +22,7 @@ interface SnapshotData {
 export default function CaseSnapshotPage() {
     const { caseId } = useParams<{ caseId: string }>();
     const navigate = useNavigate();
+    const { instance } = useMsal();
 
     const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -87,6 +89,13 @@ export default function CaseSnapshotPage() {
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
                     >
                         <FileJson size={16} /> Download JSON
+                    </button>
+                    <button
+                        onClick={() => { localStorage.removeItem('dev_bypass'); instance.logoutRedirect().catch(() => window.location.reload()); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition-colors"
+                        title="Log out"
+                    >
+                        <LogOut size={14} /> Logout
                     </button>
                     <div className="flex items-center gap-4 border border-slate-200 rounded-xl px-4 py-2 bg-slate-50">
                         <Calendar size={14} className="text-slate-400" />

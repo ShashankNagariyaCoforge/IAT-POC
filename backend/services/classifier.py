@@ -207,25 +207,20 @@ EXTRACTION RULES:
   Extract their Agent Email and Agent Phone from the email signature block at the bottom of emails.
   Do NOT return "NA" for agent_email or agent_phone if a signature block exists anywhere in the thread.
 - **Signature Scanning**: Scan the entire document/email thread carefully for signature blocks containing contact details.
-- **UW/AM Field — this requires thread-aware reasoning. Work through these steps in order**:
-  STEP A — SCAN FOR IAT REPLIES IN THE THREAD:
-    Look for emails in the thread where the sender appears to be an IAT employee (IAT domain email address,
-    or a signature block identifying them as IAT staff). If one or more IAT people have replied, take the
-    name of the MOST RECENT IAT sender — they are the active UW/AM handling this account.
-    This is the highest-confidence signal and applies to both new business and renewals.
-  STEP B — FOR RENEWALS: SCAN POLICY DOCUMENTS:
-    If submission_type is "Renewal (IAT)" or classification_category is "Renewal", look in attached
-    policy schedules, declarations pages, or renewal notices for an explicit "Assigned Underwriter",
-    "Account Manager", or "Servicing Underwriter" field. Extract that name.
-    Policy documents are authoritative for renewals.
-  STEP C — BROKER'S OPENING EMAIL:
-    Only if steps A and B yield nothing — check if the broker's first/original email in the thread
-    is addressed to a specific named person (greeting "Hi John," or "Dear Sarah,"). Extract that name.
-    This is lower confidence as the broker may address a team name or generic role.
-  STEP D — RETURN NULL:
-    If none of the above steps yield a real person's name, return null.
-    Do NOT extract: generic inbox addresses (underwriting@iat.com), team names ("IAT Underwriting Team"),
-    the broker's own account manager (that belongs in the agent fields), or any guessed name.
+- **UW/AM Field — only populate if explicitly stated in the content**:
+  ONLY extract a value if the document or email explicitly labels someone as an IAT Underwriter, UW,
+  Account Manager, AM, Assigned Underwriter, Servicing Underwriter, or equivalent IAT-specific role.
+  Examples of valid extractions:
+    - A policy schedule with a field "Assigned Underwriter: Jane Smith"
+    - A renewal notice with "Account Manager: John Doe"
+    - An email signature block explicitly stating "Jane Smith | Underwriter | IAT Insurance"
+  DO NOT extract based on any of the following — return null instead:
+    - Who the broker addressed the email to (e.g. "Hi John," or "Dear Sarah,")
+    - The sender of any IAT reply email (unless their signature explicitly states their UW/AM role)
+    - Any name that appears in the email thread without an explicit UW or AM role label
+    - Generic inbox names or team names (e.g. "IAT Underwriting Team", "underwriting@iat.com")
+    - The broker's own account manager or any non-IAT person
+  If the UW/AM is not explicitly identified with a role label in the content, return null.
 - **Hallucination Check**: Ensure no values were guessed or invented just to fill the schema. If not found, use null.
 
 ════════════════════════════════════════════════════════
