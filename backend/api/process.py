@@ -829,7 +829,6 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         asyncio.create_task(db_service.save_classification_result(classification))
 
         # 6.8 Save enrichment results (already awaited in parallel with extraction above)
-        asyncio.create_task(db_service.update_case_status(case_id, CaseStatus.PROCESSING, pii_skipped=skip_pii, pipeline_step="enrichment"))
         try:
             if _web_data:
                 # Backfill company_name from classification if enrichment didn't find one

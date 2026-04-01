@@ -242,6 +242,13 @@ export default function CaseActionScreen() {
         };
     };
 
+    const SUBMISSION_TYPE_MAP: Record<string, string> = {
+        'New': 'New Business',
+        'BOR': 'Broker of Record Change',
+        'Renewal': 'Renewal',
+    };
+    const derivedSubmissionType = SUBMISSION_TYPE_MAP[classification?.classification_category || ''] ?? undefined;
+
     const groupedFields: Record<string, PanelItem[]> = {
         'Submission Details': [
             { label: 'Subject', value: caseData.subject },
@@ -251,8 +258,8 @@ export default function CaseActionScreen() {
         ],
         'Classification Insights': [
             { ...getField('Category', classification?.classification_category, 'classification_category'), tooltip: classification?.summary || undefined },
-            getField('Submission Type', kf?.submission_type, 'submission_type'),
-            getField('Segment', kf?.segment, 'segment'),
+            getField('Submission Type', derivedSubmissionType, 'submission_type'),
+            getField('Business Segment', 'Management Liability', 'segment'),
             getField('IAT Product', kf?.iat_product, 'iat_product'),
             getField('UW / AM', kf?.uw_am, 'uw_am'),
         ],
@@ -561,7 +568,7 @@ export default function CaseActionScreen() {
                     <EditableFieldsPanel
                         groupedFields={groupedFields}
                         onSave={handleSaveFields}
-                        isReadOnly={isApproved}
+                        isReadOnly={false}
                         onSelectField={handleFieldSelect}
                         onSelectGroup={handleGroupSelect}
                     />
