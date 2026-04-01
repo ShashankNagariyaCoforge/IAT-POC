@@ -405,6 +405,14 @@ class CosmosDBService:
             }
         )
 
+    async def update_classification_hitl_fields(self, case_id: str, hitl_fields: dict, updated_by: str) -> None:
+        db = self._get_db()
+        await db[COLLECTION_CLASSIFICATION].update_one(
+            {"case_id": case_id},
+            {"$set": {"hitl_fields": hitl_fields, "hitl_updated_by": updated_by}},
+            sort=[("classified_at", DESCENDING)],
+        )
+
     # ===== PII MAPPING =====
 
     async def save_pii_mapping(self, mapping: Dict) -> None:

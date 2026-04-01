@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight, FileText, Mail } from 'lucide-react';
+import { History, Loader2, CheckCircle2, AlertTriangle, Lock, ArrowRight, FileText, Mail, X } from 'lucide-react';
 import type { V1FieldTraceability } from '../types';
 
 export interface FieldItem {
@@ -186,7 +186,7 @@ export function EditableFieldsPanel({
                                         return (
                                             <div
                                                 key={f.label}
-                                                className={`space-y-1.5 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white border border-transparent ${onSelectField ? 'hover:border-indigo-200 hover:shadow-sm' : ''}`}
+                                                className={`space-y-1.5 p-2 rounded-lg transition-colors hover:bg-white border border-transparent ${onSelectField ? 'hover:border-indigo-200 hover:shadow-sm' : ''}`}
                                                 onClick={() => onSelectField?.(f.id || f.label, f.traceability)}
                                             >
                                                 <div className="flex items-center justify-between">
@@ -220,14 +220,14 @@ export function EditableFieldsPanel({
                                                             )
                                                         )}
 
-                                                        {(f.confidence !== undefined || ['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim())) && (
-                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'bg-rose-50 text-rose-600 border-rose-100' : (f.confidence !== undefined && f.confidence >= 0.8
+                                                        {(f.confidence !== undefined || ['n/a', 'na', 'null', '—'].includes((currentVal || '').toLowerCase().trim())) && (
+                                                            <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${['n/a', 'na', 'null', '—'].includes((currentVal || '').toLowerCase().trim()) ? 'bg-rose-50 text-rose-600 border-rose-100' : (f.confidence !== undefined && f.confidence >= 0.8
                                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                                 : f.confidence !== undefined && f.confidence >= 0.6
                                                                     ? 'bg-amber-50 text-amber-600 border-amber-100'
                                                                     : 'bg-rose-50 text-rose-600 border-rose-100'
                                                             )}`}>
-                                                                confidence score: {['n/a', 'na', 'null', '—'].includes(f.value.toLowerCase().trim()) ? 'N/A' : `${(f.confidence! * 100).toFixed(0)}%`}
+                                                                confidence score: {['n/a', 'na', 'null', '—'].includes((currentVal || '').toLowerCase().trim()) ? 'N/A' : `${(f.confidence! * 100).toFixed(0)}%`}
                                                             </div>
                                                         )}
                                                     </div>
@@ -251,7 +251,8 @@ export function EditableFieldsPanel({
                                                     <textarea
                                                         value={currentVal || ''}
                                                         onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                        onFocus={() => onSelectField?.(f.id || f.label, f.traceability)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onFocus={(e) => { e.stopPropagation(); onSelectField?.(f.id || f.label, f.traceability); }}
                                                         readOnly={isReadOnly}
                                                         rows={6}
                                                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
@@ -266,7 +267,8 @@ export function EditableFieldsPanel({
                                                             type="text"
                                                             value={currentVal || ''}
                                                             onChange={(e) => handleFieldChange(f.label, e.target.value)}
-                                                            onFocus={() => onSelectField?.(f.id || f.label, f.traceability)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onFocus={(e) => { e.stopPropagation(); onSelectField?.(f.id || f.label, f.traceability); }}
                                                             readOnly={isReadOnly}
                                                             className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none ${isReadOnly ? 'bg-slate-50 border-slate-200 font-semibold text-slate-600 cursor-default' :
                                                                 f.error ? 'bg-red-50/40 border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-slate-700 font-semibold' :
@@ -307,35 +309,46 @@ export function EditableFieldsPanel({
                 </div>
             </div>
 
-            {!isReadOnly && (
-                <div className="p-4 border-t border-slate-200 bg-slate-50/30 shrink-0 flex items-center justify-end gap-3">
-                    {onFinalSubmit && (
-                        <button
-                            onClick={handleFinalSubmit}
-                            disabled={isSaving}
-                            className={`px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all bg-slate-900 text-white hover:bg-slate-800 active:scale-95 shadow-md`}
-                        >
-                            {isSaving ? (
-                                <><Loader2 size={16} className="animate-spin" /> Processing...</>
-                            ) : (
-                                <>{finalSubmitLabel || 'Finalize & Proceed'} <ArrowRight size={16} /></>
-                            )}
-                        </button>
-                    )}
-
-                    <button
-                        onClick={handleSave}
-                        disabled={!hasEdits || isSaving}
-                        className={`px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${!hasEdits
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md'
-                            }`}
-                    >
-                        {isSaving ? (
-                            <><Loader2 size={16} className="animate-spin" /> Saving...</>
-                        ) : (
-                            <><CheckCircle2 size={16} /> Save Changes</>
+            {!isReadOnly && hasEdits && (
+                <div className="p-4 border-t border-amber-200 bg-amber-50/60 shrink-0 flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-amber-700">
+                        {Object.keys(editedFields).length} field{Object.keys(editedFields).length !== 1 ? 's' : ''} modified — save or cancel your changes
+                    </span>
+                    <div className="flex items-center gap-2">
+                        {onFinalSubmit && (
+                            <button
+                                onClick={handleFinalSubmit}
+                                disabled={isSaving}
+                                className="px-5 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all bg-slate-900 text-white hover:bg-slate-800 active:scale-95 shadow-md"
+                            >
+                                {isSaving ? <><Loader2 size={15} className="animate-spin" /> Processing...</> : <>{finalSubmitLabel || 'Finalize & Proceed'} <ArrowRight size={15} /></>}
+                            </button>
                         )}
+                        <button
+                            onClick={() => { setEditedFields({}); setShowOriginal(null); }}
+                            disabled={isSaving}
+                            className="px-5 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all bg-white text-slate-600 hover:bg-slate-100 border border-slate-300 active:scale-95"
+                        >
+                            <X size={15} /> Cancel
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md"
+                        >
+                            {isSaving ? <><Loader2 size={15} className="animate-spin" /> Saving...</> : <><CheckCircle2 size={15} /> Save Changes</>}
+                        </button>
+                    </div>
+                </div>
+            )}
+            {!isReadOnly && !hasEdits && onFinalSubmit && (
+                <div className="p-4 border-t border-slate-200 bg-slate-50/30 shrink-0 flex items-center justify-end">
+                    <button
+                        onClick={handleFinalSubmit}
+                        disabled={isSaving}
+                        className="px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all bg-slate-900 text-white hover:bg-slate-800 active:scale-95 shadow-md"
+                    >
+                        {isSaving ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : <>{finalSubmitLabel || 'Finalize & Proceed'} <ArrowRight size={16} /></>}
                     </button>
                 </div>
             )}

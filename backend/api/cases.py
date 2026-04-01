@@ -599,11 +599,7 @@ async def patch_case_fields(case_id: str, body: PatchFieldsRequest):
         hitl_fields[field_update.field_name] = field_update.value
 
     # Persist back
-    try:
-        await cosmos.update_classification_hitl_fields(case_id, hitl_fields, body.updated_by)
-    except AttributeError:
-        # If underlying DB doesn't have this method, store on case object
-        pass
+    await cosmos.update_classification_hitl_fields(case_id, hitl_fields, body.updated_by)
 
     return {
         "case_id": case_id,

@@ -301,6 +301,16 @@ class LocalDBService:
         )
         db.storage.flush()
 
+    async def update_classification_hitl_fields(self, case_id: str, hitl_fields: dict, updated_by: str) -> None:
+        db = _get_db()
+        R = Query()
+        db.table("classification_results").update(
+            {"hitl_fields": hitl_fields, "hitl_updated_by": updated_by},
+            R.case_id == case_id,
+        )
+        db.storage.flush()
+        logger.info(f"[LocalDB] Saved HITL fields for case {case_id}: {list(hitl_fields.keys())}")
+
     # ===== PII MAPPING (no-op for demo) =====
 
     async def save_pii_mapping(self, mapping: Dict) -> None:
