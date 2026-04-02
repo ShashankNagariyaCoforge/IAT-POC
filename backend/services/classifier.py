@@ -495,10 +495,10 @@ Extract ONLY the fields listed below. For each field:
 - If a field cannot be found in the text, omit it from the response entirely.
 
 FIELDS TO EXTRACT:
-- entity_structure: Organizational hierarchy (e.g., "wholly owned subsidiary of X", "standalone entity", "parent company with 3 subsidiaries").
-- years_in_business: Years operating or founding year (e.g., "15 years", "founded in 2008", "in business since 1995").
-- number_of_employees: Total employee headcount (e.g., "45 full-time employees", "approximately 120 FTEs").
-- territory_code: US state/region codes where the insured operates (e.g., "TX, CA, FL", "nationwide").
+- entity_structure: The legal/organizational structure of the applicant — how the business is structured or where it sits in a corporate hierarchy. Valid examples: "wholly owned subsidiary of X", "standalone LLC", "parent company with 3 subsidiaries", "joint venture between X and Y", "publicly traded holding company". DO NOT extract named insured schedules, lists of covered entities, policy endorsement language, or any clause that simply lists affiliated companies for coverage purposes. The value must describe the structural relationship, not list entity names.
+- years_in_business: ONLY extract if the document explicitly states how long the insured or applicant has been in business, or their founding/incorporation year. Valid examples: "in business since 2005", "founded in 2008", "15 years of operation", "incorporated in 1999", "established 2010". DO NOT extract from eligibility criteria, underwriting guidelines, checkboxes, conditional statements, or any text that is not a direct factual statement about the applicant's history. If not explicitly stated about the applicant, return null.
+- number_of_employees: Extract ONLY the numeric employee count as a clean value. Return the number with a brief descriptor if present (e.g., "30", "45 full-time", "120 FTEs", "approximately 200"). DO NOT return the full question text, field label, calculation instructions, or any surrounding form content. If multiple counts are given (full-time, part-time separately), return the total headcount only.
+- territory_code: US state(s) or region(s) where the insured conducts business operations. Return as state abbreviations or names (e.g., "TX", "TX, CA, FL", "nationwide", "all 50 states"). DO NOT extract from mailing addresses, billing addresses, or office location fields — those are not territory of operations. Only extract if the document explicitly mentions states or regions where the business operates or provides services.
 - limit_of_liability: Maximum liability limit requested or expiring (e.g., "$1,000,000 per occurrence / $2,000,000 aggregate").
 - deductible: Deductible amount (e.g., "$10,000 per claim", "$25,000 per occurrence retention").
 - class_mass_action_deductible_retention: Class action or mass action deductible/retention (e.g., "$500,000 class action retention").
@@ -768,6 +768,7 @@ class Classifier:
 
         system_prompt = CLASSIFICATION_SYSTEM_PROMPT.format(pii_masking_notice=pii_masking_notice)
 
+        logger.info(f"[Classifier] Step 1 — email body being sent to AI ({min(len(text), 64000)} of {len(text)} chars):\n{text[:64000]}")
         try:
             response = await self._client.chat.completions.create(
                 model=self._deployment,
@@ -871,6 +872,7 @@ class Classifier:
             doc_type_map=doc_type_map,
         )
 
+        logger.info(f"[Classifier] Step 2 — email body being sent to AI ({min(len(text), 64000)} of {len(text)} chars):\n{text[:64000]}")
         try:
             response = await self._client.chat.completions.create(
                 model=self._deployment,
@@ -921,6 +923,7 @@ class Classifier:
             pii_masking_notice=pii_masking_notice,
         )
 
+        logger.info(f"[Classifier] Step 3 — email body being sent to AI ({min(len(text), 64000)} of {len(text)} chars):\n{text[:64000]}")
         try:
             response = await self._client.chat.completions.create(
                 model=self._deployment,
