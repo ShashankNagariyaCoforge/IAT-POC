@@ -23,6 +23,19 @@ const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
 const msalInstance = new PublicClientApplication(msalConfig);
 
 function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState(false);
+
+  const handleCredentialLogin = () => {
+    if (username === 'admin' && password === 'Iat123') {
+      setLoginError(false);
+      onDevMode();
+    } else {
+      setLoginError(true);
+    }
+  };
+
   const features = [
     { icon: <Mail size={15} />, text: 'Email Agent — Automatic intake & parsing' },
     { icon: <Fingerprint size={15} />, text: 'PII Agent — Real-time data masking' },
@@ -144,21 +157,59 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
               <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
             </button>
 
-            {/* Dev bypass button */}
-            <button
-              onClick={onDevMode}
-              style={{
-                width: '100%', background: 'transparent', color: '#64748b',
-                border: '1.5px solid #e2e8f0', borderRadius: '14px', padding: '14px 20px',
-                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
-            >
-              Developer Mode Bypass
-            </button>
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>or</span>
+              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+            </div>
+
+            {/* Username / Password form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={e => { setUsername(e.target.value); setLoginError(false); }}
+                onKeyDown={e => e.key === 'Enter' && handleCredentialLogin()}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  padding: '13px 16px', borderRadius: '12px', fontSize: '14px', fontWeight: 500,
+                  border: loginError ? '1.5px solid #fca5a5' : '1.5px solid #e2e8f0',
+                  outline: 'none', color: '#0f172a', background: '#f8fafc',
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setLoginError(false); }}
+                onKeyDown={e => e.key === 'Enter' && handleCredentialLogin()}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  padding: '13px 16px', borderRadius: '12px', fontSize: '14px', fontWeight: 500,
+                  border: loginError ? '1.5px solid #fca5a5' : '1.5px solid #e2e8f0',
+                  outline: 'none', color: '#0f172a', background: '#f8fafc',
+                }}
+              />
+              {loginError && (
+                <p style={{ margin: 0, fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>
+                  Invalid username or password.
+                </p>
+              )}
+              <button
+                onClick={handleCredentialLogin}
+                style={{
+                  width: '100%', background: '#4f46e5', color: '#ffffff', border: 'none',
+                  borderRadius: '12px', padding: '13px 20px', fontSize: '14px', fontWeight: 700,
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#4338ca')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#4f46e5')}
+              >
+                Login
+              </button>
+            </div>
 
             {/* Security notice */}
             <div style={{
