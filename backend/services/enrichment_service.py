@@ -19,7 +19,7 @@ from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import settings
-from models.enrichment import EnrichedField, EnrichmentResult
+from models.enrichment import EnrichedField, EnrichmentResult, CompanyNews
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,13 @@ Respond ONLY with valid JSON in this exact format:
 
 # Maximum content length sent to OpenAI
 MAX_CONTENT_FOR_AI = 12000
+
+NEWS_SUMMARY_PROMPT = """You are summarizing recent news about a company for an insurance underwriter.
+Given the news snippets below, write a concise 3-5 sentence paragraph covering the most relevant recent developments.
+Focus on: business changes, financial news, legal issues, layoffs, acquisitions, regulatory actions, or any events that could affect insurance risk.
+If the snippets are not relevant or don't contain meaningful news about the company, respond with {{"relevant": false, "summary": null}}.
+Otherwise respond with {{"relevant": true, "summary": "<paragraph>"}}.
+Return ONLY valid JSON."""
 # Request timeout for crawling
 CRAWL_TIMEOUT = 30
 
@@ -421,6 +428,70 @@ If not found, use null for either field."""
             logger.warning(f"[Enrichment] Search failed for '{company_name} {field_name}': {e}")
             return "", ""
 
+    # ─── Company News (Feature-Flagged) ─────────────────────────────────────
+
+    async def fetch_company_news(self, company_name: str) -> Optional[CompanyNews]:
+        """Search DuckDuckGo news for recent company activity and synthesize a summary paragraph."""
+        try:
+            from ddgs import DDGS
+            from datetime import datetime
+
+            query = f'"{company_name}" recent news'
+            logger.info(f"[CompanyNews] Searching news for: {query}")
+
+            def _search_news():
+                with DDGS() as ddgs:
+                    return list(ddgs.news(query, max_results=5))
+
+            articles = await asyncio.to_thread(_search_news)
+
+            if not articles:
+                logger.info(f"[CompanyNews] No news found for '{company_name}'")
+                return None
+
+            # Build snippets text for LLM
+            snippets = []
+            source_urls = []
+            for a in articles:
+                title = a.get("title", "")
+                body = a.get("body", "")
+                url = a.get("url", "")
+                date = a.get("date", "")
+                if title or body:
+                    snippets.append(f"[{date}] {title}: {body}")
+                if url:
+                    source_urls.append(url)
+
+            snippets_text = "\n\n".join(snippets[:5])
+
+            # LLM call to synthesize into a paragraph
+            response = await self._client.chat.completions.create(
+                model=self._deployment,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": NEWS_SUMMARY_PROMPT},
+                    {"role": "user", "content": f"Company: {company_name}\n\nNews snippets:\n{snippets_text}"},
+                ],
+                temperature=0.2,
+                max_tokens=400,
+            )
+            result = json.loads(response.choices[0].message.content)
+
+            if not result.get("relevant") or not result.get("summary"):
+                logger.info(f"[CompanyNews] LLM deemed news not relevant for '{company_name}'")
+                return None
+
+            logger.info(f"[CompanyNews] News summary generated for '{company_name}' from {len(source_urls)} articles")
+            return CompanyNews(
+                summary=result["summary"],
+                sources=source_urls,
+                fetched_at=datetime.utcnow().isoformat(),
+            )
+
+        except Exception as e:
+            logger.warning(f"[CompanyNews] Failed to fetch news for '{company_name}': {e}")
+            return None
+
     # ─── Main Orchestrator ──────────────────────────────────────────────────
 
     async def run_enrichment(
@@ -545,6 +616,11 @@ If not found, use null for either field."""
 
         # Step 5: Build final result
         result = self._build_result(merged_fields, company_name, source_urls)
+
+        # Step 6: Fetch company news (feature-flagged — safe to skip if disabled or fails)
+        if settings.enable_company_news and company_name:
+            result.company_news = await self.fetch_company_news(company_name)
+
         logger.info(
             f"[Enrichment] Pipeline complete. "
             f"Extracted {len(merged_fields)} fields from {len(set(source_urls))} sources"

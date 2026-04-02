@@ -255,6 +255,12 @@ export interface EnrichedField {
     is_critical?: boolean;
 }
 
+export interface CompanyNews {
+    summary: string;
+    sources: string[];
+    fetched_at: string;
+}
+
 export interface EnrichmentData {
     entity_type?: EnrichedField;
     naics_code?: EnrichedField;
@@ -278,6 +284,7 @@ export interface EnrichmentData {
     company_name: string | null;
     website: string | null;
     enrichment_status: string;
+    company_news?: CompanyNews | null;
 }
 
 export interface EnrichmentResult {

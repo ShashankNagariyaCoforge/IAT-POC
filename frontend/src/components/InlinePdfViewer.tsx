@@ -49,7 +49,6 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
 
     // Measure container width so react-pdf scales to fill the panel
     useEffect(() => {
-        if (!highlight) return;
         const el = containerRef.current;
         if (!el) return;
         const ro = new ResizeObserver(entries => {
@@ -59,7 +58,7 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
         // Initial measurement
         setContainerWidth(el.clientWidth);
         return () => ro.disconnect();
-    }, [highlight]);
+    }, []);
 
     // Percentage-based overlay style — works at any zoom / container width
     const overlayStyle = (() => {
@@ -98,11 +97,11 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
                     <polyline points="14 2 14 8 20 8" />
                 </svg>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {name}{highlight ? ` — page ${currentPage}` : ''}
+                    {name}{numPages > 1 ? ` — page ${currentPage}` : ''}
                 </span>
 
-                {/* Page navigation — only in highlight (react-pdf) mode */}
-                {highlight && numPages > 1 && (
+                {/* Page navigation */}
+                {numPages > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}
                             style={{ padding: '2px 4px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
@@ -156,43 +155,32 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
                 </button>
             </div>
 
-            {/* Content */}
+            {/* Content — always react-pdf so zoom works regardless of highlight */}
             <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e2e8f0', position: 'relative' }}>
-                {highlight ? (
-                    // react-pdf mode — single page with bbox overlay
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '12px' }}>
-                        <Document
-                            file={url}
-                            onLoadSuccess={({ numPages: n }) => setNumPages(n)}
-                            loading={
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#94a3b8', fontSize: 13 }}>
-                                    Loading…
-                                </div>
-                            }
-                        >
-                            {/* position:relative gives % coordinates a reference frame */}
-                            <div style={{ position: 'relative', display: 'inline-block' }}>
-                                <Page
-                                    pageNumber={currentPage}
-                                    width={containerWidth > 24 ? (containerWidth - 24) * zoom : undefined}
-                                    renderTextLayer={false}
-                                    renderAnnotationLayer={false}
-                                />
-                                {/* Draw highlight only on the target page */}
-                                {currentPage === highlight.page && overlayStyle && (
-                                    <div style={overlayStyle} />
-                                )}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '12px' }}>
+                    <Document
+                        file={url}
+                        onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                        loading={
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#94a3b8', fontSize: 13 }}>
+                                Loading…
                             </div>
-                        </Document>
-                    </div>
-                ) : (
-                    // iframe mode — full PDF browse
-                    <iframe
-                        src={`${url}#toolbar=0&navpanes=0&scrollbar=1`}
-                        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                        title={name}
-                    />
-                )}
+                        }
+                    >
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                            <Page
+                                pageNumber={currentPage}
+                                width={containerWidth > 24 ? (containerWidth - 24) * zoom : undefined}
+                                renderTextLayer={false}
+                                renderAnnotationLayer={false}
+                            />
+                            {/* Draw highlight only when bbox is available and on the target page */}
+                            {highlight && currentPage === highlight.page && overlayStyle && (
+                                <div style={overlayStyle} />
+                            )}
+                        </div>
+                    </Document>
+                </div>
             </div>
         </div>
     );

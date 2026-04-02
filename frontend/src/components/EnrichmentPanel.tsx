@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Globe, ExternalLink, ChevronDown, ChevronUp, Loader2, AlertCircle } from 'lucide-react';
+import { Globe, ExternalLink, ChevronDown, ChevronUp, Loader2, AlertCircle, Newspaper } from 'lucide-react';
 import { createApiClient, casesApi } from '../api/casesApi';
 import { useMsal } from '@azure/msal-react';
-import type { EnrichedField, EnrichmentData } from '../types';
+import type { EnrichedField, EnrichmentData, CompanyNews } from '../types';
+
+const ENABLE_COMPANY_NEWS = import.meta.env.VITE_ENABLE_COMPANY_NEWS === 'true';
 
 /** Human-readable label for field keys */
 const FIELD_LABELS: Record<string, string> = {
@@ -65,6 +67,48 @@ function ConfidenceBar({ confidence, isNA = false }: { confidence: number; isNA?
     return (
         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+        </div>
+    );
+}
+
+function CompanyNewsBlock({ news }: { news: CompanyNews }) {
+    const [showSources, setShowSources] = useState(false);
+    return (
+        <div className="mx-6 mt-4 mb-0 rounded-xl border border-amber-200 bg-amber-50/70 overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-amber-200">
+                <div className="w-6 h-6 rounded-md bg-amber-400 flex items-center justify-center shrink-0">
+                    <Newspaper size={13} className="text-white" />
+                </div>
+                <div className="flex-1">
+                    <span className="text-xs font-black text-amber-800 uppercase tracking-widest">Recent Activity</span>
+                    <span className="ml-2 text-[9px] font-semibold text-amber-500 uppercase tracking-wide">Experimental</span>
+                </div>
+            </div>
+            <div className="px-4 py-3">
+                <p className="text-sm text-amber-900 leading-relaxed">{news.summary}</p>
+                {news.sources.length > 0 && (
+                    <div className="mt-2">
+                        <button
+                            onClick={() => setShowSources(s => !s)}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-800 transition-colors"
+                        >
+                            {showSources ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                            {news.sources.length} source{news.sources.length !== 1 ? 's' : ''}
+                        </button>
+                        {showSources && (
+                            <div className="mt-1.5 space-y-1">
+                                {news.sources.map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-[10px] text-amber-700 hover:text-amber-900 hover:underline truncate">
+                                        <ExternalLink size={9} className="shrink-0" />
+                                        {url}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -155,6 +199,7 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
     }
 
     const hasFields = fields.length > 0;
+    const companyNews = ENABLE_COMPANY_NEWS ? (enrichmentData as any)?.company_news as CompanyNews | null | undefined : null;
 
     return (
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden flex-shrink-0 min-h-[450px] flex flex-col">
@@ -174,6 +219,11 @@ export function EnrichmentPanel({ caseId }: EnrichmentPanelProps) {
                 </div>
                 <ConfidenceBadge confidence={avgConfidence} />
             </div>
+
+            {/* Company News Block (feature-flagged) */}
+            {ENABLE_COMPANY_NEWS && companyNews && (
+                <CompanyNewsBlock news={companyNews} />
+            )}
 
             {/* Body */}
             <div className="p-6 flex-1 max-h-[700px] overflow-y-auto custom-scrollbar">

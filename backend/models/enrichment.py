@@ -11,6 +11,13 @@ class EnrichedField(BaseModel):
     source: Optional[str] = None  # URL where the value was found
 
 
+class CompanyNews(BaseModel):
+    """Recent news summary for the insured company (feature-flagged)."""
+    summary: str                    # 3-5 sentence paragraph synthesized from news snippets
+    sources: List[str]              # URLs of news articles used
+    fetched_at: str                 # ISO timestamp
+
+
 class EnrichmentResult(BaseModel):
     """Result of the enrichment pipeline — fields extracted from web crawling + AI."""
 
@@ -43,6 +50,9 @@ class EnrichmentResult(BaseModel):
     company_name: Optional[str] = None
     website: Optional[str] = None
     enrichment_status: str = "completed"
+
+    # Feature-flagged: recent news summary (only populated when ENABLE_COMPANY_NEWS=true)
+    company_news: Optional[CompanyNews] = None
 
     # All extractable field keys for iteration
     @classmethod
