@@ -13,7 +13,7 @@ import CaseSnapshotPage from './pages/CaseSnapshotPage';
 // Contexts
 import { PipelineProvider } from './contexts/PipelineContext';
 
-import { Mail, Fingerprint, ShieldCheck, BrainCircuit, ArrowRight, Lock, Activity, Loader2 } from 'lucide-react';
+import { Mail, Fingerprint, ShieldCheck, BrainCircuit, ArrowRight, Lock, Activity, Loader2, FileText, Globe } from 'lucide-react';
 import './index.css';
 
 // ─── Dev bypass ─────────────────────────────────────────────────────────────
@@ -41,6 +41,8 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
     { icon: <Fingerprint size={15} />, text: 'PII Agent — Real-time data masking' },
     { icon: <ShieldCheck size={15} />, text: 'Content Safety Agent — Policy compliance' },
     { icon: <BrainCircuit size={15} />, text: 'Classification Agent — AI-driven triage' },
+    { icon: <FileText size={15} />, text: 'Extraction Agent — Structured field extraction' },
+    { icon: <Globe size={15} />, text: 'Enrichment Agent — Web-sourced entity data' },
   ];
 
   return (
@@ -72,7 +74,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
           <div style={{ position: 'relative' }}>
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
-              <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '36px', filter: 'brightness(0) invert(1)', opacity: 0.9 }} />
+              <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '24px' }} />
             </div>
 
             <h2 style={{
@@ -82,7 +84,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
               AI-Powered<br />Underwriting<br />Command Center.
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px', margin: '0 0 32px 0', lineHeight: 1.6, fontWeight: 400 }}>
-              Access your agentic intake pipeline. Five specialized AI agents process
+              Access your agentic intake pipeline. Six specialized AI agents process
               every submission with neural-precision.
             </p>
 
@@ -111,7 +113,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
               <p style={{ margin: '0 0 4px 0', fontSize: '9px', fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Live System Status</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
-                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontWeight: 500 }}>All 5 agents operational</span>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontWeight: 500 }}>All 6 agents operational</span>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
