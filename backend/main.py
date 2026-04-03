@@ -23,6 +23,7 @@ from api.cases import router as cases_router
 from api.sync import router as sync_router
 from api.process import router as process_router
 from api.health import router as health_router
+from api.uw_worksheet import router as uw_worksheet_router
 from middleware.auth import JWTAuthMiddleware
 from services.cosmos_db import CosmosDBService
 from services.graph_client import GraphClient
@@ -158,3 +159,4 @@ app.include_router(cases_router, prefix="/api", tags=["Cases"])
 app.include_router(sync_router, prefix="/api", tags=["Sync"])
 app.include_router(process_router, prefix="/api", tags=["Process"])
 app.include_router(health_router, tags=["Health"])
+app.include_router(uw_worksheet_router, prefix="/api", tags=["UW Worksheet"])

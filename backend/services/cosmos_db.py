@@ -26,6 +26,7 @@ COLLECTION_DOCUMENTS = "documents"
 COLLECTION_CLASSIFICATION = "classification_results"
 COLLECTION_PII_MAPPING = "pii_mapping"
 COLLECTION_ENRICHMENT = "enrichment_results"
+COLLECTION_UW_WORKSHEETS = "uw_worksheets"
 
 
 class CosmosDBService:
@@ -118,6 +119,9 @@ class CosmosDBService:
             # --- Enrichment Collection ---
             await _create_index(COLLECTION_ENRICHMENT, [("case_id", ASCENDING)])
             await _create_index(COLLECTION_ENRICHMENT, [("enriched_at", DESCENDING)])
+
+            # --- UW Worksheets Collection ---
+            await _create_index(COLLECTION_UW_WORKSHEETS, [("case_id", ASCENDING)], unique=True)
 
             logger.info("Cosmos DB indexing ensured.")
             
@@ -553,3 +557,25 @@ class CosmosDBService:
 
         events.sort(key=lambda e: e["timestamp"] or "")
         return events
+
+    # ===== UW WORKSHEETS =====
+
+    async def save_uw_worksheet(self, worksheet) -> None:
+        """Upsert a UW worksheet document (keyed by case_id)."""
+        from models.uw_worksheet import UWWorksheet
+        db = self._get_db()
+        if db is None:
+            return
+        data = worksheet.model_dump(mode="json")
+        data["_id"] = worksheet.case_id
+        await db[COLLECTION_UW_WORKSHEETS].replace_one(
+            {"_id": worksheet.case_id}, data, upsert=True
+        )
+        logger.info(f"Saved UW worksheet for case: {worksheet.case_id}")
+
+    async def get_uw_worksheet(self, case_id: str) -> Optional[Dict]:
+        """Fetch a UW worksheet by case_id."""
+        db = self._get_db()
+        if db is None:
+            return None
+        return await db[COLLECTION_UW_WORKSHEETS].find_one({"_id": case_id})

@@ -18,6 +18,7 @@ import { JsonDisplayModal } from '../components/JsonDisplayModal';
 import { EditableFieldsPanel, PanelItem, FieldItem } from '../components/EditableFieldsPanel';
 import { EnrichmentPanel } from '../components/EnrichmentPanel';
 import { DecisionPanel } from '../components/DecisionPanel';
+import { UWWorksheetModal } from '../components/UWWorksheetModal';
 import { format } from 'date-fns';
 
 const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
@@ -42,6 +43,7 @@ export default function CaseActionScreen() {
     const [activeHighlight, setActiveHighlight] = useState<BboxHighlight | null>(null);
     const [showFullscreenPdf, setShowFullscreenPdf] = useState(false);
     const [showJson, setShowJson] = useState(false);
+    const [showUWWorksheet, setShowUWWorksheet] = useState(false);
     const [processingStalled, setProcessingStalled] = useState(false);
 
     const fetchAll = async () => {
@@ -414,6 +416,12 @@ export default function CaseActionScreen() {
                         <FileJson size={16} /> Download JSON
                     </button>
                     <button
+                        onClick={() => setShowUWWorksheet(true)}
+                        className="px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-sm"
+                    >
+                        <FileText size={16} /> UW Worksheet
+                    </button>
+                    <button
                         onClick={() => navigate(`/cases/${caseId}/snapshot`)}
                         disabled={!isApproved}
                         className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${isApproved
@@ -655,6 +663,11 @@ export default function CaseActionScreen() {
                     name={activePdfName!}
                     onClose={() => setShowFullscreenPdf(false)}
                 />
+            )}
+
+            {/* UW Worksheet Modal */}
+            {showUWWorksheet && caseId && (
+                <UWWorksheetModal caseId={caseId} onClose={() => setShowUWWorksheet(false)} />
             )}
 
             {showJson && classification && (

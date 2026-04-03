@@ -333,6 +333,24 @@ class LocalDBService:
             return None
         return sorted(results, key=lambda r: r.get("enriched_at") or "", reverse=True)[0]
 
+    # ===== UW WORKSHEETS =====
+
+    async def save_uw_worksheet(self, worksheet) -> None:
+        db = _get_db()
+        R = Query()
+        data = worksheet.model_dump(mode="json")
+        existing = db.table("uw_worksheets").search(R.case_id == worksheet.case_id)
+        if existing:
+            db.table("uw_worksheets").update(data, R.case_id == worksheet.case_id)
+        else:
+            db.table("uw_worksheets").insert(data)
+
+    async def get_uw_worksheet(self, case_id: str) -> Optional[Dict]:
+        db = _get_db()
+        R = Query()
+        results = db.table("uw_worksheets").search(R.case_id == case_id)
+        return results[0] if results else None
+
     # ===== STATS =====
 
     async def get_stats(self) -> Dict:
