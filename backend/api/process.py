@@ -454,6 +454,51 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
         if not kf.get("urgency") and classification.get("urgency"):
             kf["urgency"] = classification["urgency"]
 
+        # ── Agency name fallback: derive from agent email domain ─────────────
+        # Only runs when agency is missing/blank. Extracts the registered domain
+        # label (e.g. "erk" from abc@erk.com) and title-cases it.
+        # Free/generic providers are excluded so we never store "Gmail" as an agency.
+        _FREE_EMAIL_DOMAINS = {
+            "gmail", "yahoo", "hotmail", "outlook", "icloud", "aol", "msn",
+            "live", "me", "mac", "protonmail", "zoho", "ymail", "gmx",
+        }
+        def _agency_from_email(email: str) -> str | None:
+            m = re.search(r'@([\w.\-]+)$', email.strip().lower())
+            if not m:
+                return None
+            domain = m.group(1)                       # e.g. "ny.lockton.com"
+            parts = domain.rstrip('.').split('.')
+            # Strip common multi-part TLDs: .co.uk, .com.au, .org.uk …
+            # Registered name is always the label just before the TLD(s).
+            # Strategy: drop the last part (TLD), then if the new last part is a
+            # known SLD keyword drop that too, then take the final label.
+            _SECOND_LEVEL = {"co", "com", "org", "net", "gov", "edu", "ac"}
+            if len(parts) >= 2:
+                parts = parts[:-1]                    # drop TLD (.com, .uk …)
+            if len(parts) >= 2 and parts[-1] in _SECOND_LEVEL:
+                parts = parts[:-1]                    # drop .co / .com part
+            registered = parts[-1] if parts else None
+            if not registered or registered in _FREE_EMAIL_DOMAINS:
+                return None
+            return registered.title()                 # "lockton" → "Lockton"
+
+        _agency_missing = not kf.get("agency") and not (kf.get("agent") or {}).get("agencyName")
+        if _agency_missing:
+            # Try agent_email first, then agent.email, then email_address
+            _candidate_email = (
+                kf.get("agent_email")
+                or (kf.get("agent") or {}).get("email")
+                or kf.get("email_address")
+            )
+            if _candidate_email:
+                _derived = _agency_from_email(_candidate_email)
+                if _derived:
+                    kf["agency"] = _derived
+                    logger.info(
+                        f"[Process] Agency derived from email domain: "
+                        f"'{_candidate_email}' → '{_derived}'"
+                    )
+
         # ── Enrichment comparison: secondary extraction vs web ────────────────
         # For each of the 16 enrichment-targeted fields:
         #   - Doc wins  → value found in documents with confidence >= threshold,

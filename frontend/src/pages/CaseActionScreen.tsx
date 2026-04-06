@@ -416,12 +416,6 @@ export default function CaseActionScreen() {
                         <FileJson size={16} /> Download JSON
                     </button>
                     <button
-                        onClick={() => setShowUWWorksheet(true)}
-                        className="px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-sm"
-                    >
-                        <FileText size={16} /> UW Worksheet
-                    </button>
-                    <button
                         onClick={() => navigate(`/cases/${caseId}/snapshot`)}
                         disabled={!isApproved}
                         className={`px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all ${isApproved
@@ -583,6 +577,20 @@ export default function CaseActionScreen() {
 
                     {/* Web Enrichment Panel */}
                     {caseId && <EnrichmentPanel caseId={caseId} />}
+
+                    {/* UW Worksheet */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4 flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">Underwriter Worksheet</p>
+                            <p className="text-xs text-slate-400 mt-0.5">Generate a structured UW report with opinion & recommendations</p>
+                        </div>
+                        <button
+                            onClick={() => setShowUWWorksheet(true)}
+                            className="px-4 py-2 text-sm font-bold rounded-xl border flex items-center gap-2 transition-all bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-sm"
+                        >
+                            <FileText size={15} /> Open UW Worksheet
+                        </button>
+                    </div>
 
                     {/* Decision Panel (only if processing is done) */}
                     {isTerminal && (
