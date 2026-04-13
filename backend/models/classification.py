@@ -52,7 +52,7 @@ class KeyFields(BaseModel):
     effective_date: Optional[str] = None
     business_description: Optional[str] = None
     primary_rating_state: Optional[str] = None
-    iat_product: Optional[str] = None
+    secura_product: Optional[str] = None
     uw_am: Optional[str] = None
     naics_code: Optional[str] = None
     sic_code: Optional[str] = None

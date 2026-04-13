@@ -30,7 +30,7 @@ COLLECTION_UW_WORKSHEETS = "uw_worksheets"
 
 
 class CosmosDBService:
-    """Async MongoDB client for all IAT Insurance data operations (Cosmos DB MongoDB API)."""
+    """Async MongoDB client for all Secura Insurance data operations (Cosmos DB MongoDB API)."""
 
     def __init__(self):
         # Prioritize MongoDB connection string
@@ -290,7 +290,7 @@ class CosmosDBService:
         """Get the next global case sequence number by finding the highest existing ID."""
         db = self._get_db()
         # Find the case with the lexicographically highest case_id
-        # format: IAT-YYYY-XXXXXX
+        # format: SECURA-YYYY-XXXXXX
         last_case = await db[COLLECTION_CASES].find_one(
             {}, 
             sort=[("case_id", DESCENDING)]
@@ -299,7 +299,7 @@ class CosmosDBService:
             return 1
         
         try:
-            # Extract the numeric part from IAT-YYYY-XXXXXX
+            # Extract the numeric part from SECURA-YYYY-XXXXXX
             last_id = last_case["case_id"]
             seq_str = last_id.split("-")[-1]
             return int(seq_str) + 1

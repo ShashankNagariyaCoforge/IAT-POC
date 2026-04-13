@@ -124,7 +124,7 @@ export default function CaseListPage() {
             }}>
                 <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '24px' }}>
                     {/* Logo */}
-                    <img src="/assets/iat-logo.png" alt="IAT Insurance Group" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
+                    <img src="/assets/secura-logo.png" alt="Secura Insurance" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
                     <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
 
                     {/* Page title */}

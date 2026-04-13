@@ -129,7 +129,7 @@ export interface KeyFields {
     effective_date?: string;
     business_description?: string;
     primary_rating_state?: string;
-    iat_product?: string;
+    secura_product?: string;
     uw_am?: string;
     naics_code?: string;
     sic_code?: string;

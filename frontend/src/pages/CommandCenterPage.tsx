@@ -153,7 +153,7 @@ export default function CommandCenterPage() {
             <div className="flex flex-col h-screen bg-slate-50">
                 <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
-                        <img src="/assets/iat-logo.png" alt="IAT" className="h-6" />
+                        <img src="/assets/secura-logo.png" alt="Secura" className="h-6" />
                         <h1 className="text-xl font-black text-slate-900 tracking-tight">Command Center</h1>
                     </div>
                     <div className="flex items-center gap-3">
@@ -186,7 +186,7 @@ export default function CommandCenterPage() {
                 <div className="p-4 border-b border-slate-200 bg-white flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <img src="/assets/iat-logo.png" alt="IAT" className="h-5" />
+                            <img src="/assets/secura-logo.png" alt="Secura" className="h-5" />
                             <span className="font-black text-lg tracking-tight">Command Center</span>
                         </div>
                     </div>

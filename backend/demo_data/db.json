@@ -1,7 +1,7 @@
 {
     "cases": {
         "1": {
-            "case_id": "IAT-2026-000001",
+            "case_id": "SECURA-2026-000001",
             "status": "PROCESSED",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -15,13 +15,13 @@
             "content_safety_result": null
         },
         "2": {
-            "case_id": "IAT-2026-000002",
+            "case_id": "SECURA-2026-000002",
             "status": "PROCESSED",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
             "created_at": "2026-03-01T11:30:05Z",
             "updated_at": "2026-03-09T19:24:55.321234",
-            "subject": "RE: Policy Renewal \u2013 Commercial Motor Fleet \u2013 Policy No. IAT-CMF-2024-00872",
+            "subject": "RE: Policy Renewal \u2013 Commercial Motor Fleet \u2013 Policy No. SECURA-CMF-2024-00872",
             "sender": "sarah.okonkwo@swiftdistribution.com",
             "email_count": 1,
             "requires_human_review": false,
@@ -29,7 +29,7 @@
             "content_safety_result": null
         },
         "3": {
-            "case_id": "IAT-2026-000003",
+            "case_id": "SECURA-2026-000003",
             "status": "PROCESSED",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -43,7 +43,7 @@
             "content_safety_result": null
         },
         "4": {
-            "case_id": "IAT-2026-000004",
+            "case_id": "SECURA-2026-000004",
             "status": "PROCESSED",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -57,7 +57,7 @@
             "content_safety_result": null
         },
         "5": {
-            "case_id": "IAT-2026-000005",
+            "case_id": "SECURA-2026-000005",
             "status": "PROCESSED",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -74,7 +74,7 @@
     "emails": {
         "1": {
             "email_id": "872f73e7-06e6-4864-b2a9-cfc645e7c40b",
-            "case_id": "IAT-2026-000001",
+            "case_id": "SECURA-2026-000001",
             "message_id": "<MSG001.greenfield.2026@mail.greenfieldlogistics.co.uk>",
             "in_reply_to": "",
             "references": [],
@@ -91,7 +91,7 @@
         },
         "2": {
             "email_id": "09308b26-738f-468a-a0fa-6eafad51aa51",
-            "case_id": "IAT-2026-000002",
+            "case_id": "SECURA-2026-000002",
             "message_id": "<MSG002.swift.renewal.2026@mail.swiftdistribution.com>",
             "in_reply_to": "",
             "references": [],
@@ -99,16 +99,16 @@
             "recipients": [
                 "claims@iatinsurance.com"
             ],
-            "subject": "RE: Policy Renewal \u2013 Commercial Motor Fleet \u2013 Policy No. IAT-CMF-2024-00872",
+            "subject": "RE: Policy Renewal \u2013 Commercial Motor Fleet \u2013 Policy No. SECURA-CMF-2024-00872",
             "received_at": "2026-03-01T11:30:05Z",
             "blob_path": "",
             "has_attachments": true,
             "attachment_count": 1,
-            "body": "Hello,\n\nI hope this message finds you well. I am writing regarding the upcoming renewal of our commercial motor fleet insurance policy (Policy No. IAT-CMF-2024-00872), which is due to expire on 31 March 2026.\n\nWe would like to proceed with the renewal for another 12-month term. Since our last renewal, we have added two additional HGVs to our fleet, bringing the total to 18 vehicles. Please find the updated fleet schedule and driver declarations attached.\n\nChanges from last year:\n- 2 new vehicles added (Volvo FH16 \u2013 reg. SW74 HJK and SW74 HJL)\n- 1 driver added: Mr. Daniel Morey (DOB: 12/05/1988, licence no. MOREY812123DW)\n- 0 claims in the past 12 months\n\nWe look forward to receiving your renewal quotation at your earliest convenience.\n\nBest regards,\nSarah Okonkwo\nFleet Manager, Swift Distribution Ltd\nDirect: +44 20 7946 0314"
+            "body": "Hello,\n\nI hope this message finds you well. I am writing regarding the upcoming renewal of our commercial motor fleet insurance policy (Policy No. SECURA-CMF-2024-00872), which is due to expire on 31 March 2026.\n\nWe would like to proceed with the renewal for another 12-month term. Since our last renewal, we have added two additional HGVs to our fleet, bringing the total to 18 vehicles. Please find the updated fleet schedule and driver declarations attached.\n\nChanges from last year:\n- 2 new vehicles added (Volvo FH16 \u2013 reg. SW74 HJK and SW74 HJL)\n- 1 driver added: Mr. Daniel Morey (DOB: 12/05/1988, licence no. MOREY812123DW)\n- 0 claims in the past 12 months\n\nWe look forward to receiving your renewal quotation at your earliest convenience.\n\nBest regards,\nSarah Okonkwo\nFleet Manager, Swift Distribution Ltd\nDirect: +44 20 7946 0314"
         },
         "3": {
             "email_id": "bbe3014b-dfcb-4706-a967-a10ba772e540",
-            "case_id": "IAT-2026-000003",
+            "case_id": "SECURA-2026-000003",
             "message_id": "<MSG003.brightspace.query.2026@mail.brightspacetech.io>",
             "in_reply_to": "",
             "references": [],
@@ -121,11 +121,11 @@
             "blob_path": "",
             "has_attachments": true,
             "attachment_count": 1,
-            "body": "Hi there,\n\nI am writing to seek clarification on our current public liability policy (Policy No. IAT-PL-2025-04421). Specifically, we need to understand:\n\n1. Whether our current \u00a35M aggregate limit applies per event or per policy year?\n2. Are third-party software contractors who work on-site covered under our policy, or do they need their own liability insurance?\n3. Is there a sub-limit applying to data-related incidents (e.g. a contractor accidentally deleting client data)?\n\nWe have a client audit coming up in three weeks and need to confirm our coverage details in writing. Attached is our current policy schedule for reference.\n\nThank you for your help.\n\nBest wishes,\nTom Pickering\nHead of Operations, Brightspace Technologies Ltd\nEmail: t.pickering@brightspacetech.io"
+            "body": "Hi there,\n\nI am writing to seek clarification on our current public liability policy (Policy No. SECURA-PL-2025-04421). Specifically, we need to understand:\n\n1. Whether our current \u00a35M aggregate limit applies per event or per policy year?\n2. Are third-party software contractors who work on-site covered under our policy, or do they need their own liability insurance?\n3. Is there a sub-limit applying to data-related incidents (e.g. a contractor accidentally deleting client data)?\n\nWe have a client audit coming up in three weeks and need to confirm our coverage details in writing. Attached is our current policy schedule for reference.\n\nThank you for your help.\n\nBest wishes,\nTom Pickering\nHead of Operations, Brightspace Technologies Ltd\nEmail: t.pickering@brightspacetech.io"
         },
         "4": {
             "email_id": "40e1fd7f-f5f3-468e-9113-b2250216998c",
-            "case_id": "IAT-2026-000004",
+            "case_id": "SECURA-2026-000004",
             "message_id": "<MSG004.farrow.complaint.2026@mail.farrowandsons.co.uk>",
             "in_reply_to": "",
             "references": [],
@@ -142,7 +142,7 @@
         },
         "5": {
             "email_id": "17404a7d-5bd2-4e30-bbde-3b90ac599509",
-            "case_id": "IAT-2026-000005",
+            "case_id": "SECURA-2026-000005",
             "message_id": "<MSG005.sunrise.evidence.2026@mail.sunrisehospitality.co.uk>",
             "in_reply_to": "",
             "references": [],
@@ -162,7 +162,7 @@
         "1": {
             "document_id": "57cc1160-e6b9-4934-9774-8a32910c9c59",
             "email_id": "872f73e7-06e6-4864-b2a9-cfc645e7c40b",
-            "case_id": "IAT-2026-000001",
+            "case_id": "SECURA-2026-000001",
             "file_name": "synthetic_1.pdf",
             "file_type": "pdf",
             "blob_path": "",
@@ -178,7 +178,7 @@
         "2": {
             "document_id": "57cc8634-8382-4016-b71e-de42147d4e82",
             "email_id": "09308b26-738f-468a-a0fa-6eafad51aa51",
-            "case_id": "IAT-2026-000002",
+            "case_id": "SECURA-2026-000002",
             "file_name": "synthetic_2.pdf",
             "file_type": "pdf",
             "blob_path": "",
@@ -194,7 +194,7 @@
         "3": {
             "document_id": "8d406152-1afa-46f5-a8b2-45256e650ce7",
             "email_id": "bbe3014b-dfcb-4706-a967-a10ba772e540",
-            "case_id": "IAT-2026-000003",
+            "case_id": "SECURA-2026-000003",
             "file_name": "synthetic_3.pdf",
             "file_type": "pdf",
             "blob_path": "",
@@ -210,7 +210,7 @@
         "4": {
             "document_id": "07aca0e5-7370-44dd-9e73-f39236e1d199",
             "email_id": "40e1fd7f-f5f3-468e-9113-b2250216998c",
-            "case_id": "IAT-2026-000004",
+            "case_id": "SECURA-2026-000004",
             "file_name": "synthetic_4.pdf",
             "file_type": "pdf",
             "blob_path": "",
@@ -226,7 +226,7 @@
         "5": {
             "document_id": "22fd4873-3d4f-4d14-ae35-6d21ebebf6e5",
             "email_id": "17404a7d-5bd2-4e30-bbde-3b90ac599509",
-            "case_id": "IAT-2026-000005",
+            "case_id": "SECURA-2026-000005",
             "file_name": "synthetic_5.pdf",
             "file_type": "pdf",
             "blob_path": "",
@@ -243,7 +243,7 @@
     "classification_results": {
         "1": {
             "result_id": "e2947973-2c68-43de-8490-3c08b5672dee",
-            "case_id": "IAT-2026-000001",
+            "case_id": "SECURA-2026-000001",
             "email_id": "872f73e7-06e6-4864-b2a9-cfc645e7c40b",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -266,7 +266,7 @@
         },
         "2": {
             "result_id": "5788cc44-b472-4b61-bfac-49f8c8c277aa",
-            "case_id": "IAT-2026-000002",
+            "case_id": "SECURA-2026-000002",
             "email_id": "09308b26-738f-468a-a0fa-6eafad51aa51",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -282,7 +282,7 @@
         },
         "3": {
             "result_id": "4f19e69d-e33e-4f9d-a43a-d7fb0265ae3b",
-            "case_id": "IAT-2026-000003",
+            "case_id": "SECURA-2026-000003",
             "email_id": "bbe3014b-dfcb-4706-a967-a10ba772e540",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -298,7 +298,7 @@
         },
         "4": {
             "result_id": "eeecf2ed-ea4e-4fb3-b174-feaf72a0276f",
-            "case_id": "IAT-2026-000004",
+            "case_id": "SECURA-2026-000004",
             "email_id": "40e1fd7f-f5f3-468e-9113-b2250216998c",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,
@@ -314,7 +314,7 @@
         },
         "5": {
             "result_id": "5b5483a8-d9a1-4963-ac6b-2eb402960627",
-            "case_id": "IAT-2026-000005",
+            "case_id": "SECURA-2026-000005",
             "email_id": "17404a7d-5bd2-4e30-bbde-3b90ac599509",
             "classification_category": "Documentation Submission",
             "confidence_score": 0.95,

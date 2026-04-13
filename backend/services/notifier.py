@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 NOTIFICATION_EMAIL_TEMPLATE = """
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #1a365d;">IAT Insurance - New Case Classified</h2>
+  <h2 style="color: #1a365d;">Secura Insurance - New Case Classified</h2>
   <hr style="border-color: #e2e8f0;">
 
   <table style="width: 100%; border-collapse: collapse;">
@@ -47,7 +47,7 @@ NOTIFICATION_EMAIL_TEMPLATE = """
   </p>
 
   <p style="font-size: 12px; color: #718096; margin-top: 24px;">
-    This is an automated notification from the IAT Insurance Email Automation Platform.
+    This is an automated notification from the Secura Insurance Email Automation Platform.
     No personal information is included in this notification.
     <br>View full case details at: {portal_url}
   </p>
@@ -78,7 +78,7 @@ class Notifier:
             requires_review = classification_result.get("requires_human_review", False)
             portal_url = f"{settings.webhook_url.rstrip('/webhook/email')}/cases/{case_id}"
 
-            subject = f"[IAT Insurance] New Case Classified: {case_id} — {category}"
+            subject = f"[Secura Insurance] New Case Classified: {case_id} — {category}"
             body = NOTIFICATION_EMAIL_TEMPLATE.format(
                 case_id=case_id,
                 category=category,

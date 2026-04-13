@@ -566,7 +566,7 @@ export function UWWorksheetModal({ caseId, onClose }: Props) {
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-                            UW Worksheet — Management Liability
+                            UW Worksheet — Secura Insurance
                         </div>
                         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
                             {generating

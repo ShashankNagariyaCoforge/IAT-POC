@@ -1,5 +1,5 @@
 """
-IAT Insurance AI Email Automation Platform
+Secura Insurance AI Email Automation Platform
 FastAPI Application Entry Point
 """
 
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle."""
-    logger.info("Starting IAT Insurance Email Automation Platform...")
+    logger.info("Starting Secura Insurance Email Automation Platform...")
 
     renewal_task = None
     poll_task = None
@@ -132,8 +132,8 @@ async def _renew_subscription_loop(graph: GraphClient):
 
 # Build FastAPI app
 app = FastAPI(
-    title="IAT Insurance AI Email Automation",
-    description="AI-powered email triage and case management platform for IAT Insurance.",
+    title="Secura Insurance AI Email Automation",
+    description="AI-powered email triage and case management platform for Secura Insurance.",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",

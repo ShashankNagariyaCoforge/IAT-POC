@@ -262,7 +262,7 @@ export default function CaseActionScreen() {
             { ...getField('Category', classification?.classification_category, 'classification_category'), tooltip: classification?.summary || undefined },
             getField('Submission Type', derivedSubmissionType, 'submission_type'),
             getField('Business Segment', 'Management Liability', 'segment'),
-            getField('IAT Product', kf?.iat_product, 'iat_product'),
+            getField('Secura Product', kf?.secura_product, 'secura_product'),
             getField('UW / AM', kf?.uw_am, 'uw_am'),
         ],
         'AI Summary': [
@@ -367,7 +367,7 @@ export default function CaseActionScreen() {
                         <ChevronLeft size={20} />
                     </button>
                     <div className="flex items-center gap-3 border-r border-slate-200 pr-4">
-                        <img src="/assets/iat-logo.png" alt="IAT" className="h-6" />
+                        <img src="/assets/secura-logo.png" alt="Secura" className="h-6" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">

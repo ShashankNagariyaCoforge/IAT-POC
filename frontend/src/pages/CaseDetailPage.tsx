@@ -140,7 +140,7 @@ export default function CaseDetailPage() {
                 {/* Header */}
                 <header style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(226,232,240,0.8)', padding: '0 32px', position: 'sticky', top: 0, zIndex: 50 }}>
                     <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '16px' }}>
-                        <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '34px', objectFit: 'contain' }} />
+                        <img src="/assets/secura-logo.png" alt="Secura" style={{ height: '34px', objectFit: 'contain' }} />
                         <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
                         <button onClick={() => navigate('/')} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
                             <ArrowLeft size={15} /> Cases
@@ -187,7 +187,7 @@ export default function CaseDetailPage() {
             {/* ── Glassmorphism header ── */}
             <header style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(226,232,240,0.8)', padding: '0 32px', position: 'sticky', top: 0, zIndex: 50 }}>
                 <div style={{ maxWidth: '1560px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '64px', gap: '14px' }}>
-                    <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '34px', objectFit: 'contain' }} />
+                    <img src="/assets/secura-logo.png" alt="Secura" style={{ height: '34px', objectFit: 'contain' }} />
                     <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
                     <button onClick={() => navigate('/')} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
                         <ArrowLeft size={15} /> Cases

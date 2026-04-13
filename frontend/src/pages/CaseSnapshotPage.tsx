@@ -78,7 +78,7 @@ export default function CaseSnapshotPage() {
                             </span>
                         </div>
                         <h1 className="text-xl font-black text-slate-800 tracking-tight">
-                            <span className="text-indigo-600">IAT</span> Snapshot
+                            <span className="text-indigo-600">Secura</span> Snapshot
                         </h1>
                     </div>
                 </div>

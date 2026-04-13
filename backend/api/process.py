@@ -719,7 +719,7 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                         "agency": "Agency",
                         "naics_code": "NAICS Code",
                         "sic_code": "SIC Code",
-                        "iat_product": "IAT Product",
+                        "secura_product": "Secura Product",
                         "uw_am": "UW / AM"
                     }
                     if k in SPECIAL_KEYS:

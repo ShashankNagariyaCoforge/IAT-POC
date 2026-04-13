@@ -21,7 +21,7 @@ async def health_check():
     Used by Docker healthcheck and monitoring systems.
     Returns 200 if the service is running.
     """
-    return {"status": "healthy", "service": "IAT Insurance Email Automation"}
+    return {"status": "healthy", "service": "Secura Insurance Email Automation"}
 
 
 @router.get("/api/stats")

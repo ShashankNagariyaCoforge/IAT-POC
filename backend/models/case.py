@@ -43,7 +43,7 @@ class ClassificationCategory(str, Enum):
 
 class CaseDocument(BaseModel):
     """Cosmos DB document for the 'cases' container."""
-    case_id: str = Field(..., description="Case ID e.g. IAT-2026-000001")
+    case_id: str = Field(..., description="Case ID e.g. SECURA-2026-000001")
     status: CaseStatus = CaseStatus.RECEIVED
     classification_category: Optional[ClassificationCategory] = None
     confidence_score: Optional[float] = None

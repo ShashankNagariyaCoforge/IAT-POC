@@ -74,7 +74,7 @@ class WebCrawler:
         async with httpx.AsyncClient(
             timeout=REQUEST_TIMEOUT,
             follow_redirects=True,
-            headers={"User-Agent": "IAT-Insurance-Bot/1.0"},
+            headers={"User-Agent": "Secura-Insurance-Bot/1.0"},
         ) as client:
             resp = await client.get(url)
             resp.raise_for_status()

@@ -71,7 +71,7 @@ export function JsonDisplayModal({ jsonData, onClose }: Props) {
 
                 {/* Footer */}
                 <div className="px-8 py-4 border-t border-slate-100 flex items-center justify-between bg-white text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <span>Format: IAT Standard Extraction</span>
+                    <span>Format: Secura Standard Extraction</span>
                     <span className="flex items-center gap-4">
                         <span>Press ESC to close</span>
                         <span className="text-slate-300">•</span>

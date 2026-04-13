@@ -113,14 +113,14 @@
             "description": "The primary state used for rating the risk"
         },
         {
-            "key": "iat_product",
-            "name": "IAT product",
+            "key": "secura_product",
+            "name": "Secura product",
             "aliases": [
-                "iat program",
+                "secura program",
                 "product name",
-                "iat line"
+                "secura line"
             ],
-            "description": "The specific IAT product or program for this risk"
+            "description": "The specific Secura product or program for this risk"
         },
         {
             "key": "uw_am",
@@ -132,7 +132,7 @@
                 "uw",
                 "am"
             ],
-            "description": "The IAT Underwriter or Account Manager handling this account. Extract in priority order: (1) most recent IAT-domain sender in the email thread if an IAT person has replied, (2) Assigned Underwriter/Account Manager field on a policy schedule or declarations page for renewals, (3) named IAT person in the broker's opening email greeting. Do NOT extract generic inboxes, team names, or the broker's own account manager."
+            "description": "The Secura Underwriter or Account Manager handling this account. Extract in priority order: (1) most recent Secura-domain sender in the email thread if a Secura person has replied, (2) Assigned Underwriter/Account Manager field on a policy schedule or declarations page for renewals, (3) named Secura person in the broker's opening email greeting. Do NOT extract generic inboxes, team names, or the broker's own account manager."
         },
         {
             "key": "naics_code",

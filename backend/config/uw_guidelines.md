@@ -1,7 +1,7 @@
-# IAT Insurance — Underwriting Guidelines for Management Liability
+# Secura Insurance — Underwriting Guidelines for Management Liability
 
 ## General Underwriting Philosophy
-IAT Insurance Group underwrites Management Liability lines with a focus on risk quality, governance maturity,
+Secura Insurance Group underwrites Management Liability lines with a focus on risk quality, governance maturity,
 and financial stability. Submissions are evaluated on a holistic basis, considering both quantitative and
 qualitative factors.
 

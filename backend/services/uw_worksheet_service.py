@@ -4,7 +4,7 @@ UW Worksheet Service.
 Generates a structured underwriter worksheet for a case by:
   Cat 1 — reading already-extracted fields from classification_results (instant, no LLM)
   Cat 2 — running targeted LLM prompts on blob-stored document text
-  Cat 3 — generating narrative sections with LLM using IAT guidelines
+  Cat 3 — generating narrative sections with LLM using Secura guidelines
 
 Streams sections progressively as each completes.
 """
@@ -62,7 +62,7 @@ def _load_guidelines() -> str:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception:
-        return "Standard IAT underwriting guidelines apply."
+        return "Standard Secura underwriting guidelines apply."
 
 
 async def _call_llm(system_prompt: str, user_message: str, max_tokens: int = 1500) -> str:
@@ -109,7 +109,7 @@ def _build_submission_overview(cls: Dict, case: Dict) -> str:
         f"**Effective Date:** {_na(kf.get('effective_date'))}",
         f"**Submission Type:** {sub_type}",
         f"**Business Segment:** Management Liability",
-        f"**IAT Product:** {_na(kf.get('iat_product'))}",
+        f"**Secura Product:** {_na(kf.get('secura_product'))}",
         f"**Category:** {_na(cat)}",
         f"**Agency:** {_na(kf.get('agency') or (kf.get('agent') or {}).get('agencyName'))}",
         f"**Agent / Producer:** {_na(kf.get('licensed_producer') or (kf.get('agent') or {}).get('name'))}",
@@ -374,7 +374,7 @@ async def _build_uw_opinion(cls: Dict, case: Dict, guidelines: str) -> str:
     context_str = "\n".join(f"- {k}: {v}" for k, v in context.items())
 
     sys_prompt = (
-        "You are a senior underwriter at IAT Insurance Group specializing in Management Liability. "
+        "You are a senior underwriter at Secura Insurance specializing in Management Liability. "
         "Based on the submission details and company guidelines provided, write a professional UW opinion. "
         "Structure your response with these sections:\n"
         "**Favorable Factors** — bullet list\n"
@@ -389,7 +389,7 @@ async def _build_uw_opinion(cls: Dict, case: Dict, guidelines: str) -> str:
     user_msg = (
         "**Submission Details:**\n"
         + context_str
-        + "\n\n**IAT Underwriting Guidelines (excerpt):**\n"
+        + "\n\n**Secura Underwriting Guidelines (excerpt):**\n"
         + guidelines[:3000]
     )
 
@@ -510,7 +510,7 @@ def build_word_document(worksheet: UWWorksheet, case_id: str) -> bytes:
 
     doc.add_paragraph(f"Case ID: {case_id}")
     doc.add_paragraph(f"Generated: {worksheet.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
-    doc.add_paragraph("IAT Insurance Group — Management Liability")
+    doc.add_paragraph("Secura Insurance — Management Liability")
     doc.add_paragraph("")
 
     for section in worksheet.sections:

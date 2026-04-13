@@ -28,7 +28,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
   const [loginError, setLoginError] = useState(false);
 
   const handleCredentialLogin = () => {
-    if (username === 'admin' && password === 'Iat123') {
+    if (username === 'admin' && password === 'Secura123') {
       setLoginError(false);
       onDevMode();
     } else {
@@ -74,7 +74,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
           <div style={{ position: 'relative' }}>
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
-              <img src="/assets/iat-logo.png" alt="IAT" style={{ height: '24px' }} />
+              <img src="/assets/secura-logo.png" alt="Secura" style={{ height: '24px' }} />
             </div>
 
             <h2 style={{

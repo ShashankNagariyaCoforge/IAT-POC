@@ -73,7 +73,7 @@ async def ingest_email(
         email_data = json.load(f)
 
     # ── Build IDs ──────────────────────────────────────────────────────────
-    case_id = f"IAT-2026-{case_sequence:06d}"
+    case_id = f"SECURA-2026-{case_sequence:06d}"
     email_id = str(uuid.uuid4())
     message_id = email_data.get("internetMessageId", email_data.get("id"))
     sender = email_data["from"]["emailAddress"]["address"]

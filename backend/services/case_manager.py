@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 # Strip RE: / FW: / Fwd: prefixes for subject matching
 _SUBJECT_STRIP_RE = re.compile(r"^(RE|FW|FWD|AW|SV|Re|Fw|Fwd)\s*:\s*", re.IGNORECASE)
 
-# Case ID format: IAT-YYYY-XXXXXX
-_CASE_ID_FORMAT = "IAT-{year}-{seq:06d}"
+# Case ID format: SECURA-YYYY-XXXXXX
+_CASE_ID_FORMAT = "SECURA-{year}-{seq:06d}"
 
 
 def _strip_reply_prefix(subject: str) -> str:
