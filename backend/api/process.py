@@ -117,7 +117,8 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
 
         # 2. Build combined text (Raw)
         def clean_conversation_context(text: str) -> str:
-            """Strips 'Original Message' and common thread separators to avoid redundancy."""
+            """Strips thread separators and removes blank lines to save LLM token budget.
+            Words and spaces within each line are never touched."""
             if not text: return ""
             separators = [
                 "-----Original Message-----",
@@ -129,6 +130,9 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
             for sep in separators:
                 if sep in cleaned:
                     cleaned = cleaned.split(sep)[0]
+            # Remove blank lines (lines with no content or only whitespace).
+            # Single-line content and all spaces within lines are preserved as-is.
+            cleaned = "\n".join(line for line in cleaned.splitlines() if line.strip())
             return cleaned.strip()
 
         text_parts = []
@@ -482,13 +486,21 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 return None
             return registered.title()                 # "lockton" → "Lockton"
 
-        _agency_missing = not kf.get("agency") and not (kf.get("agent") or {}).get("agencyName")
+        _NULL_LIKE = {"n/a", "na", "null", "none", "—", "-", ""}
+        def _is_blank(v) -> bool:
+            return not v or str(v).strip().lower() in _NULL_LIKE
+
+        _agency_missing = _is_blank(kf.get("agency")) and _is_blank((kf.get("agent") or {}).get("agencyName"))
         if _agency_missing:
             # Try agent_email first, then agent.email, then email_address
-            _candidate_email = (
-                kf.get("agent_email")
-                or (kf.get("agent") or {}).get("email")
-                or kf.get("email_address")
+            # Use _is_blank to skip LLM "N/A" / "null" placeholders
+            _candidate_email = next(
+                (v for v in [
+                    kf.get("agent_email"),
+                    (kf.get("agent") or {}).get("email"),
+                    kf.get("email_address"),
+                ] if not _is_blank(v)),
+                None,
             )
             if _candidate_email:
                 _derived = _agency_from_email(_candidate_email)
