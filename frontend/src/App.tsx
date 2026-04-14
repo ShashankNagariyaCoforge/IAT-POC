@@ -73,8 +73,8 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
           {/* Top section */}
           <div style={{ position: 'relative' }}>
             {/* Logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
-              <img src="/assets/secura-logo.png" alt="Secura" style={{ height: '24px' }} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '40px', background: '#ffffff', borderRadius: '10px', padding: '7px 16px' }}>
+              <img src="/assets/secura-logo.png" alt="Secura" style={{ height: '28px' }} />
             </div>
 
             <h2 style={{
