@@ -29,24 +29,33 @@ SYSTEM_PROMPT = """
 You are a business data extraction assistant specializing in insurance and
 corporate entity data. Extract fields precisely. Return ONLY valid JSON.
 If a field cannot be found, return null for its value and 0.0 for its confidence.
-Never guess — only extract what is explicitly stated or can be strongly inferred.
+Never guess — only extract what is explicitly stated in the content.
+Do NOT derive, infer, or hallucinate values that are not directly present.
+
+CRITICAL: If the content is clearly not about the company named below (e.g. it is a
+government page, legal reference, or unrelated website), return null with 0.0 confidence
+for ALL fields. Do not attempt to extract anything from irrelevant content.
 
 For each field, provide:
 - "value": the extracted value (string or null)
 - "confidence": a float 0.0–1.0 indicating certainty
   - 0.9+ = explicitly and clearly stated in the content
-  - 0.6–0.89 = strongly inferred from context
+  - 0.6–0.89 = strongly inferred from context about THIS specific company
   - 0.3–0.59 = weakly inferred or partially available
-  - 0.0 = not found at all
+  - 0.0 = not found at all, or content is not about this company
 """
 
 FIELDS_PROMPT = """
 Extract the following fields for this company from the content below.
 Return a JSON object where each key maps to an object with "value" and "confidence".
 
+IMPORTANT: Only extract data that is explicitly stated in the content about the company
+named below. If the content is a government page, legal document, or unrelated website,
+return null for all fields.
+
 Fields to extract:
-- entity_type (e.g. LLC, Corporation, Partnership, Sole Proprietor)
-- naics_code (6-digit industry code, derive from business type if not explicit)
+- entity_type (e.g. LLC, Corporation, Partnership, Sole Proprietor — only if explicitly stated)
+- naics_code (6-digit NAICS industry code — only if explicitly stated, do NOT derive or guess)
 - entity_structure (organizational hierarchy description)
 - years_in_business (or founding year)
 - number_of_employees (total headcount)
@@ -367,6 +376,14 @@ If not found, use null for either field."""
                     value = field_data.get("value")
                     confidence = float(field_data.get("confidence", 0.0))
                     if value and str(value).lower() not in ["null", "none", "n/a", ""]:
+                        # Reject low-confidence values — these are typically hallucinated
+                        # from irrelevant content (e.g. government pages crawled from doc URLs)
+                        if confidence < 0.7:
+                            logger.info(
+                                f"[Enrichment][AI] Field rejected (low confidence): '{key}' = '{value}' "
+                                f"(confidence={confidence:.2f} < 0.70, source={source_url or 'direct-content'})"
+                            )
+                            continue
                         fields[key] = EnrichedField(
                             value=str(value),
                             confidence=min(confidence, 1.0),
