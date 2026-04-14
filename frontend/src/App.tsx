@@ -61,14 +61,14 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
 
         {/* ── Left dark panel ── */}
         <div style={{
-          background: 'linear-gradient(160deg, #0f172a 60%, #1e1b4b)',
+          background: 'linear-gradient(160deg, #1c1c1e 60%, #2d1a00)',
           padding: '52px 48px',
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           position: 'relative', overflow: 'hidden',
         }}>
           {/* Ambient blobs */}
-          <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', background: 'rgba(79,70,229,0.18)', borderRadius: '50%', filter: 'blur(80px)' }} />
-          <div style={{ position: 'absolute', bottom: '-40px', left: '-40px', width: '180px', height: '180px', background: 'rgba(30,64,175,0.15)', borderRadius: '50%', filter: 'blur(80px)' }} />
+          <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', background: 'rgba(232,119,34,0.18)', borderRadius: '50%', filter: 'blur(80px)' }} />
+          <div style={{ position: 'absolute', bottom: '-40px', left: '-40px', width: '180px', height: '180px', background: 'rgba(180,80,10,0.15)', borderRadius: '50%', filter: 'blur(80px)' }} />
 
           {/* Top section */}
           <div style={{ position: 'relative' }}>
@@ -94,9 +94,9 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     width: '30px', height: '30px', borderRadius: '8px',
-                    background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.4)',
+                    background: 'rgba(232,119,34,0.2)', border: '1px solid rgba(232,119,34,0.35)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#818cf8', flexShrink: 0,
+                    color: '#E87722', flexShrink: 0,
                   }}>{f.icon}</div>
                   <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', fontWeight: 500 }}>{f.text}</span>
                 </div>
@@ -110,7 +110,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
               background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '14px', padding: '14px 18px', marginBottom: '16px',
             }}>
-              <p style={{ margin: '0 0 4px 0', fontSize: '9px', fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Live System Status</p>
+              <p style={{ margin: '0 0 4px 0', fontSize: '9px', fontWeight: 800, color: '#E87722', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Live System Status</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
                 <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', fontWeight: 500 }}>All 6 agents operational</span>
@@ -146,7 +146,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
                 boxShadow: '0 8px 24px rgba(15,23,42,0.18)',
                 transition: 'all 0.2s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#E87722')}
               onMouseLeave={e => (e.currentTarget.style.background = '#0f172a')}
             >
               <svg style={{ width: '18px', height: '18px', flexShrink: 0 }} viewBox="0 0 21 21" fill="none">
@@ -202,12 +202,12 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
               <button
                 onClick={handleCredentialLogin}
                 style={{
-                  width: '100%', background: '#4f46e5', color: '#ffffff', border: 'none',
+                  width: '100%', background: '#E87722', color: '#ffffff', border: 'none',
                   borderRadius: '12px', padding: '13px 20px', fontSize: '14px', fontWeight: 700,
                   cursor: 'pointer', transition: 'all 0.2s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#4338ca')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#4f46e5')}
+                onMouseEnter={e => (e.currentTarget.style.background = '#c96510')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#E87722')}
               >
                 Login
               </button>

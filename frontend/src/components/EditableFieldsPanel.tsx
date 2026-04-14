@@ -41,7 +41,7 @@ export function EditableFieldsPanel({
     onSave,
     isReadOnly = false,
     onSelectField,
-    onSelectGroup,
+    onSelectGroup: _onSelectGroup,
     onFinalSubmit,
     finalSubmitLabel
 }: Props) {

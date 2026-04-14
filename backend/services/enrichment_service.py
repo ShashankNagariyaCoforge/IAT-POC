@@ -273,7 +273,10 @@ If not found, use null for either field."""
                 result = await asyncio.wait_for(crawler.arun(url=url), timeout=CRAWL_TIMEOUT)
                 if result.success and result.markdown:
                     markdown = result.markdown[:MAX_CONTENT_FOR_AI]
-                    logger.info(f"[Enrichment] Crawl4AI crawled {url}: {len(markdown)} chars")
+                    logger.info(
+                        f"[Enrichment][Crawl4AI] {url} | {len(markdown)} chars | "
+                        f"Preview: {markdown[:300].strip()!r}"
+                    )
                     return markdown
                 else:
                     logger.warning(f"[Enrichment] Crawl4AI returned no content for {url}, trying httpx fallback")
@@ -351,6 +354,11 @@ If not found, use null for either field."""
             raw = response.choices[0].message.content
             data = json.loads(raw)
 
+            logger.info(
+                f"[Enrichment][AI] Source={source_url or 'direct-content'} | "
+                f"Company='{company_name}' | Raw AI response:\n{raw}"
+            )
+
             # Convert to EnrichedField objects
             fields: Dict[str, EnrichedField] = {}
             for key in EnrichmentResult.field_keys():
@@ -364,9 +372,17 @@ If not found, use null for either field."""
                             confidence=min(confidence, 1.0),
                             source=source_url
                         )
+                        logger.info(
+                            f"[Enrichment][AI] Field picked: '{key}' = '{value}' "
+                            f"(confidence={confidence:.2f}, source={source_url or 'direct-content'})"
+                        )
+                    else:
+                        logger.debug(
+                            f"[Enrichment][AI] Field skipped: '{key}' — value={value!r}, confidence={confidence:.2f}"
+                        )
 
             logger.info(
-                f"[Enrichment] Extracted {len(fields)} fields from content "
+                f"[Enrichment][AI] Extracted {len(fields)} fields from content "
                 f"(company: {company_name}, source: {source_url})"
             )
             return fields
@@ -391,19 +407,24 @@ If not found, use null for either field."""
                 # Quote company name to force exact match and reduce wrong-company results
                 query = f'"{company_name}" {field_name.replace("_", " ")} USA'
 
-            logger.info(f"[Enrichment] DuckDuckGo search: '{query}'")
+            logger.info(f"[Enrichment][Search] Field='{field_name}' | DuckDuckGo query: '{query}'")
 
             def _search():
                 with DDGS() as ddgs:
-                    return [r["href"] for r in ddgs.text(query, max_results=5) if r.get("href")]
+                    return [r for r in ddgs.text(query, max_results=5)]
 
-            urls = await asyncio.to_thread(_search)
+            raw_results = await asyncio.to_thread(_search)
+            urls = [r["href"] for r in raw_results if r.get("href")]
 
             if not urls:
-                logger.info(f"[Enrichment] No search results for '{query}'")
-                return ""
+                logger.info(f"[Enrichment][Search] Field='{field_name}' | No results returned for query: '{query}'")
+                return "", ""
 
-            logger.info(f"[Enrichment] Search returned {len(urls)} results. Crawling top 2 for '{field_name}'")
+            logger.info(
+                f"[Enrichment][Search] Field='{field_name}' | {len(urls)} results returned:\n"
+                + "\n".join(f"  [{i+1}] {r.get('href','?')} — {r.get('title','')}" for i, r in enumerate(raw_results[:5]))
+            )
+            logger.info(f"[Enrichment][Search] Field='{field_name}' | Crawling top 2: {urls[:2]}")
 
             # Crawl top 2 in parallel
             crawl_tasks = [self.crawl_website(u) for u in urls[:2]]
@@ -412,9 +433,15 @@ If not found, use null for either field."""
             first_url = ""
             for u, c in zip(urls[:2], results):
                 if c:
+                    logger.info(
+                        f"[Enrichment][Crawl] Field='{field_name}' | URL={u} | "
+                        f"Got {len(c)} chars | Preview: {c[:300].strip()!r}"
+                    )
                     if not first_url:
                         first_url = u
                     contents.append(f"--- Source: {u} ---\n{c}")
+                else:
+                    logger.info(f"[Enrichment][Crawl] Field='{field_name}' | URL={u} | No content retrieved")
             return "\n\n".join(contents), first_url
 
         except Exception as e:
@@ -486,7 +513,7 @@ If not found, use null for either field."""
             if extraction_tasks:
                 logger.info(f"[Enrichment] Launching {len(extraction_tasks)} parallel extractions from crawled content.")
                 results = await asyncio.gather(*extraction_tasks)
-                
+
                 for url, fields in zip(valid_source_urls, results):
                     if fields:
                         source_urls.append(url)
@@ -494,6 +521,12 @@ If not found, use null for either field."""
                         for key, field in fields.items():
                             existing = merged_fields.get(key)
                             if existing is None or (field.value and field.confidence > existing.confidence):
+                                if existing is not None:
+                                    logger.info(
+                                        f"[Enrichment][Merge] Field '{key}': replacing '{existing.value}' "
+                                        f"(conf={existing.confidence:.2f}) with '{field.value}' "
+                                        f"(conf={field.confidence:.2f}) from {url}"
+                                    )
                                 merged_fields[key] = field
 
         # Step 4: Search for web-findable fields that are still null.
@@ -526,6 +559,10 @@ If not found, use null for either field."""
                         for key, field in search_fields.items():
                             existing = merged_fields.get(key)
                             if (existing is None or existing.value is None) and field.value:
+                                logger.info(
+                                    f"[Enrichment][DDG-Merge] Field '{key}' filled via DuckDuckGo: "
+                                    f"'{field.value}' (conf={field.confidence:.2f}, source={src_url})"
+                                )
                                 merged_fields[key] = field
 
         # Final fallback: Broad search if still very empty
@@ -549,6 +586,13 @@ If not found, use null for either field."""
             f"[Enrichment] Pipeline complete. "
             f"Extracted {len(merged_fields)} fields from {len(set(source_urls))} sources"
         )
+        if merged_fields:
+            summary_lines = [f"[Enrichment][Summary] Final fields picked:"]
+            for key, field in merged_fields.items():
+                summary_lines.append(f"  • {key}: '{field.value}' (conf={field.confidence:.2f}, source={field.source})")
+            logger.info("\n".join(summary_lines))
+        else:
+            logger.info("[Enrichment][Summary] No fields extracted — all values remained null.")
         return result.model_dump()
 
     def _build_result(

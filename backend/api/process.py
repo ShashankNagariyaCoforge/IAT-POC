@@ -592,9 +592,10 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 )
 
                 if is_email:
+                    from utils.html_utils import clean_html
                     v1_traceability[field_key] = {
                         "source": "email",
-                        "raw_text": raw_text,
+                        "raw_text": clean_html(raw_text),
                     }
                 else:
                     # Match filename to doc_id (case-insensitive)
@@ -643,9 +644,10 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                             }
                     else:
                         # Doc not in OCR results — fall back to email-style snippet
+                        from utils.html_utils import clean_html
                         v1_traceability[field_key] = {
                             "source": "email",
-                            "raw_text": raw_text,
+                            "raw_text": clean_html(raw_text),
                         }
 
             classification["v1_traceability"] = v1_traceability
