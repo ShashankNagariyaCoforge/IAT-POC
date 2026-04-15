@@ -323,13 +323,73 @@ async def get_case_document_view(case_id: str, document_id: str):
     if ext in image_types:
         return Response(content=raw_bytes, media_type=image_types[ext])
 
-    # ── DOCX → serve for download (browser handles it) ──────────────────────
-    if ext == "docx":
-        return Response(
-            content=raw_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"inline; filename=\"{filename}\""},
-        )
+    # ── DOCX/DOC → convert to PDF for inline viewing ────────────────────────
+    if ext in ("docx", "doc"):
+        try:
+            import io as _io
+            from docx import Document as _DocxDocument
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+
+            word_doc = _DocxDocument(_io.BytesIO(raw_bytes))
+            pdf_buffer = _io.BytesIO()
+            pdf = SimpleDocTemplate(pdf_buffer, pagesize=letter,
+                                    leftMargin=72, rightMargin=72,
+                                    topMargin=72, bottomMargin=72)
+            styles = getSampleStyleSheet()
+            story = []
+
+            for para in word_doc.paragraphs:
+                text = para.text.strip()
+                if not text:
+                    story.append(Spacer(1, 6))
+                    continue
+                # Pick style based on heading level
+                style_name = 'Normal'
+                if para.style and para.style.name:
+                    sn = para.style.name
+                    if 'Heading 1' in sn:
+                        style_name = 'Heading1'
+                    elif 'Heading 2' in sn:
+                        style_name = 'Heading2'
+                    elif 'Heading 3' in sn:
+                        style_name = 'Heading3'
+                story.append(Paragraph(text, styles[style_name]))
+                story.append(Spacer(1, 4))
+
+            # Include tables
+            for table in word_doc.tables:
+                data = []
+                for row in table.rows:
+                    data.append([cell.text for cell in row.cells])
+                if data:
+                    tbl = Table(data, repeatRows=1)
+                    tbl.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f1f5f9')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
+                        ('FONTSIZE', (0, 0), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+                        ('PADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    story.append(tbl)
+                    story.append(Spacer(1, 8))
+
+            if not story:
+                story.append(Paragraph("(No text content)", styles['Normal']))
+
+            pdf.build(story)
+            pdf_bytes = pdf_buffer.getvalue()
+            return Response(content=pdf_bytes, media_type="application/pdf")
+        except Exception as e:
+            logger.warning(f"DOCX→PDF conversion failed for {filename}: {e}. Serving raw file.")
+            return Response(
+                content=raw_bytes,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
+            )
 
     # ── Default → PDF ────────────────────────────────────────────────────────
     return Response(content=raw_bytes, media_type="application/pdf")

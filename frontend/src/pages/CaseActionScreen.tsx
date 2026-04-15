@@ -62,11 +62,13 @@ export default function CaseActionScreen() {
             setDocs(normalizedDocs);
             setClassification(cls.classification);
 
-            // Auto-select first document (always use clean /pdf — annotated green-box version is retired)
+            // Auto-select first document — use /view for docx/doc/xlsx/images, /pdf for others
             if (normalizedDocs.length > 0 && !activePdfUrl) {
-                const firstDocId = normalizedDocs[0].document_id;
-                setActivePdfUrl(`/api/cases/${caseId}/documents/${firstDocId}/pdf`);
-                setActivePdfName(normalizedDocs[0].file_name);
+                const firstDoc = normalizedDocs[0];
+                const firstExt = (firstDoc.file_name || '').split('.').pop()?.toLowerCase() || '';
+                const firstNeedsView = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp', 'docx', 'doc'].includes(firstExt);
+                setActivePdfUrl(`/api/cases/${caseId}/documents/${firstDoc.document_id}/${firstNeedsView ? 'view' : 'pdf'}`);
+                setActivePdfName(firstDoc.file_name);
             }
         } finally {
             setLoading(false);
@@ -500,7 +502,7 @@ export default function CaseActionScreen() {
                                     // Use /view for xlsx/images so they render correctly; /pdf for all others
                                     const filename = doc.file_name || (doc as any).filename || '';
                                     const extRaw = filename.split('.').pop()?.toLowerCase() || '';
-                                    const needsViewEndpoint = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp'].includes(extRaw);
+                                    const needsViewEndpoint = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp', 'docx', 'doc'].includes(extRaw);
                                     const url = needsViewEndpoint
                                         ? `/api/cases/${caseId}/documents/${doc.document_id}/view`
                                         : `/api/cases/${caseId}/documents/${doc.document_id}/pdf`;
