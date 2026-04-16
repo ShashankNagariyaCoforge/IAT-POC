@@ -37,10 +37,16 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const [zoom, setZoom] = useState<number>(1.0);
+    const [pdfLoadFailed, setPdfLoadFailed] = useState<boolean>(false);
 
     const ZOOM_STEP = 0.25;
     const ZOOM_MIN  = 0.5;
     const ZOOM_MAX  = 3.0;
+
+    // Reset load failure state when URL changes
+    useEffect(() => {
+        setPdfLoadFailed(false);
+    }, [url]);
 
     // Jump to the target page whenever highlight changes
     useEffect(() => {
@@ -158,12 +164,13 @@ export function InlinePdfViewer({ url, name = 'Document', onClose, onFullscreen,
 
             {/* Content */}
             <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e2e8f0', position: 'relative' }}>
-                {highlight ? (
+                {highlight && !pdfLoadFailed ? (
                     // react-pdf mode — single page with bbox overlay
                     <div style={{ display: 'flex', justifyContent: 'center', padding: '12px' }}>
                         <Document
                             file={url}
                             onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                            onLoadError={() => setPdfLoadFailed(true)}
                             loading={
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#94a3b8', fontSize: 13 }}>
                                     Loading…
