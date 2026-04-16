@@ -165,10 +165,15 @@ class ExtractionService:
         """
         Analyzes a document using Azure Document Intelligence Layout model.
         Returns the full analyzeResult which includes text, lines, and polygons.
+        Supports native PDFs, scanned PDFs, image-embedded PDFs, and direct images.
         """
         try:
-            logger.info(f"Analyzing document with Azure DI ({len(content)} bytes, type: {content_type})")
-            
+            logger.info(
+                f"[DI] Submitting document — "
+                f"size={len(content)} bytes, content_type={content_type}, "
+                f"endpoint={self._endpoint}"
+            )
+
             headers = {
                 "Content-Type": content_type,
                 "Accept": "application/json",
@@ -176,37 +181,92 @@ class ExtractionService:
             if self._api_key:
                 headers["Ocp-Apim-Subscription-Key"] = self._api_key
 
-            async with httpx.AsyncClient(timeout=120) as client:
-                # Submit for analysis
-                # Using prebuilt-layout to get text, lines, and selection marks with polygons
+            # ocrHighResolution improves OCR accuracy for photographed/scanned documents
+            # and image-embedded PDFs (e.g. photos inserted in Word then converted to PDF).
+            params = {
+                "api-version": "2024-11-30",
+                "features": "ocrHighResolution",
+            }
+
+            submit_url = f"{self._endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze"
+            logger.info(f"[DI] POST {submit_url} | params={params}")
+
+            async with httpx.AsyncClient(timeout=180) as client:
                 submit_resp = await client.post(
-                    f"{self._endpoint}/formrecognizer/documentModels/prebuilt-layout:analyze",
+                    submit_url,
                     content=content,
                     headers=headers,
-                    params={"api-version": "2023-07-31"},
+                    params=params,
                 )
+                logger.info(f"[DI] Submit response — HTTP {submit_resp.status_code}")
+
+                if submit_resp.status_code != 202:
+                    logger.error(
+                        f"[DI] Unexpected submit status {submit_resp.status_code}. "
+                        f"Body: {submit_resp.text[:500]}"
+                    )
                 submit_resp.raise_for_status()
 
                 operation_url = submit_resp.headers.get("Operation-Location")
                 if not operation_url:
                     raise ValueError("Document Intelligence service did not return an operation URL.")
+                logger.info(f"[DI] Operation URL received — polling started")
 
-                # Poll for completion
-                for _ in range(30):
-                    await asyncio.sleep(2)
-                    # Azure requires the key on the polling GET request as well
+                # Poll for completion — image-heavy PDFs can take 2-3 minutes
+                for attempt in range(60):
+                    await asyncio.sleep(3)
                     result_resp = await client.get(operation_url, headers=headers)
+
+                    if result_resp.status_code != 200:
+                        logger.error(
+                            f"[DI] Poll HTTP {result_resp.status_code} on attempt {attempt + 1}. "
+                            f"Body: {result_resp.text[:300]}"
+                        )
                     result_resp.raise_for_status()
                     result = result_resp.json()
 
-                    if result.get("status") == "succeeded":
-                        return result.get("analyzeResult", {})
-                    elif result.get("status") == "failed":
-                        raise RuntimeError(f"DI analysis failed: {result.get('error')}")
+                    status = result.get("status")
+                    if status == "succeeded":
+                        analyze_result = result.get("analyzeResult", {})
+                        content_text = analyze_result.get("content", "")
+                        page_count = len(analyze_result.get("pages", []))
+                        word_count = sum(len(p.get("words", [])) for p in analyze_result.get("pages", []))
+                        logger.info(
+                            f"[DI] SUCCESS — "
+                            f"pages={page_count}, "
+                            f"words={word_count}, "
+                            f"content_length={len(content_text)}, "
+                            f"completed_on_attempt={attempt + 1}"
+                        )
+                        if not content_text:
+                            logger.warning(
+                                f"[DI] WARNING — DI returned 0 content despite success "
+                                f"(pages={page_count}, words={word_count}). "
+                                f"The document may contain unreadable images or very low quality scans."
+                            )
+                        return analyze_result
 
-                raise TimeoutError("DI operation timed out after 60 seconds.")
+                    elif status == "failed":
+                        error = result.get("error", {})
+                        logger.error(f"[DI] FAILED — error={error}")
+                        raise RuntimeError(f"DI analysis failed: {error}")
 
+                    else:
+                        if attempt % 5 == 0:
+                            logger.info(f"[DI] Still processing... status={status}, attempt={attempt + 1}/60")
+
+                logger.error(f"[DI] TIMEOUT — operation did not complete within 180 seconds")
+                raise TimeoutError("DI operation timed out after 180 seconds.")
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"[DI] HTTP error — status={e.response.status_code}, "
+                f"url={e.request.url}, "
+                f"body={e.response.text[:500]}"
+            )
+            raise
         except Exception as e:
+            logger.error(f"[DI] Unexpected error — {type(e).__name__}: {e}")
             raise
     
 

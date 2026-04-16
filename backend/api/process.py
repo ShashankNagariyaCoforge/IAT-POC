@@ -205,13 +205,20 @@ async def process_single_case(request: Request, case_id: str, skip_pii: bool = F
                 
                 logger.info(f"[Process] Running DI extraction on {filename} ({doc_id})")
                 layout_result = await extraction_svc.analyze_document(doc_bytes, content_type)
-                
+
                 text_content = None
                 # Update text parts with DI text if missing
                 extracted_text = layout_result.get("content", "")
                 if extracted_text:
                     text_content = f"[Source: Attachment {filename}]\n{extracted_text}"
-                
+                else:
+                    page_count = len(layout_result.get("pages", []))
+                    logger.warning(
+                        f"[Process] DI returned empty content for {filename} "
+                        f"(pages={page_count}). This may indicate an unreadable image or "
+                        f"very low quality scan. The document will be skipped."
+                    )
+
                 return doc_id, layout_result, doc_bytes, text_content
             except Exception as di_err:
                 logger.warning(f"[Process] DI extraction failed for {filename}: {di_err}")
