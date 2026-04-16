@@ -304,15 +304,32 @@ export default function CommandCenterPage() {
                                             </h4>
                                             <div className="grid grid-cols-2 gap-4">
                                                 {selectedDetails.documents.map((doc, idx) => {
-                                                    const url = `/api/cases/${selectedCase.case_id}/documents/${doc.document_id}/pdf`;
+                                                    const ext = (doc.file_name || '').split('.').pop()?.toLowerCase() || '';
+                                                    const needsView = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp', 'docx', 'doc'].includes(ext);
+                                                    const url = `/api/cases/${selectedCase.case_id}/documents/${doc.document_id}/${needsView ? 'view' : 'pdf'}`;
+                                                    const iconStyles: Record<string, { bg: string; border: string; text: string; label: string }> = {
+                                                        pdf:  { bg: 'bg-red-50',     border: 'border-red-100',    text: 'text-red-500',    label: 'PDF'  },
+                                                        docx: { bg: 'bg-blue-50',    border: 'border-blue-100',   text: 'text-blue-600',   label: 'DOC'  },
+                                                        doc:  { bg: 'bg-blue-50',    border: 'border-blue-100',   text: 'text-blue-600',   label: 'DOC'  },
+                                                        xlsx: { bg: 'bg-emerald-50', border: 'border-emerald-100',text: 'text-emerald-600',label: 'XLS'  },
+                                                        xls:  { bg: 'bg-emerald-50', border: 'border-emerald-100',text: 'text-emerald-600',label: 'XLS'  },
+                                                        jpg:  { bg: 'bg-purple-50',  border: 'border-purple-100', text: 'text-purple-500', label: 'IMG'  },
+                                                        jpeg: { bg: 'bg-purple-50',  border: 'border-purple-100', text: 'text-purple-500', label: 'IMG'  },
+                                                        png:  { bg: 'bg-purple-50',  border: 'border-purple-100', text: 'text-purple-500', label: 'IMG'  },
+                                                        tiff: { bg: 'bg-purple-50',  border: 'border-purple-100', text: 'text-purple-500', label: 'IMG'  },
+                                                        tif:  { bg: 'bg-purple-50',  border: 'border-purple-100', text: 'text-purple-500', label: 'IMG'  },
+                                                        eml:  { bg: 'bg-amber-50',   border: 'border-amber-100',  text: 'text-amber-600',  label: 'EML'  },
+                                                        msg:  { bg: 'bg-amber-50',   border: 'border-amber-100',  text: 'text-amber-600',  label: 'MSG'  },
+                                                    };
+                                                    const ic = iconStyles[ext] || { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-500', label: (ext.toUpperCase() || 'FILE').slice(0, 4) };
                                                     return (
                                                         <div
                                                             key={idx}
                                                             onClick={() => { setPdfUrl(url); setPdfName(doc.file_name); }}
                                                             className="flex items-center p-3 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md cursor-pointer transition-all group"
                                                         >
-                                                            <div className="w-8 h-8 bg-red-50 border border-red-100 rounded flex items-center justify-center text-[10px] font-black tracking-wider text-red-500 mr-3">
-                                                                PDF
+                                                            <div className={`w-8 h-8 ${ic.bg} border ${ic.border} rounded flex items-center justify-center text-[10px] font-black tracking-wider ${ic.text} mr-3`}>
+                                                                {ic.label}
                                                             </div>
                                                             <span className="text-sm font-semibold text-slate-700 line-clamp-1 flex-1 group-hover:text-indigo-700 transition-colors">
                                                                 {doc.file_name}
