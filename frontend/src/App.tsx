@@ -81,7 +81,7 @@ function LoginView({ onLogin, onDevMode }: { onLogin: () => void, onDevMode: () 
               color: '#ffffff', fontSize: '32px', fontWeight: 900,
               margin: '0 0 14px 0', lineHeight: 1.15, letterSpacing: '-0.02em',
             }}>
-              AI-Powered<br />Underwriting<br />Command Center.
+              AI-Powered<br />Document Ingestion<br />Accelerator.
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px', margin: '0 0 32px 0', lineHeight: 1.6, fontWeight: 400 }}>
               Access your agentic intake pipeline. Six specialized AI agents process
