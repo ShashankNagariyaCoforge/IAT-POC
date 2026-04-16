@@ -287,7 +287,9 @@ export default function CommandCenterPage() {
                                                 emails={selectedDetails.emails}
                                                 documents={selectedDetails.documents}
                                                 onDocumentClick={(doc) => {
-                                                    const url = `/api/cases/${selectedCase.case_id}/documents/${doc.document_id}/pdf`;
+                                                    const ext = (doc.file_name || '').split('.').pop()?.toLowerCase() || '';
+                                                    const needsView = ['xlsx', 'xls', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'gif', 'webp', 'docx', 'doc'].includes(ext);
+                                                    const url = `/api/cases/${selectedCase.case_id}/documents/${doc.document_id}/${needsView ? 'view' : 'pdf'}`;
                                                     setPdfUrl(url);
                                                     setPdfName(doc.file_name);
                                                 }}

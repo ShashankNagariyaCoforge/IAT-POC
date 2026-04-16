@@ -135,18 +135,36 @@ export function EmailChainPanel({ emails, documents = [], onDocumentClick }: Ema
                                             <Paperclip size={12} /> Attachments Received ({documents.filter(d => d.email_id === email.email_id).length})
                                         </h5>
                                         <div className="flex flex-wrap gap-2">
-                                            {documents.filter(d => d.email_id === email.email_id).map((doc, dIdx) => (
-                                                <button
-                                                    key={dIdx}
-                                                    onClick={() => onDocumentClick?.(doc)}
-                                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-white hover:text-indigo-700 transition-all text-sm font-semibold text-slate-600"
-                                                >
-                                                    <div className="w-6 h-6 bg-red-50 text-red-500 rounded flex items-center justify-center text-[8px] font-black">
-                                                        PDF
-                                                    </div>
-                                                    {doc.file_name}
-                                                </button>
-                                            ))}
+                                            {documents.filter(d => d.email_id === email.email_id).map((doc, dIdx) => {
+                                                const ext = (doc.file_name || '').split('.').pop()?.toLowerCase() || '';
+                                                const iconStyles: Record<string, { bg: string; text: string; label: string }> = {
+                                                    pdf:  { bg: 'bg-red-50',     text: 'text-red-500',    label: 'PDF'  },
+                                                    docx: { bg: 'bg-blue-50',    text: 'text-blue-600',   label: 'DOC' },
+                                                    doc:  { bg: 'bg-blue-50',    text: 'text-blue-600',   label: 'DOC' },
+                                                    xlsx: { bg: 'bg-emerald-50', text: 'text-emerald-600',label: 'XLS' },
+                                                    xls:  { bg: 'bg-emerald-50', text: 'text-emerald-600',label: 'XLS' },
+                                                    jpg:  { bg: 'bg-purple-50',  text: 'text-purple-500', label: 'IMG' },
+                                                    jpeg: { bg: 'bg-purple-50',  text: 'text-purple-500', label: 'IMG' },
+                                                    png:  { bg: 'bg-purple-50',  text: 'text-purple-500', label: 'IMG' },
+                                                    tiff: { bg: 'bg-purple-50',  text: 'text-purple-500', label: 'IMG' },
+                                                    tif:  { bg: 'bg-purple-50',  text: 'text-purple-500', label: 'IMG' },
+                                                    eml:  { bg: 'bg-amber-50',   text: 'text-amber-600',  label: 'EML' },
+                                                    msg:  { bg: 'bg-amber-50',   text: 'text-amber-600',  label: 'MSG' },
+                                                };
+                                                const ic = iconStyles[ext] || { bg: 'bg-slate-100', text: 'text-slate-500', label: (ext.toUpperCase() || 'FILE').slice(0, 4) };
+                                                return (
+                                                    <button
+                                                        key={dIdx}
+                                                        onClick={() => onDocumentClick?.(doc)}
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-white hover:text-indigo-700 transition-all text-sm font-semibold text-slate-600"
+                                                    >
+                                                        <div className={`w-6 h-6 ${ic.bg} ${ic.text} rounded flex items-center justify-center text-[8px] font-black`}>
+                                                            {ic.label}
+                                                        </div>
+                                                        {doc.file_name}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
